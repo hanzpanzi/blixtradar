@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>⚡ Blixtradar – Moln</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 12px; margin: 0; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+    .card { background: #1e293b; border-radius: 20px; padding: 18px; max-width: 420px; margin: 12px auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
+    h1 { color: #38bdf8; margin: 0 0 4px; font-size: 1.6em; }
+    .metric { font-size: 2.6em; font-weight: bold; color: #fbbf24; margin: 8px 0; }
+    @keyframes blinkYellow { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
+    @keyframes blinkRed { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }
+    .dist { font-size: 3.4em; font-weight: 800; color: #fde047; text-align: center; margin: 8px 0 2px; line-height: 1.1; text-shadow: 0 0 20px rgba(253, 224, 71, 0.55); }
+    .dist.blink { animation: blinkYellow 1s ease-in-out infinite; }
+    .dist.alarm { color: #ef4444; text-shadow: 0 0 26px rgba(239, 68, 68, 0.9); animation: blinkRed 0.6s steps(2, start) infinite; }
+    .dist-lbl { background: #0f172a; color: #fde047; border: 1px solid #475569; border-radius: 8px; padding: 2px 7px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .dist-lbl.latest { background: #fde047; color: #0f172a; border-color: #fde047; font-size: 13px; box-shadow: 0 0 12px rgba(253, 224, 71, 0.7); }
+    .label { color: #94a3b8; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1.1px; }
+    .status { background: #0f172a; padding: 12px; border-radius: 12px; font-weight: 600; color: #4ade80; margin: 14px 0; border: 1px solid #1e293b; word-break: break-word; }
+    .grid { display: flex; justify-content: space-around; gap: 8px; }
+    .row { display: flex; justify-content: space-around; gap: 10px; }
+    .btn { flex: 1; background: #334155; border: none; color: #f8fafc; padding: 12px; border-radius: 12px; font-size: 1em; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: #475569; }
+    .btn.active { background: #38bdf8; color: #0f172a; }
+    .small { color: #94a3b8; font-size: 0.8em; margin-top: 8px; }
+    .topbar { display: flex; flex-direction: column; }
+    .dash { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; text-align: left; }
+    .dash-left, .dash-right { display: flex; flex-direction: column; gap: 12px; }
+    .dash-mid { display: flex; }
+    .block { background: #0f172a; border: 1px solid #263449; border-radius: 14px; padding: 14px; }
+    .block-chart { text-align: center; }
+    canvas { width: 100%; height: 120px; display: block; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 0.78em; font-weight: 700; }
+    .on  { background: #14532d; color: #4ade80; }
+    .off { background: #7f1d1d; color: #fca5a5; }
+    @media (min-width: 760px) and (max-width: 1099px) {
+      .card { max-width: 1080px; padding: 26px; }
+      .dash-left, .dash-right { display: grid; grid-template-columns: 1fr 1fr; }
+      #mapLocal { height: 400px !important; }
+      #mapEu { height: 200px !important; }
+      .metric { font-size: 3em; }
+    }
+    @media (min-width: 1100px) {
+      body { overflow: hidden; }
+      .card { max-width: 1750px; margin: 10px auto; height: calc(100vh - 20px); box-sizing: border-box; display: flex; flex-direction: column; padding: 14px 18px; }
+      .topbar { flex-direction: row; align-items: center; gap: 16px; }
+      .topbar .status { flex: 1; margin: 0; }
+      .dash { flex: 1; display: grid; grid-template-columns: 310px minmax(0,1fr) minmax(0,1fr); gap: 12px; min-height: 0; margin-top: 12px; }
+      .dash-left, .dash-right { overflow-y: auto; min-height: 0; }
+      .dash-mid { min-height: 0; }
+      .dash-mid .block-map { flex: 1; display: flex; flex-direction: column; }
+      #mapLocal { flex: 1; height: auto !important; min-height: 0; }
+      #mapEu { height: 320px !important; }
+      .metric { font-size: 2.2em; }
+    }
+    @supports (padding: max(0px)) {
+      body { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+</head>
+<body>
+  <div class="card">
+    <div class="topbar">
+      <h1>⚡ Blixtradar</h1>
+      <div class="status" id="status">Laddar status...</div>
+    </div>
+
+    <div class="dash">
+    <div class="dash-left">
+
+    <div class="block" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+      <div style="text-align:left;">
+        <div class="label">Temperatur (Engesberg)</div>
+        <div id="temp" style="font-size:1.7em; font-weight:bold; color:#7dd3fc;">--</div>
+        <div class="small" style="margin-top:2px;" id="tempInfo">Hämtas från ESP32 via molnet...</div>
+      </div>
+      <img id="qrTemp" width="76" height="76" alt="QR temperatur" style="border-radius:8px; flex-shrink:0;" title="Skanna för att se temperaturen"/>
+      <span id="espBadge" class="badge off">ESP32 ansluter…</span>
+    </div>
+
+    <div class="block">
+      <div class="label">Närmaste blixt (hela Europa)</div>
+      <div class="dist" id="distance">--</div>
+      <div class="small" id="distInfo">Via Blitzortung – varning vid &lt;40 km</div>
+    </div>
+
+    <div class="block">
+      <div class="grid">
+        <div>
+          <div class="label">Totalt antal</div>
+          <div class="metric" id="count" style="font-size: 1.8em; color: #38bdf8;">0</div>
+        </div>
+        <div>
+          <div class="label">Senaste blixt registrerad</div>
+          <div id="time" style="margin-top: 8px; font-size: 0.9em; color: #cbd5e1;">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="row">
+        <div>
+          <div class="label">Störningar</div>
+          <div id="dist" style="font-size: 1.4em; color: #f87171;">0</div>
+        </div>
+        <div>
+          <div class="label">Brus</div>
+          <div id="noise" style="font-size: 1.4em; color: #fbbf24;">0</div>
+        </div>
+        <div>
+          <div class="label">Uppetid</div>
+          <div id="uptime" style="font-size: 1.4em; color: #4ade80;">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="block block-chart">
+      <div class="label">Brusnivå – live-oscilloskop</div>
+      <canvas id="noiseScope" width="600" height="240" style="height:110px;"></canvas>
+      <div class="row" style="margin-top:4px;">
+        <div><span class="small" style="font-size:0.7em;" id="noiseNow">-</span></div>
+        <div><span class="small" style="font-size:0.7em;color:#64748b;">0–31 · var 3:e s · från ESP32</span></div>
+      </div>
+    </div>
+
+    <div class="block block-chart">
+      <div class="label">Störningsspektrogram – live</div>
+      <canvas id="specCanvas" width="600" height="240" style="height:150px;"></canvas>
+      <div class="row" style="margin-top:4px;">
+        <div><span class="small" style="font-size:0.7em;">Låg frekvens ↓</span></div>
+        <div><span class="small" style="font-size:0.7em;">Hög ↑ · 0–31 energi</span></div>
+      </div>
+      <div style="height:8px; border-radius:4px; margin-top:4px; background:linear-gradient(90deg,#0b1e3a,#134e4a,#1e40af,#a16207,#b91c1c,#fde047,#ffffff);"></div>
+      <div class="small" style="font-size:0.65em; margin-top:2px;">svag → stark</div>
+    </div>
+    </div><!-- /dash-left -->
+
+    <div class="dash-mid">
+    <div class="block block-map" style="text-align: left;">
+      <div class="label">Gävleborg – live</div>
+      <div id="mapLocal" style="height: 280px; width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #334155;"></div>
+      <div class="small" style="margin-top: 6px;">📍 Blå punkt = din mottagare · ⚡ punkter = exakt position (Blitzortung) · ─ linje = från mottagaren · ringar = riktning okänd</div>
+      <div style="margin-top: 12px;">
+        <div class="label">Europa – live-aktivitet (30 min)</div>
+        <div id="mapEu" style="height: 150px; width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #334155;"></div>
+        <div class="small" style="margin-top: 4px;">
+          <span style="color:#ffffff;">●</span> &lt;3 min&nbsp; <span style="color:#fbbf24;">●</span> &lt;8 min&nbsp; <span style="color:#f97316;">●</span> &lt;15 min&nbsp; <span style="color:#b91c1c;">●</span> äldre
+        </div>
+      </div>
+    </div>
+
+    </div><!-- /dash-mid -->
+
+    <div class="dash-right">
+
+    <div class="block">
+      <div class="row">
+        <button class="btn" id="btnOut" onclick="setMode('outdoor')">Utomhus</button>
+        <button class="btn" id="btnIn" onclick="setMode('indoor')">Inomhus</button>
+      </div>
+      <div class="small" id="modeInfo" style="margin-top:8px;">-</div>
+    </div>
+
+    <div class="block block-chart">
+      <div class="label">Senaste 7 dagarna – blixtar & störningar</div>
+      <svg id="chart" viewBox="0 0 320 150" style="width: 100%; margin-top: 8px;"></svg>
+      <div class="row" style="margin-top: 4px;">
+        <div><span style="color:#38bdf8;">■</span> <span class="small" style="font-size:0.7em;">Blixt</span></div>
+        <div><span style="color:#f87171;">■</span> <span class="small" style="font-size:0.7em;">Störning</span></div>
+        <div><span style="color:#fbbf24;">■</span> <span class="small" style="font-size:0.7em;">Brus</span></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="small" id="boInfo" style="text-align:center;">📍 Position via Blitzortung: ...</div>
+      <div class="small" id="diagInfo" style="text-align:center; margin-top:6px; color:#94a3b8;">🔬 Sensor-diagnostik: ...</div>
+      <div class="small" id="diagDetail" style="text-align:left; margin-top:6px; color:#64748b; display:none; word-break:break-word;"></div>
+      <button class="btn" id="btnRescan" style="margin-top:10px; width:100%; font-size:0.85em; padding:8px;" onclick="rescanBus()">🔍 Kör djupscan av sensorbussen</button>
+      <div class="small" id="lastevent" style="text-align:center; margin-top:6px;">-</div>
+      <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px;">
+        <button class="btn" style="flex:0 0 auto; padding:8px 14px; font-size:0.85em;" onclick="pling()">🔔 Testa pling</button>
+        <a href="https://io.adafruit.com/hanzpanzi/dashboards" target="_blank" class="btn" style="flex:0 0 auto; padding:8px 14px; font-size:0.85em; text-decoration:none; display:inline-block;">📱 Adafruit-appen</a>
+      </div>
+    </div>
+
+    <div class="block" style="display:flex; align-items:center; justify-content:center; gap:12px;">
+      <img id="qrDash" width="72" height="72" alt="QR dashboard" style="border-radius:8px;"/>
+      <div style="text-align:left;">
+        <div class="label">Live-dashboard (moln)</div>
+        <div class="small" style="margin-top:2px;">Skanna för att öppna Adafruit IO-dashboarden – mätare & grafer, ingen inloggning</div>
+      </div>
+    </div>
+
+    </div><!-- /dash-right -->
+  </div><!-- /dash -->
+  </div><!-- /card -->
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+  <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+  <script>
+    var AIO = 'https://io.adafruit.com/api/v2/hanzpanzi/feeds/blixtradar-';
+    var HOME = [60.736278, 17.286500];
+    var MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
+    var TOPIC = 'hanzpanzi/blixtradar';
+    var QR_TEMP = 'iVBORw0KGgoAAAANSUhEUgAAAXIAAAFyAQAAAADAX2ykAAADJElEQVR4nO1cS27cMAylaAFZykAO0KPYN+iRitzMPsocoIC9NGCDBUlJM0ha1wbaiRSTi4k+b0HoDaknShNHcMZGPAUHMPy+4V/m35vh9w2vh59dtH72AGO7ORmD0fFHC5DmfZn+nzK8GN4DQLNK0wFsDrpp406zuo54LABAN/DQ/Fqg/2j4A+vjNDjDCjTMLwTjt8XRm/NAdOMJDvH+AX/c0PDlrM8s1K7gem51E0Bk9ZP8OWB4BHRhvH/shIXzsyTkzf1eWJfmPxr+AL+U+wSwRc7HvuEub86BATMP2nruGxaI31QeS37W1CytH5KfRVPLfPssf84YnkLD5fA+BqfYzEcjDeLFkQTs2EoQP80fNPw/XR8gmhoS6cxMk3Z5EyY+FMUusbCGhmiw9d83LAwPTCkzSERDIA5V4Zc5ByZZxoR947fS+pVPJ9zZM6ESyYuT0I3nI5l4lj+nDM/B4Wp4IJJczKlZGORcLJlaI1mNCx9ilp/rzc+QqU1ja96E81egNP/R8AfuF0hofGt5673JSSnVPToud3BN644/ZWj4AuKXOEKTyIpRq12JZEnXOmt87RsWyu8f9DOIdNaapUBK8x8Nf7R+5Xq+HxTThBwSte/wZwwN/+nxu2b9zBUMaYlgntL5N5Y7rL5R3/fZ87295mIHYeKAlfsFny75JwAa22bV2eL8R8PvG4m00pbssNzk/Vfjl4sc8cP234rzM2TBnLjUgmS0dDA2fVUfv9M9YONdQpRWFDdmHROI8VsZv5hqkZu+sNL3V93tJdUn53gxLC8pi/T/lOEl8zM8KOR0SZhCN94fmX6uWD87CKt3HfH5N4iSXhzp0XfmsJ09v559hj9o+P9Wv6K8E+tdYMhyS5S06ee6z0egIkvS9cdypZrpqwrxjXKnA6OT93VS39jic6xBS5j2+5R6319BOhrdL5HonqlzEFv81szvJCPCdKpvDKqp7f3VV/j9AuQyMxM/fv/J+TlqairTfzT88d8vhEWebqw0ysYbGpK/NPayJ7+utp5162eIz7HyBOWd2O73q+TX2f9nqIovNPyu4f70l8P/Ah3iUkIRleiKAAAAAElFTkSuQmCC';
+    var QR_DASH = 'iVBORw0KGgoAAAANSUhEUgAAAXIAAAFyAQAAAADAX2ykAAAC7klEQVR4nO1cW4rjMBCslgXz6UAOMEexb7bskeYG9lFygAX5M6DQS7ceNjPgJLDsWJOuD48c1YdQ0S+5NcR4BrN7ig4Yfx/uzvxnGH8f7vX4C2WMuKVH+c0D8wko8/6Y638K7sX4HkAXdUhAx5hJRn30jOUMGi4+YphkfjkfcP3O+A/sDyXjXOTRR7DoSfR+JX1N5jxu+I/DGf/b7XfFjTBc3piANwYWGS3nZN0Zptc+3MH5LKbLU38lGvsr8e/T967nHtxdxmvzvT5LkSSRODlkD8ZyAgad6uW5/I/1OOP/8/25pfRY32lcPOhX6JhGyENi8qzzasm2//twB+ODNwjyGjoWgxVEIXRbxnS09Tvj361/fa5wx555rX9VWgyh1L+WP7dqvzFnVXkkBqtGDM20WMw5AkPozH5b1DfIn6Rgcdeq6rBx3GLJ5p8b1bdLgqbRRkuUcCzCp5hs8bdJfaEYVv/M6pVZlK7e2/xzo/pCwmwso88TXEW2+NukvixlkKZRNRwn/9yLtCU6Jxdu/rk9fYMWvPFLJJ5W9QWWXzWqL+dceS14S07N+bXWTGa/Leobt6FXy9xVX1j927q+IVtoroD0V3XXnGviZNhWHzWqL9fUSgUt5pxds35OEtj5Vbv6cj2wKvrWIhjlm7DF30b1DZpVralzPa7kXBXpyOy3YX1Z3XCWsRqsoqhv8bdlfVm9cjLYfNyx5tRZfauP2tYXufTdHneg5s8Jdn7VmL4uN1zp4bL2P0sbjjZRUmqty+Ww9bc3qS9yQiXYfEaoJ1lTGln8/Qn3FxZpmAxyTaEP0lMZPckrY5HG6A8fj7d+Z/wH+mNpFXn4yDN6XYW0513A86mz/Wz8/kIX5eqRSEvgebwR5vd0EynSMdfvjP/c/ZT59MfrsRUNfFPvzYT+SvmSme3nPtwh+Vw/8vO06NWjre7MF3/s9T8O98r5c9BOLO2vK0eTgtS9Y/0bLepL9v8ZmtLLGX8Xbn/6x/H/AgOpb8oddu9LAAAAAElFTkSuQmCC';
+
+    var mapLocal = L.map('mapLocal').setView(HOME, 9);
+    L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20, attribution: '&copy; Google' }).addTo(mapLocal);
+    L.circleMarker(HOME, { radius: 9, color: '#fff', weight: 2, fillColor: '#38bdf8', fillOpacity: 1 })
+      .addTo(mapLocal).bindPopup('<b>📍 Min mottagare</b><br><small>60.736, 17.287</small>');
+    var mapEu = L.map('mapEu').setView([55, 12], 4);
+    L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20, attribution: '&copy; Google' }).addTo(mapEu);
+    L.circleMarker(HOME, { radius: 6, color: '#fff', weight: 1.5, fillColor: '#38bdf8', fillOpacity: 1 })
+      .addTo(mapEu).bindPopup('<b>📍 Min mottagare</b>');
+
+    function distKm(a, b) {
+      var R = 6371, p1 = a[0]*Math.PI/180, p2 = b[0]*Math.PI/180,
+          dp = (b[0]-a[0])*Math.PI/180, dl = (b[1]-a[1])*Math.PI/180;
+      var h = Math.sin(dp/2)*Math.sin(dp/2) + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)*Math.sin(dl/2);
+      return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
+    }
+    function agoStr(t) {
+      if (!t) return '-';
+      var s = Math.floor(Date.now() / 1000) - t;
+      if (s < 0) s = 0;
+      if (s < 5) return 'just nu';
+      if (s < 60) return s + ' s sedan';
+      if (s < 3600) return Math.floor(s / 60) + ' min sedan';
+      if (s < 86400) return Math.floor(s / 3600) + ' tim sedan';
+      return Math.floor(s / 86400) + ' dagar sedan';
+    }
+
+    // ---------- Live-strike-lager (från MQTT-reläet) ----------
+    var euDots = [];      // {m, tMs} Europa-punkter
+    var localDots = [];   // {m, tMs, lat, lon, km} exakta positioner nära hemmet
+    var localRings = [];  // {m, tMs} AS3935-ringar (riktning okänd)
+    var latestExact = null; // {lat, lon, km, tMs}
+    var euNearKm = -1, euNearTm = 0;
+
+    function renderEuLayers() {
+      mapEu.eachLayer(function(l){ if (l.options && l.options.isEu) mapEu.removeLayer(l); });
+      var now = Date.now();
+      var last = null;
+      euDots.forEach(function(e){ if (!last || e.detectedAt > last.detectedAt) last = e; });
+      euDots.forEach(function(e){
+        var age = now - e.tMs;
+        var col = age < 180000 ? '#ffffff' : age < 480000 ? '#fbbf24' : age < 900000 ? '#f97316' : '#b91c1c';
+        L.circleMarker(e.latlon, { radius: 5, color: '#ffffff', weight: 2, fillColor: col, fillOpacity: 0.95, isEu: true })
+          .addTo(mapEu);
+      });
+      if (last) {
+        var dKm = Math.round(distKm(last.latlon, HOME));
+        var lineE = L.polyline([last.latlon, HOME], { color: '#fde047', weight: 4, opacity: 0.95, isEu: true })
+          .addTo(mapEu)
+          .bindPopup('<b>⚡ Senaste blixt: ' + dKm + ' km från dig</b><br><small>' + agoStr(Math.floor(last.tMs/1000)) + '</small>');
+        if (L.polylineDecorator) {
+          L.polylineDecorator(lineE, { patterns: [{ offset: '100%', repeat: 0, symbol: L.Symbol.arrowHead({ pixelSize: 14, polygon: false, pathOptions: { stroke: true, color: '#fde047', weight: 3 } }) }] }).addTo(mapEu);
+        }
+        L.marker([(HOME[0]+last.latlon[0])/2, (HOME[1]+last.latlon[1])/2], { icon: L.divIcon({ className: 'dist-lbl latest', html: dKm + ' km' }), isEu: true, interactive: false }).addTo(mapEu);
+      }
+      // uppdatera euNear
+      euNearKm = -1; euNearTm = 0;
+      euDots.forEach(function(e){
+        var d = distKm(e.latlon, HOME);
+        if (euNearKm < 0 || d < euNearKm) { euNearKm = d; euNearTm = Math.floor(e.tMs/1000); }
+      });
+    }
+
+    function renderLocalLayers() {
+      mapLocal.eachLayer(function(l){ if (l.options && l.options.isStrike) mapLocal.removeLayer(l); });
+      var colors = ['#fbbf24','#f87171','#a78bfa'];
+      localDots.forEach(function(e, i){
+        var col = colors[(i % 3)];
+        var when = new Date(e.tMs).toLocaleString('sv-SE');
+        L.circleMarker(e.latlon, { radius: 7, color: '#ffffff', weight: 1.5, fillColor: col, fillOpacity: 0.9, isStrike: true })
+          .addTo(mapLocal).bindPopup('<b>Blixt ' + e.km + ' km</b><br><small>' + when + '</small><br><small>Exakt position via Blitzortung</small>');
+        if (!latestExact || e.tMs > latestExact.tMs) latestExact = e;
+      });
+      // Linjer från mottagaren till exakta positioner (senaste får tjock gul linje)
+      localDots.forEach(function(e){
+        var isLatest = latestExact && e === latestExact;
+        var line = L.polyline([e.latlon, HOME], isLatest
+            ? { color: '#fde047', weight: 4, opacity: 0.95, isStrike: true }
+            : { color: colors[(localDots.indexOf(e) % 3)], weight: 2, dashArray: '7 6', opacity: 0.75, isStrike: true })
+          .addTo(mapLocal)
+          .bindPopup(isLatest ? '<b>⚡ Senaste nedslag: ' + e.km + ' km</b><br><small>Linje ända till din position</small>'
+                              : '<b>Blixt ' + e.km + ' km från mottagaren</b>');
+        if (L.polylineDecorator) {
+          L.polylineDecorator(line, { patterns: [{ offset: '100%', repeat: 0, symbol: L.Symbol.arrowHead({ pixelSize: 12, polygon: false, pathOptions: { stroke: true, color: isLatest ? '#fde047' : '#94a3b8', weight: 2 } }) }] }).addTo(mapLocal);
+        }
+        L.marker([(HOME[0] + e.latlon[0]) / 2, (HOME[1] + e.latlon[1]) / 2], { icon: L.divIcon({ className: 'dist-lbl' + (isLatest ? ' latest' : ''), html: e.km + ' km' }), isStrike: true, interactive: false }).addTo(mapLocal);
+      });
+      // Ringar (AS3935, riktning okänd)
+      localRings.forEach(function(e){
+        var col = e.km >= 0 && e.km < 40 ? '#ef4444' : '#fde047';
+        L.circle(HOME, { radius: Math.max(5000, e.km * 1000), color: col, weight: 2, fillOpacity: 0.05, isStrike: true })
+          .addTo(mapLocal).bindPopup('<b>Blixt ~' + e.km + ' km</b><br><small>' + new Date(e.tMs).toLocaleString('sv-SE') + '</small><br><small>Riktning okänd</small>');
+      });
+    }
+
+    function pruneLayers() {
+      var cutoff = Date.now() - 30 * 60e3;
+      [euDots, localDots, localRings].forEach(function(arr){
+        for (var i = arr.length - 1; i >= 0; i--) if (arr[i].tMs < cutoff) arr.splice(i, 1);
+      });
+      renderEuLayers(); renderLocalLayers();
+    }
+    setInterval(pruneLayers, 60000);
+    window.addEventListener('resize', function(){ try { mapLocal.invalidateSize(); mapEu.invalidateSize(); } catch(e){} });
+
+    // ---------- MQTT: live-ström från ESP32:en ----------
+    function espOnline(ok) {
+      var b = document.getElementById('espBadge');
+      b.textContent = ok ? 'ESP32 online' : 'ESP32 offline';
+      b.className = 'badge ' + (ok ? 'on' : 'off');
+      var bo = document.getElementById('boInfo');
+      bo.innerText = ok ? '📍 Position via Blitzortung: aktiv (live via molnet)' : '📍 ESP32: ej ansluten till molnet';
+    }
+    var espSeenTm = 0;
+    setInterval(function(){ if (espSeenTm && Date.now() - espSeenTm > 150000) espOnline(false); }, 20000);
+
+    try {
+      var client = mqtt.connect(MQTT_URL, { clientId: 'blixtradar-web-' + Math.random().toString(16).slice(2, 10), reconnectPeriod: 5000 });
+      client.on('connect', function(){ client.subscribe(TOPIC + '/#'); });
+      client.on('message', function(topic, payload){
+        try {
+          var j = JSON.parse(payload.toString());
+          var sub = topic.slice(TOPIC.length + 1);
+          if (sub === 'eu' && isFinite(j.lat) && isFinite(j.lon)) {
+            euDots.push({ latlon: [j.lat, j.lon], tMs: j.t || Date.now(), detectedAt: Date.now() });
+            if (euDots.length > 400) euDots.shift();
+            renderEuLayers();
+            if (distKm([j.lat, j.lon], HOME) < 150) {
+              localDots.push({ latlon: [j.lat, j.lon], tMs: j.t || Date.now(), km: Math.round(distKm([j.lat, j.lon], HOME)) });
+              renderLocalLayers();
+            }
+          } else if (sub === 'local' && typeof j.dist !== 'undefined') {
+            localRings.push({ km: j.dist, tMs: j.t || Date.now() });
+            renderLocalLayers();
+            espOnline(true);
+          } else if (sub === 'noise' && typeof j.v !== 'undefined') {
+            pushNoise(j.v);
+            espOnline(true);
+          } else if (sub === 'spec' && Array.isArray(j.e)) {
+            pushSpec(j.e);
+            espOnline(true);
+          } else if (sub === 'diag' && j.detail) {
+            showDiagDetail(j.detail);
+          } else if (sub === 'status') {
+            espSeenTm = Date.now();
+            espOnline(true);
+            if (j.diag) {
+              var noResp = /0x0\b|0x00|0xff/i.test(j.diag);
+              document.getElementById('diagInfo').innerText = '🔬 Sensor-diagnostik: ' + j.diag + (noResp ? ' → ingen svar på bussen (kolla kablage/ström till sensorn)' : ' → svarar');
+              document.getElementById('diagInfo').style.color = noResp ? '#f87171' : '#4ade80';
+            }
+            if (j.dd) showDiagDetail(j.dd);
+            if (j.mode) updateModeUI(j.mode);
+            if (j.hist) renderChart(j.hist);
+            if (j.temp) {
+              document.getElementById('temp').innerText = j.temp;
+              document.getElementById('tempInfo').innerText = 'Uppdaterad ' + new Date(j.t).toLocaleTimeString('sv-SE') + ' · skanna QR:en för live';
+            }
+            if (j.uptime) document.getElementById('uptime').innerText = j.uptime;
+          }
+        } catch (e) {}
+      });
+    } catch (e) {}
+
+    // ---------- Adafruit IO: statusvärden ----------
+    function fetchFeed(name) {
+      return fetch(AIO + name).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; });
+    }
+    var lastCount = null;
+    function updateData() {
+      Promise.all(['status','distance','count','lasttime','disturb','noise','temp','lastevent'].map(fetchFeed)).then(function(vals){
+        var v = { status: vals[0], distance: vals[1], count: vals[2], lasttime: vals[3], disturb: vals[4], noise: vals[5], temp: vals[6], lastevent: vals[7] };
+        function last(f){ return v[f] ? v[f].last_value : null; }
+        var count = parseInt(last('count'), 10);
+        if (!isNaN(count)) {
+          if (lastCount !== null && count > lastCount) { pling(); blixNotis('⚡ Blixt detekterad!'); }
+          lastCount = count;
+          document.getElementById('count').innerText = count;
+        }
+        document.getElementById('status').innerText = last('status') || '-';
+        document.getElementById('time').innerText = last('lasttime') || '-';
+        document.getElementById('dist').innerText = last('disturb') || '0';
+        document.getElementById('noise').innerText = last('noise') || '0';
+        document.getElementById('temp').innerText = last('temp') || '--';
+        document.getElementById('lastevent').innerText = last('lastevent') || '-';
+        var tAge = v.temp ? Math.round((Date.now() - new Date(v.temp.updated_at).getTime()) / 60000) : null;
+        if (document.getElementById('temp').innerText === '--' && last('temp')) {
+          document.getElementById('temp').innerText = last('temp');
+          document.getElementById('tempInfo').innerText = 'Uppdaterad ' + (v.temp.updated_at ? new Date(v.temp.updated_at).toLocaleTimeString('sv-SE') : '-') + ' · skanna QR:en för live';
+        }
+        // Uppetid: från reläets retained status
+        var up = espSeenTm ? agoStr(Math.floor(espSeenTm / 1000)).replace(' sedan', '') : '-';
+        document.getElementById('uptime').innerText = espSeenTm ? 'online' : '-';
+        // Närmaste blixt: hellre live euNear från MQTT, annars AIO distance
+        var km = euNearKm >= 0 ? Math.round(euNearKm) : (parseInt(last('distance'), 10) || 0);
+        var alarm = km >= 0 && km <= 40;
+        var dEl = document.getElementById('distance');
+        dEl.innerText = km > 0 ? km + ' km' : '--';
+        dEl.classList.toggle('blink', km > 0 && !alarm);
+        dEl.classList.toggle('alarm', alarm);
+        var di = document.getElementById('distInfo');
+        if (km > 0) {
+          di.innerText = (alarm ? '🚨 Åska inom 40 km – varning!' : 'Via Blitzortung (hela Europa)') +
+                         (euNearTm ? ' · ' + agoStr(euNearTm) : '');
+        } else {
+          di.innerText = 'Via Blitzortung (hela Europa) – ingen blixt än';
+        }
+      });
+    }
+
+    // ---------- Diagram (24 h, från AIO-historik) ----------
+    function prepCanvas(cv) {
+      var dpr = window.devicePixelRatio || 1;
+      var w = cv.clientWidth || 300, h = 120;
+      cv.width = w * dpr; cv.height = h * dpr;
+      var ctx = cv.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      return { ctx: ctx, w: w, h: h };
+    }
+    function drawBars(cv, buckets) {
+      var p = prepCanvas(cv), ctx = p.ctx, w = p.w, h = p.h;
+      var padB = 18, padT = 10, maxV = Math.max(1, Math.max.apply(null, buckets)), bw = w / 24;
+      ctx.font = '9px system-ui';
+      ctx.strokeStyle = '#263449';
+      ctx.beginPath(); ctx.moveTo(0, h - padB); ctx.lineTo(w, h - padB); ctx.stroke();
+      buckets.forEach(function(v, i){
+        var bh = v / maxV * (h - padB - padT);
+        ctx.fillStyle = v > 0 ? (i === 23 ? '#fbbf24' : '#38bdf8') : '#1e293b';
+        ctx.fillRect(i * bw + 1, h - padB - bh, bw - 2, Math.max(v > 0 ? 2 : 1, bh));
+      });
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(String(maxV), 2, 9);
+      for (var i = 0; i <= 24; i += 6) {
+        var hh = new Date(Date.now() - (23 - i + 1) * 3600e3).getHours();
+        ctx.fillText(String(hh).padStart(2, '0'), Math.min(w - 14, i * bw + 1), h - 5);
+      }
+    }
+    function drawLine(cv, pts) {
+      var p = prepCanvas(cv), ctx = p.ctx, w = p.w, h = p.h;
+      var padB = 18, padT = 10, padR = 24;
+      var valid = pts.filter(function(x){ return x.km !== null; });
+      ctx.font = '9px system-ui';
+      ctx.strokeStyle = '#263449';
+      ctx.beginPath(); ctx.moveTo(0, h - padB); ctx.lineTo(w, h - padB); ctx.stroke();
+      if (valid.length < 2) {
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('Inga blixtrörelser att visa', 8, h / 2);
+        return;
+      }
+      var maxKm = Math.max(10, Math.max.apply(null, valid.map(function(x){ return x.km; })));
+      var t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+      var xOf = function(t){ return (t - t0) / Math.max(1, t1 - t0) * (w - padR); };
+      var yOf = function(km){ return h - padB - (km / maxKm) * (h - padB - padT); };
+      ctx.strokeStyle = '#fde047'; ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      var pen = false;
+      pts.forEach(function(x){
+        if (x.km === null) { pen = false; return; }
+        if (!pen) { ctx.moveTo(xOf(x.t), yOf(x.km)); pen = true; } else ctx.lineTo(xOf(x.t), yOf(x.km));
+      });
+      ctx.stroke();
+      ctx.fillStyle = '#64748b'; ctx.lineWidth = 1;
+      ctx.fillText(maxKm + ' km', 2, 9);
+      for (var i = 0; i <= 24; i += 6) {
+        var hh = new Date(Date.now() - (23 - i + 1) * 3600e3).getHours();
+        ctx.fillText(String(hh).padStart(2, '0'), Math.min(w - 14, i * (w / 24) + 1), h - 5);
+      }
+    }
+    function refreshCharts() {
+      if (!document.getElementById('chartStrikes')) return;   // 24h-grafen finns inte i ESP32-layouten
+      Promise.all([fetchFeed('count/data.json?hours=24'), fetchFeed('distance/data.json?hours=24')]).then(function(res){
+        var cnt = res[0], dist = res[1];
+        if (Array.isArray(cnt) && cnt.length > 1) {
+          var old2new = cnt.slice().reverse();
+          var buckets = new Array(24).fill(0);
+          var now = Date.now();
+          for (var i = 1; i < old2new.length; i++) {
+            var v0 = parseFloat(old2new[i-1].value), v1 = parseFloat(old2new[i].value);
+            if (isNaN(v0) || isNaN(v1)) continue;
+            var delta = v1 >= v0 ? v1 - v0 : v1;
+            if (delta <= 0) continue;
+            var b = 23 - Math.min(23, Math.floor((now - old2new[i].created_epoch * 1000) / 3600e3));
+            if (b >= 0 && b < 24) buckets[b] += delta;
+          }
+          drawBars(document.getElementById('chartStrikes'), buckets);
+          var sum = buckets.reduce(function(a, b){ return a + b; }, 0);
+          document.getElementById('strikeSum').textContent = sum + ' st senaste 24 h';
+        }
+        if (Array.isArray(dist) && dist.length > 1) {
+          var pts = dist.slice().reverse().map(function(p){
+            var km = parseFloat(p.value);
+            return { t: p.created_epoch * 1000, km: (isNaN(km) || km === 0) ? null : km };
+          });
+          drawLine(document.getElementById('chartDist'), pts);
+        }
+      });
+    }
+
+    // ---------- Ljud + notiser (som på ESP32-dashboarden) ----------
+    function pling() {
+      try {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        var ctx = new Ctx();
+        [880, 1320].forEach(function(f, i) {
+          var o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'sine'; o.frequency.value = f;
+          var t0 = ctx.currentTime + i * 0.18;
+          g.gain.setValueAtTime(0.001, t0);
+          g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.35);
+          o.connect(g); g.connect(ctx.destination);
+          o.start(t0); o.stop(t0 + 0.4);
+        });
+      } catch (e) {}
+    }
+    function blixNotis(msg) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try { new Notification('⚡ Blixtradar', { body: msg }); } catch (e) {}
+      }
+    }
+    document.addEventListener('click', function h() {
+      if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+      document.removeEventListener('click', h);
+    });
+
+    // 7-dagarsgraf (samma rendering som på ESP32-dashboarden)
+    function renderChart(h) {
+      var svg = document.getElementById('chart');
+      if (!svg || !h || !h.d) return;
+      var W = 320, H = 150, padB = 22, padT = 8;
+      var n = h.d.length;
+      var series = [
+        { data: h.s,  color: '#38bdf8', label: 'Blixt' },
+        { data: h.di, color: '#f87171', label: 'Störning' },
+        { data: h.n,  color: '#fbbf24', label: 'Brus' }
+      ];
+      var maxV = 1;
+      series.forEach(function(s){ s.data.forEach(function(v){ if (v > maxV) maxV = v; }); });
+      var groupW = W / n;
+      var barW = Math.max(4, groupW * 0.22);
+      var out = '';
+      for (var i = 0; i < n; i++) {
+        var gx = i * groupW;
+        var dayLabel = h.d[i];
+        var top = H - padB;
+        series.forEach(function(s, si){
+          var v = s.data[i];
+          var bh = Math.round((v / maxV) * (H - padB - padT));
+          var x = gx + groupW * (0.06 + si * 0.30);
+          out += '<rect x="' + x + '" y="' + (H - padB - bh) + '" width="' + barW + '" height="' + bh + '" rx="2" fill="' + s.color + '">';
+          out += '<title>' + dayLabel + ': ' + v + ' ' + s.label + '</title></rect>';
+          if (bh > 0 && H - padB - bh < top) top = H - padB - bh;
+        });
+        var isToday = i === n - 1;
+        out += '<text x="' + (gx + groupW / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="9" fill="' + (isToday ? '#38bdf8' : '#94a3b8') + '" font-weight="' + (isToday ? 'bold' : 'normal') + '">' + dayLabel + '</text>';
+        if (top > padT + 12) {
+          out += '<text x="' + (gx + groupW / 2) + '" y="' + (top - 4) + '" text-anchor="middle" font-size="8" fill="#64748b">' + (maxV >= 1000 ? Math.round(maxV / 100) / 10 + 'k' : maxV) + '</text>';
+        }
+      }
+      svg.innerHTML = out;
+    }
+
+    // ---------- Brusnivå-oscilloskop (live från ESP32:ens /noise-ström) ----------
+    var noiseBuf = [];
+    var NOISE_MAX = 120;   // antal punkter som visas (~6 min historik)
+    function pushNoise(v) {
+      noiseBuf.push(v);
+      if (noiseBuf.length > NOISE_MAX) noiseBuf.shift();
+      drawNoise();
+      document.getElementById('noiseNow').innerText = 'Nu: ' + v;
+      document.getElementById('noiseNow').style.color = v >= 20 ? '#ef4444' : v >= 10 ? '#fbbf24' : '#4ade80';
+    }
+    function drawNoise() {
+      var cv = document.getElementById('noiseScope');
+      if (!cv) return;
+      var dpr = window.devicePixelRatio || 1;
+      var w = cv.clientWidth || 260, h = 110;
+      cv.width = w * dpr; cv.height = h * dpr;
+      var ctx = cv.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      // rutnät
+      ctx.strokeStyle = '#1e293b';
+      for (var gy = 0; gy <= 4; gy++) {
+        var y = gy * h / 4;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+      // skalmärken
+      ctx.font = '8px system-ui'; ctx.fillStyle = '#475569';
+      ctx.fillText('31', 2, 9); ctx.fillText('0', 2, h - 3);
+      if (noiseBuf.length < 2) {
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('Väntar på data från ESP32:en...', 8, h / 2);
+        return;
+      }
+      // linje med glöd
+      ctx.beginPath();
+      var step = w / (NOISE_MAX - 1);
+      var x0 = w - (noiseBuf.length - 1) * step;   // rulla åt vänster när bufferten fylls
+      noiseBuf.forEach(function(v, i) {
+        var x = x0 + i * step;
+        var y = h - 6 - (v / 31) * (h - 14);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.8;
+      ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 6;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      // aktuell punkt
+      var lv = noiseBuf[noiseBuf.length - 1];
+      var lx = w, ly = h - 6 - (lv / 31) * (h - 14);
+      ctx.beginPath(); ctx.arc(lx - 2, ly, 3, 0, Math.PI * 2);
+      ctx.fillStyle = lv >= 20 ? '#ef4444' : lv >= 10 ? '#fbbf24' : '#4ade80';
+      ctx.fill();
+    }
+    window.addEventListener('resize', function(){ drawNoise(); });
+
+    function showDiagDetail(text) {
+      var el = document.getElementById('diagDetail');
+      el.style.display = 'block';
+      el.innerText = text;
+      el.style.color = /SVARAR|WB:OK/i.test(text) && !/NEJ|låst|flytande|korsade|strömlöst/i.test(text) ? '#4ade80' : '#fbbf24';
+      var btn = document.getElementById('btnRescan');
+      btn.disabled = false;
+      btn.innerText = '🔍 Kör djupscan av sensorbussen';
+    }
+    function rescanBus() {
+      try {
+        var btn = document.getElementById('btnRescan');
+        btn.disabled = true;
+        btn.innerText = '⏳ Skannar...';
+        client.publish(TOPIC + '/cmd', JSON.stringify({ rescan: true }));
+      } catch (e) {
+        var btn2 = document.getElementById('btnRescan');
+        btn2.disabled = false;
+        btn2.innerText = '🔍 Kör djupscan av sensorbussen';
+      }
+    }
+
+    // ---------- Störningsspektrogram (live från ESP32:ens /spec-ström) ----------
+    var specBuf = [];
+    var SPEC_MAX = 90;   // antal tidskolumner (~18 min historik vid 12 s/upplösning)
+    var BANDS = 6;       // frekvensband
+    function pushSpec(bands) {
+      specBuf.push(bands.slice(0, BANDS));
+      if (specBuf.length > SPEC_MAX) specBuf.shift();
+      drawSpec();
+    }
+    function specColor(v) {
+      if (v <= 2)  return '#0b1e3a';
+      if (v <= 6)  return '#134e4a';
+      if (v <= 10) return '#1e40af';
+      if (v <= 15) return '#a16207';
+      if (v <= 20) return '#b91c1c';
+      if (v <= 26) return '#fde047';
+      return '#ffffff';
+    }
+    function drawSpec() {
+      var cv = document.getElementById('specCanvas');
+      if (!cv) return;
+      var dpr = window.devicePixelRatio || 1;
+      var w = cv.clientWidth || 260, h = 150;
+      cv.width = w * dpr; cv.height = h * dpr;
+      var ctx = cv.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#0b1e3a';
+      ctx.fillRect(0, 0, w, h);
+      if (specBuf.length < 1) {
+        ctx.fillStyle = '#64748b'; ctx.font = '10px system-ui';
+        ctx.fillText('Väntar på data från ESP32:en...', 8, h / 2);
+        return;
+      }
+      var colW = w / SPEC_MAX;
+      var rowH = h / BANDS;
+      // y-banding: band 0 längst ner (låg frekvens) till band 5 överst
+      specBuf.forEach(function(cols, ci) {
+        var x = ci * colW;
+        for (var b = 0; b < BANDS; b++) {
+          ctx.fillStyle = specColor(cols[b]);
+          ctx.fillRect(x, h - (b + 1) * rowH, Math.max(1, colW - 0.5), rowH);
+        }
+      });
+      // tidsmarkör senaste kolumnen till höger
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.beginPath(); ctx.moveTo(w - 1, 0); ctx.lineTo(w - 1, h); ctx.stroke();
+    }
+    window.addEventListener('resize', function(){ drawSpec(); drawNoise(); });
+
+    function setMode(mode) {
+      try {
+        client.publish(TOPIC + '/cmd', JSON.stringify({ mode: mode }));
+      } catch (e) {}
+    }
+    function updateModeUI(mode) {
+      document.getElementById('btnOut').classList.toggle('active', mode === 'outdoor');
+      document.getElementById('btnIn').classList.toggle('active', mode === 'indoor');
+      document.getElementById('modeInfo').innerText = 'Läge: ' + (mode === 'outdoor' ? 'Utomhus (2x förstärkning)' : 'Inomhus (8x förstärkning)');
+    }
+
+    updateData(); refreshCharts();
+    document.getElementById('qrTemp').src = 'data:image/png;base64,' + QR_TEMP;
+    document.getElementById('qrDash').src = 'data:image/png;base64,' + QR_DASH;
+    setInterval(updateData, 30000);
+    setInterval(refreshCharts, 300000);
+  </script>
+</body>
+</html>
