@@ -322,8 +322,27 @@
           }).addTo(mapLocal).bindPopup('<b>🔴 Senaste registrerat från sensorn</b><br>~' + latestLocal.dist + ' km från mottagaren<br><small>' + new Date(latestLocal.tMs).toLocaleString('sv-SE') + '<br>Position via Blitzortung-matchning</small>');
           L.polyline([best.latlon, HOME], { color: '#ef4444', weight: 2, dashArray: '4 6', opacity: 0.8, isStrike: true }).addTo(mapLocal);
         } else {
-          L.circle(HOME, { radius: Math.max(5000, latestLocal.dist * 1000), color: '#ef4444', weight: 3, fillOpacity: 0, isStrike: true })
+          // Ingen exakt matchning: placera den pulserande röda punkten PÅ ringen
+          // i riktning mot senaste kända blixten (annars NO). Uppskattad position.
+          var brg = 45;
+          var ref = null;
+          euDots.forEach(function(e){ if (!ref || e.tMs > ref.tMs) ref = e; });
+          if (ref) {
+            var dLat0 = ref.latlon[0] - HOME[0], dLon0 = ref.latlon[1] - HOME[1];
+            brg = Math.atan2(dLon0, dLat0) * 180 / Math.PI;
+          }
+          var rad = brg * Math.PI / 180;
+          var brad = Math.max(5, latestLocal.dist) * 1000;
+          var estLat = HOME[0] + (brad / 111320) * Math.cos(rad);
+          var estLon = HOME[1] + (brad / (111320 * Math.cos(HOME[0] * Math.PI / 180))) * Math.sin(rad);
+          var est = [estLat, estLon];
+          L.circle(HOME, { radius: brad, color: '#ef4444', weight: 2, fillOpacity: 0.04, isStrike: true })
             .addTo(mapLocal).bindPopup('<b>🔴 Senaste registrerat från sensorn</b><br>~' + latestLocal.dist + ' km · riktning okänd<br><small>' + new Date(latestLocal.tMs).toLocaleString('sv-SE') + '</small>');
+          L.marker(est, {
+            icon: L.divIcon({ className: '', html: '<div style="width:18px;height:18px;border-radius:50%;background:rgba(239,68,68,0.95);animation:pulseRed 1.5s infinite;"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
+            isStrike: true
+          }).addTo(mapLocal).bindPopup('<b>🔴 Senaste registrerat från sensorn</b><br>~' + latestLocal.dist + ' km från mottagaren<br><small>' + new Date(latestLocal.tMs).toLocaleString('sv-SE') + '<br><b>Uppskattad position</b> – AS3935 ger ej riktning' + (ref ? '<br>Vinklad mot senaste kända blixt' : '') + '</small>');
+          L.polyline([est, HOME], { color: '#ef4444', weight: 2, dashArray: '4 6', opacity: 0.8, isStrike: true }).addTo(mapLocal);
         }
       }
     }
@@ -727,6 +746,26 @@
     }
     window.addEventListener('resize', function(){ drawSpec(); drawNoise(); });
 
+    // Senaste registrering från den kopplade sensorn: hämtas ur AIO:s
+    // avståndshistorik (senaste icke-noll-värde) så röda punkten/ringen
+    // syns direkt vid sidladdning - innan första live-detektionen.
+    function refreshLastLocalHistory() {
+      fetchFeed('distance/data.json?hours=6').then(function(h){
+        if (!Array.isArray(h)) return;
+        var found = null;
+        for (var i = 0; i < h.length; i++) {          // nyast först
+          var v = parseFloat(h[i].value);
+          if (!isNaN(v) && v > 0) { found = { dist: Math.round(v), tMs: h[i].created_epoch * 1000 }; break; }
+        }
+        if (found && (!latestLocal || found.tMs > latestLocal.tMs)) {
+          latestLocal = found;
+          renderLocalLayers();
+          document.getElementById('lastLocalInfo').innerHTML =
+            '🔴 Senaste registrerat från sensorn: <b>' + found.dist + ' km</b> · ' + new Date(found.tMs).toLocaleTimeString('sv-SE');
+        }
+      }).catch(function(){});
+    }
+
     function setMode(mode) {
       try {
         client.publish(TOPIC + '/cmd', JSON.stringify({ mode: mode }));
@@ -739,10 +778,12 @@
     }
 
     updateData(); refreshCharts();
+    refreshLastLocalHistory();
     document.getElementById('qrTemp').src = 'data:image/png;base64,' + QR_TEMP;
     document.getElementById('qrDash').src = 'data:image/png;base64,' + QR_DASH;
     setInterval(updateData, 30000);
     setInterval(refreshCharts, 300000);
+    setInterval(refreshLastLocalHistory, 300000);
   </script>
 </body>
 </html>
