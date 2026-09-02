@@ -115,6 +115,15 @@
         </div>
       </div>
     </div>
+
+    <div class="block block-chart">
+      <div class="label">Brusnivå – live-oscilloskop</div>
+      <canvas id="noiseScope" width="600" height="240" style="height:110px;"></canvas>
+      <div class="row" style="margin-top:4px;">
+        <div><span class="small" style="font-size:0.7em;" id="noiseNow">-</span></div>
+        <div><span class="small" style="font-size:0.7em;color:#64748b;">0–31 · var 3:e s · från ESP32</span></div>
+      </div>
+    </div>
     </div><!-- /dash-left -->
 
     <div class="dash-mid">
@@ -318,6 +327,9 @@
           } else if (sub === 'local' && typeof j.dist !== 'undefined') {
             localRings.push({ km: j.dist, tMs: j.t || Date.now() });
             renderLocalLayers();
+            espOnline(true);
+          } else if (sub === 'noise' && typeof j.v !== 'undefined') {
+            pushNoise(j.v);
             espOnline(true);
           } else if (sub === 'status') {
             espSeenTm = Date.now();
@@ -533,6 +545,62 @@
       }
       svg.innerHTML = out;
     }
+
+    // ---------- Brusnivå-oscilloskop (live från ESP32:ens /noise-ström) ----------
+    var noiseBuf = [];
+    var NOISE_MAX = 120;   // antal punkter som visas (~6 min historik)
+    function pushNoise(v) {
+      noiseBuf.push(v);
+      if (noiseBuf.length > NOISE_MAX) noiseBuf.shift();
+      drawNoise();
+      document.getElementById('noiseNow').innerText = 'Nu: ' + v;
+      document.getElementById('noiseNow').style.color = v >= 20 ? '#ef4444' : v >= 10 ? '#fbbf24' : '#4ade80';
+    }
+    function drawNoise() {
+      var cv = document.getElementById('noiseScope');
+      if (!cv) return;
+      var dpr = window.devicePixelRatio || 1;
+      var w = cv.clientWidth || 260, h = 110;
+      cv.width = w * dpr; cv.height = h * dpr;
+      var ctx = cv.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      // rutnät
+      ctx.strokeStyle = '#1e293b';
+      for (var gy = 0; gy <= 4; gy++) {
+        var y = gy * h / 4;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+      // skalmärken
+      ctx.font = '8px system-ui'; ctx.fillStyle = '#475569';
+      ctx.fillText('31', 2, 9); ctx.fillText('0', 2, h - 3);
+      if (noiseBuf.length < 2) {
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('Väntar på data från ESP32:en...', 8, h / 2);
+        return;
+      }
+      // linje med glöd
+      ctx.beginPath();
+      var step = w / (NOISE_MAX - 1);
+      var x0 = w - (noiseBuf.length - 1) * step;   // rulla åt vänster när bufferten fylls
+      noiseBuf.forEach(function(v, i) {
+        var x = x0 + i * step;
+        var y = h - 6 - (v / 31) * (h - 14);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1.8;
+      ctx.shadowColor = '#38bdf8'; ctx.shadowBlur = 6;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      // aktuell punkt
+      var lv = noiseBuf[noiseBuf.length - 1];
+      var lx = w, ly = h - 6 - (lv / 31) * (h - 14);
+      ctx.beginPath(); ctx.arc(lx - 2, ly, 3, 0, Math.PI * 2);
+      ctx.fillStyle = lv >= 20 ? '#ef4444' : lv >= 10 ? '#fbbf24' : '#4ade80';
+      ctx.fill();
+    }
+    window.addEventListener('resize', function(){ drawNoise(); });
 
     function setMode(mode) {
       try {
