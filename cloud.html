@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>⚡ Blixtradar – Moln</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; background:#0f172a; color:#f8fafc; text-align:center; padding:12px; margin:0; -webkit-tap-highlight-color:transparent; }
+  .card { background:#1e293b; border-radius:20px; padding:18px; max-width:420px; margin:12px auto; box-shadow:0 10px 25px rgba(0,0,0,0.5); border:1px solid #334155; }
+  h1 { color:#38bdf8; margin:0 0 4px; font-size:1.6em; }
+  .label { color:#94a3b8; font-size:0.8em; text-transform:uppercase; letter-spacing:1.1px; }
+  .dist { font-size:3.4em; font-weight:800; color:#fde047; text-shadow:0 0 20px rgba(253,224,71,0.55); }
+  .dist.alarm { color:#ef4444; text-shadow:0 0 26px rgba(239,68,68,0.9); }
+  .metric { font-size:2.2em; font-weight:bold; color:#fbbf24; margin:6px 0; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; text-align:center; }
+  .cell { background:#0f172a; border:1px solid #263449; border-radius:12px; padding:10px; }
+  .val { font-size:1.5em; font-weight:700; }
+  .small { color:#94a3b8; font-size:0.8em; margin-top:6px; }
+  .status { background:#0f172a; padding:12px; border-radius:12px; font-weight:600; color:#4ade80; margin:14px 0 4px; border:1px solid #1e293b; word-break:break-word; }
+  #updated { color:#64748b; font-size:0.75em; margin-top:10px; }
+  .offline { color:#f87171 !important; }
+  @supports (padding:max(0px)) {
+    body { padding-left:max(12px,env(safe-area-inset-left)); padding-right:max(12px,env(safe-area-inset-right)); padding-top:max(12px,env(safe-area-inset-top)); padding-bottom:max(12px,env(safe-area-inset-bottom)); }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>⚡ Blixtradar</h1>
+    <div class="small">Live via Adafruit IO · fungerar utanför hemmanätet</div>
+
+    <div class="status" id="status">Hämtar data...</div>
+
+    <div class="block" style="margin:10px 0;">
+      <div class="label">Närmaste blixt</div>
+      <div class="dist" id="dist">--</div>
+    </div>
+
+    <div class="grid">
+      <div class="cell"><div class="label">Totalt antal</div><div class="val" id="count">-</div></div>
+      <div class="cell"><div class="label">Senaste blixt</div><div class="val" id="lasttime" style="font-size:1.2em;">-</div></div>
+      <div class="cell"><div class="label">Störningar</div><div class="val" id="disturb" style="color:#f87171;">-</div></div>
+      <div class="cell"><div class="label">Brus</div><div class="val" id="noise" style="color:#fbbf24;">-</div></div>
+    </div>
+
+    <div class="small" id="lastevent" style="margin-top:12px;">-</div>
+    <div id="updated">-</div>
+  </div>
+
+<script>
+const AIO = 'https://io.adafruit.com/api/v2/hanzpanzi/feeds/blixtradar-';
+const FEEDS = ['status','distance','count','lasttime','disturb','noise','lastevent'];
+
+async function fetchFeed(name) {
+  try {
+    const r = await fetch(AIO + name);
+    if (!r.ok) throw 0;
+    const j = await r.json();
+    return j.last_value;
+  } catch { return null; }
+}
+
+async function refresh() {
+  const vals = {};
+  await Promise.all(FEEDS.map(async f => { vals[f] = await fetchFeed(f); }));
+
+  const any = Object.values(vals).some(v => v !== null);
+  const st = document.getElementById('status');
+  if (!any) {
+    st.textContent = 'Ingen data från ESP32:n';
+    st.classList.add('offline');
+    return;
+  }
+  st.classList.remove('offline');
+
+  st.textContent = vals.status ?? '-';
+  const d = vals.distance;
+  const distEl = document.getElementById('dist');
+  if (d === null || d === undefined) { distEl.textContent = '--'; }
+  else {
+    const n = parseInt(d, 10);
+    if (isNaN(n)) { distEl.textContent = '--'; }
+    else {
+      distEl.textContent = n === 0 ? '--' : (n + ' km');
+      distEl.classList.toggle('alarm', n > 0 && n < 40);
+    }
+  }
+  document.getElementById('count').textContent = vals.count ?? '-';
+  document.getElementById('lasttime').textContent = vals.lasttime ?? '-';
+  document.getElementById('disturb').textContent = vals.disturb ?? '-';
+  document.getElementById('noise').textContent = vals.noise ?? '-';
+  document.getElementById('lastevent').textContent = vals.lastevent ?? '';
+
+  // "updated_at" från en feed visar när ESP32 senast rapporterade
+  try {
+    const r = await fetch(AIO + 'count');
+    const j = await r.json();
+    const iso = j.updated_at.endsWith('Z') ? j.updated_at : j.updated_at + 'Z';
+    const t = new Date(iso);
+    const age = Math.round((Date.now() - t.getTime()) / 1000);
+    document.getElementById('updated').textContent =
+      'Uppdaterad ' + (age < 90 ? age + ' s sedan' : Math.round(age/60) + ' min sedan');
+  } catch {}
+}
+
+refresh();
+setInterval(refresh, 30000);
+</script>
+</body>
+</html>
