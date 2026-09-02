@@ -136,24 +136,38 @@
     <div class="dash-right">
 
     <div class="block">
-      <div class="small" id="boInfo" style="text-align:center;">📍 Position via Blitzortung: ...</div>
-      <div class="small" id="lastevent" style="text-align:center; margin-top:6px;">-</div>
-      <button class="btn" style="margin-top:10px; width:100%;" onclick="pling()">🔔 Testa pling</button>
+      <div class="row">
+        <button class="btn" id="btnOut" onclick="setMode('outdoor')">Utomhus</button>
+        <button class="btn" id="btnIn" onclick="setMode('indoor')">Inomhus</button>
+      </div>
+      <div class="small" id="modeInfo" style="margin-top:8px;">-</div>
     </div>
 
     <div class="block block-chart">
-      <div class="label">Blixtrar per timme (24 h)</div>
-      <canvas id="chartStrikes" width="600" height="240"></canvas>
+      <div class="label">Senaste 7 dagarna – blixtar & störningar</div>
+      <svg id="chart" viewBox="0 0 320 150" style="width: 100%; margin-top: 8px;"></svg>
       <div class="row" style="margin-top: 4px;">
-        <div><span style="color:#38bdf8;">■</span> <span class="small" style="font-size:0.7em;">Blixtar</span></div>
-        <div id="strikeSum" class="small" style="font-size:0.7em;">-</div>
+        <div><span style="color:#38bdf8;">■</span> <span class="small" style="font-size:0.7em;">Blixt</span></div>
+        <div><span style="color:#f87171;">■</span> <span class="small" style="font-size:0.7em;">Störning</span></div>
+        <div><span style="color:#fbbf24;">■</span> <span class="small" style="font-size:0.7em;">Brus</span></div>
       </div>
     </div>
 
-    <div class="block block-chart">
-      <div class="label">Närmaste blixtens avstånd (24 h)</div>
-      <canvas id="chartDist" width="600" height="240"></canvas>
-      <div class="small" style="font-size:0.7em;">Gul linje = km · luckor = inga blixtar (0)</div>
+    <div class="block">
+      <div class="small" id="boInfo" style="text-align:center;">📍 Position via Blitzortung: ...</div>
+      <div class="small" id="lastevent" style="text-align:center; margin-top:6px;">-</div>
+      <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px;">
+        <button class="btn" style="flex:0 0 auto; padding:8px 14px; font-size:0.85em;" onclick="pling()">🔔 Testa pling</button>
+        <a href="https://io.adafruit.com/hanzpanzi/dashboards" target="_blank" class="btn" style="flex:0 0 auto; padding:8px 14px; font-size:0.85em; text-decoration:none; display:inline-block;">📱 Adafruit-appen</a>
+      </div>
+    </div>
+
+    <div class="block" style="display:flex; align-items:center; justify-content:center; gap:12px;">
+      <img id="qrDash" width="72" height="72" alt="QR dashboard" style="border-radius:8px;"/>
+      <div style="text-align:left;">
+        <div class="label">Live-dashboard (moln)</div>
+        <div class="small" style="margin-top:2px;">Skanna för att öppna Adafruit IO-dashboarden – mätare & grafer, ingen inloggning</div>
+      </div>
     </div>
 
     </div><!-- /dash-right -->
@@ -169,6 +183,7 @@
     var MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
     var TOPIC = 'hanzpanzi/blixtradar';
     var QR_TEMP = 'iVBORw0KGgoAAAANSUhEUgAAAXIAAAFyAQAAAADAX2ykAAADJElEQVR4nO1cS27cMAylaAFZykAO0KPYN+iRitzMPsocoIC9NGCDBUlJM0ha1wbaiRSTi4k+b0HoDaknShNHcMZGPAUHMPy+4V/m35vh9w2vh59dtH72AGO7ORmD0fFHC5DmfZn+nzK8GN4DQLNK0wFsDrpp406zuo54LABAN/DQ/Fqg/2j4A+vjNDjDCjTMLwTjt8XRm/NAdOMJDvH+AX/c0PDlrM8s1K7gem51E0Bk9ZP8OWB4BHRhvH/shIXzsyTkzf1eWJfmPxr+AL+U+wSwRc7HvuEub86BATMP2nruGxaI31QeS37W1CytH5KfRVPLfPssf84YnkLD5fA+BqfYzEcjDeLFkQTs2EoQP80fNPw/XR8gmhoS6cxMk3Z5EyY+FMUusbCGhmiw9d83LAwPTCkzSERDIA5V4Zc5ByZZxoR947fS+pVPJ9zZM6ESyYuT0I3nI5l4lj+nDM/B4Wp4IJJczKlZGORcLJlaI1mNCx9ilp/rzc+QqU1ja96E81egNP/R8AfuF0hofGt5673JSSnVPToud3BN644/ZWj4AuKXOEKTyIpRq12JZEnXOmt87RsWyu8f9DOIdNaapUBK8x8Nf7R+5Xq+HxTThBwSte/wZwwN/+nxu2b9zBUMaYlgntL5N5Y7rL5R3/fZ87295mIHYeKAlfsFny75JwAa22bV2eL8R8PvG4m00pbssNzk/Vfjl4sc8cP234rzM2TBnLjUgmS0dDA2fVUfv9M9YONdQpRWFDdmHROI8VsZv5hqkZu+sNL3V93tJdUn53gxLC8pi/T/lOEl8zM8KOR0SZhCN94fmX6uWD87CKt3HfH5N4iSXhzp0XfmsJ09v559hj9o+P9Wv6K8E+tdYMhyS5S06ee6z0egIkvS9cdypZrpqwrxjXKnA6OT93VS39jic6xBS5j2+5R6319BOhrdL5HonqlzEFv81szvJCPCdKpvDKqp7f3VV/j9AuQyMxM/fv/J+TlqairTfzT88d8vhEWebqw0ysYbGpK/NPayJ7+utp5162eIz7HyBOWd2O73q+TX2f9nqIovNPyu4f70l8P/Ah3iUkIRleiKAAAAAElFTkSuQmCC';
+    var QR_DASH = 'iVBORw0KGgoAAAANSUhEUgAAAXIAAAFyAQAAAADAX2ykAAAC7klEQVR4nO1cW4rjMBCslgXz6UAOMEexb7bskeYG9lFygAX5M6DQS7ceNjPgJLDsWJOuD48c1YdQ0S+5NcR4BrN7ig4Yfx/uzvxnGH8f7vX4C2WMuKVH+c0D8wko8/6Y638K7sX4HkAXdUhAx5hJRn30jOUMGi4+YphkfjkfcP3O+A/sDyXjXOTRR7DoSfR+JX1N5jxu+I/DGf/b7XfFjTBc3piANwYWGS3nZN0Zptc+3MH5LKbLU38lGvsr8e/T967nHtxdxmvzvT5LkSSRODlkD8ZyAgad6uW5/I/1OOP/8/25pfRY32lcPOhX6JhGyENi8qzzasm2//twB+ODNwjyGjoWgxVEIXRbxnS09Tvj361/fa5wx555rX9VWgyh1L+WP7dqvzFnVXkkBqtGDM20WMw5AkPozH5b1DfIn6Rgcdeq6rBx3GLJ5p8b1bdLgqbRRkuUcCzCp5hs8bdJfaEYVv/M6pVZlK7e2/xzo/pCwmwso88TXEW2+NukvixlkKZRNRwn/9yLtCU6Jxdu/rk9fYMWvPFLJJ5W9QWWXzWqL+dceS14S07N+bXWTGa/Leobt6FXy9xVX1j927q+IVtoroD0V3XXnGviZNhWHzWqL9fUSgUt5pxds35OEtj5Vbv6cj2wKvrWIhjlm7DF30b1DZpVralzPa7kXBXpyOy3YX1Z3XCWsRqsoqhv8bdlfVm9cjLYfNyx5tRZfauP2tYXufTdHneg5s8Jdn7VmL4uN1zp4bL2P0sbjjZRUmqty+Ww9bc3qS9yQiXYfEaoJ1lTGln8/Qn3FxZpmAxyTaEP0lMZPckrY5HG6A8fj7d+Z/wH+mNpFXn4yDN6XYW0513A86mz/Wz8/kIX5eqRSEvgebwR5vd0EynSMdfvjP/c/ZT59MfrsRUNfFPvzYT+SvmSme3nPtwh+Vw/8vO06NWjre7MF3/s9T8O98r5c9BOLO2vK0eTgtS9Y/0bLepL9v8ZmtLLGX8Xbn/6x/H/AgOpb8oddu9LAAAAAElFTkSuQmCC';
 
     var mapLocal = L.map('mapLocal').setView(HOME, 9);
     L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20, attribution: '&copy; Google' }).addTo(mapLocal);
@@ -307,6 +322,8 @@
           } else if (sub === 'status') {
             espSeenTm = Date.now();
             espOnline(true);
+            if (j.mode) updateModeUI(j.mode);
+            if (j.hist) renderChart(j.hist);
             if (j.temp) {
               document.getElementById('temp').innerText = j.temp;
               document.getElementById('tempInfo').innerText = 'Uppdaterad ' + new Date(j.t).toLocaleTimeString('sv-SE') + ' · skanna QR:en för live';
@@ -423,6 +440,7 @@
       }
     }
     function refreshCharts() {
+      if (!document.getElementById('chartStrikes')) return;   // 24h-grafen finns inte i ESP32-layouten
       Promise.all([fetchFeed('count/data.json?hours=24'), fetchFeed('distance/data.json?hours=24')]).then(function(res){
         var cnt = res[0], dist = res[1];
         if (Array.isArray(cnt) && cnt.length > 1) {
@@ -479,8 +497,57 @@
       document.removeEventListener('click', h);
     });
 
+    // 7-dagarsgraf (samma rendering som på ESP32-dashboarden)
+    function renderChart(h) {
+      var svg = document.getElementById('chart');
+      if (!svg || !h || !h.d) return;
+      var W = 320, H = 150, padB = 22, padT = 8;
+      var n = h.d.length;
+      var series = [
+        { data: h.s,  color: '#38bdf8', label: 'Blixt' },
+        { data: h.di, color: '#f87171', label: 'Störning' },
+        { data: h.n,  color: '#fbbf24', label: 'Brus' }
+      ];
+      var maxV = 1;
+      series.forEach(function(s){ s.data.forEach(function(v){ if (v > maxV) maxV = v; }); });
+      var groupW = W / n;
+      var barW = Math.max(4, groupW * 0.22);
+      var out = '';
+      for (var i = 0; i < n; i++) {
+        var gx = i * groupW;
+        var dayLabel = h.d[i];
+        var top = H - padB;
+        series.forEach(function(s, si){
+          var v = s.data[i];
+          var bh = Math.round((v / maxV) * (H - padB - padT));
+          var x = gx + groupW * (0.06 + si * 0.30);
+          out += '<rect x="' + x + '" y="' + (H - padB - bh) + '" width="' + barW + '" height="' + bh + '" rx="2" fill="' + s.color + '">';
+          out += '<title>' + dayLabel + ': ' + v + ' ' + s.label + '</title></rect>';
+          if (bh > 0 && H - padB - bh < top) top = H - padB - bh;
+        });
+        var isToday = i === n - 1;
+        out += '<text x="' + (gx + groupW / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="9" fill="' + (isToday ? '#38bdf8' : '#94a3b8') + '" font-weight="' + (isToday ? 'bold' : 'normal') + '">' + dayLabel + '</text>';
+        if (top > padT + 12) {
+          out += '<text x="' + (gx + groupW / 2) + '" y="' + (top - 4) + '" text-anchor="middle" font-size="8" fill="#64748b">' + (maxV >= 1000 ? Math.round(maxV / 100) / 10 + 'k' : maxV) + '</text>';
+        }
+      }
+      svg.innerHTML = out;
+    }
+
+    function setMode(mode) {
+      try {
+        client.publish(TOPIC + '/cmd', JSON.stringify({ mode: mode }));
+      } catch (e) {}
+    }
+    function updateModeUI(mode) {
+      document.getElementById('btnOut').classList.toggle('active', mode === 'outdoor');
+      document.getElementById('btnIn').classList.toggle('active', mode === 'indoor');
+      document.getElementById('modeInfo').innerText = 'Läge: ' + (mode === 'outdoor' ? 'Utomhus (2x förstärkning)' : 'Inomhus (8x förstärkning)');
+    }
+
     updateData(); refreshCharts();
     document.getElementById('qrTemp').src = 'data:image/png;base64,' + QR_TEMP;
+    document.getElementById('qrDash').src = 'data:image/png;base64,' + QR_DASH;
     setInterval(updateData, 30000);
     setInterval(refreshCharts, 300000);
   </script>
