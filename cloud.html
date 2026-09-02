@@ -124,6 +124,17 @@
         <div><span class="small" style="font-size:0.7em;color:#64748b;">0–31 · var 3:e s · från ESP32</span></div>
       </div>
     </div>
+
+    <div class="block block-chart">
+      <div class="label">Störningsspektrogram – live</div>
+      <canvas id="specCanvas" width="600" height="240" style="height:150px;"></canvas>
+      <div class="row" style="margin-top:4px;">
+        <div><span class="small" style="font-size:0.7em;">Låg frekvens ↓</span></div>
+        <div><span class="small" style="font-size:0.7em;">Hög ↑ · 0–31 energi</span></div>
+      </div>
+      <div style="height:8px; border-radius:4px; margin-top:4px; background:linear-gradient(90deg,#0b1e3a,#134e4a,#1e40af,#a16207,#b91c1c,#fde047,#ffffff);"></div>
+      <div class="small" style="font-size:0.65em; margin-top:2px;">svag → stark</div>
+    </div>
     </div><!-- /dash-left -->
 
     <div class="dash-mid">
@@ -333,6 +344,9 @@
             espOnline(true);
           } else if (sub === 'noise' && typeof j.v !== 'undefined') {
             pushNoise(j.v);
+            espOnline(true);
+          } else if (sub === 'spec' && Array.isArray(j.e)) {
+            pushSpec(j.e);
             espOnline(true);
           } else if (sub === 'diag' && j.detail) {
             showDiagDetail(j.detail);
@@ -634,6 +648,55 @@
         btn2.innerText = '🔍 Kör djupscan av sensorbussen';
       }
     }
+
+    // ---------- Störningsspektrogram (live från ESP32:ens /spec-ström) ----------
+    var specBuf = [];
+    var SPEC_MAX = 90;   // antal tidskolumner (~18 min historik vid 12 s/upplösning)
+    var BANDS = 6;       // frekvensband
+    function pushSpec(bands) {
+      specBuf.push(bands.slice(0, BANDS));
+      if (specBuf.length > SPEC_MAX) specBuf.shift();
+      drawSpec();
+    }
+    function specColor(v) {
+      if (v <= 2)  return '#0b1e3a';
+      if (v <= 6)  return '#134e4a';
+      if (v <= 10) return '#1e40af';
+      if (v <= 15) return '#a16207';
+      if (v <= 20) return '#b91c1c';
+      if (v <= 26) return '#fde047';
+      return '#ffffff';
+    }
+    function drawSpec() {
+      var cv = document.getElementById('specCanvas');
+      if (!cv) return;
+      var dpr = window.devicePixelRatio || 1;
+      var w = cv.clientWidth || 260, h = 150;
+      cv.width = w * dpr; cv.height = h * dpr;
+      var ctx = cv.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#0b1e3a';
+      ctx.fillRect(0, 0, w, h);
+      if (specBuf.length < 1) {
+        ctx.fillStyle = '#64748b'; ctx.font = '10px system-ui';
+        ctx.fillText('Väntar på data från ESP32:en...', 8, h / 2);
+        return;
+      }
+      var colW = w / SPEC_MAX;
+      var rowH = h / BANDS;
+      // y-banding: band 0 längst ner (låg frekvens) till band 5 överst
+      specBuf.forEach(function(cols, ci) {
+        var x = ci * colW;
+        for (var b = 0; b < BANDS; b++) {
+          ctx.fillStyle = specColor(cols[b]);
+          ctx.fillRect(x, h - (b + 1) * rowH, Math.max(1, colW - 0.5), rowH);
+        }
+      });
+      // tidsmarkör senaste kolumnen till höger
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.beginPath(); ctx.moveTo(w - 1, 0); ctx.lineTo(w - 1, h); ctx.stroke();
+    }
+    window.addEventListener('resize', function(){ drawSpec(); drawNoise(); });
 
     function setMode(mode) {
       try {
