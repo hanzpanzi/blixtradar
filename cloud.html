@@ -165,6 +165,8 @@
     <div class="block">
       <div class="small" id="boInfo" style="text-align:center;">📍 Position via Blitzortung: ...</div>
       <div class="small" id="diagInfo" style="text-align:center; margin-top:6px; color:#94a3b8;">🔬 Sensor-diagnostik: ...</div>
+      <div class="small" id="diagDetail" style="text-align:left; margin-top:6px; color:#64748b; display:none; word-break:break-word;"></div>
+      <button class="btn" id="btnRescan" style="margin-top:10px; width:100%; font-size:0.85em; padding:8px;" onclick="rescanBus()">🔍 Kör djupscan av sensorbussen</button>
       <div class="small" id="lastevent" style="text-align:center; margin-top:6px;">-</div>
       <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px;">
         <button class="btn" style="flex:0 0 auto; padding:8px 14px; font-size:0.85em;" onclick="pling()">🔔 Testa pling</button>
@@ -332,6 +334,8 @@
           } else if (sub === 'noise' && typeof j.v !== 'undefined') {
             pushNoise(j.v);
             espOnline(true);
+          } else if (sub === 'diag' && j.detail) {
+            showDiagDetail(j.detail);
           } else if (sub === 'status') {
             espSeenTm = Date.now();
             espOnline(true);
@@ -340,6 +344,7 @@
               document.getElementById('diagInfo').innerText = '🔬 Sensor-diagnostik: ' + j.diag + (noResp ? ' → ingen svar på bussen (kolla kablage/ström till sensorn)' : ' → svarar');
               document.getElementById('diagInfo').style.color = noResp ? '#f87171' : '#4ade80';
             }
+            if (j.dd) showDiagDetail(j.dd);
             if (j.mode) updateModeUI(j.mode);
             if (j.hist) renderChart(j.hist);
             if (j.temp) {
@@ -607,6 +612,28 @@
       ctx.fill();
     }
     window.addEventListener('resize', function(){ drawNoise(); });
+
+    function showDiagDetail(text) {
+      var el = document.getElementById('diagDetail');
+      el.style.display = 'block';
+      el.innerText = text;
+      el.style.color = /SVARAR|WB:OK/i.test(text) && !/NEJ|låst|flytande|korsade|strömlöst/i.test(text) ? '#4ade80' : '#fbbf24';
+      var btn = document.getElementById('btnRescan');
+      btn.disabled = false;
+      btn.innerText = '🔍 Kör djupscan av sensorbussen';
+    }
+    function rescanBus() {
+      try {
+        var btn = document.getElementById('btnRescan');
+        btn.disabled = true;
+        btn.innerText = '⏳ Skannar...';
+        client.publish(TOPIC + '/cmd', JSON.stringify({ rescan: true }));
+      } catch (e) {
+        var btn2 = document.getElementById('btnRescan');
+        btn2.disabled = false;
+        btn2.innerText = '🔍 Kör djupscan av sensorbussen';
+      }
+    }
 
     function setMode(mode) {
       try {
