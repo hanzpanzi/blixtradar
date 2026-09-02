@@ -304,14 +304,15 @@
           .addTo(mapLocal).bindPopup('<b>Blixt ~' + e.km + ' km</b><br><small>' + new Date(e.tMs).toLocaleString('sv-SE') + '</small><br><small>Riktning okänd</small>');
       });
       // 🔴 SENASTE registrerat från den kopplade sensorn: pulserande röd punkt.
-      // Position = Blitzortung-nedslag som bäst matchar avstånd + tid (±3 min);
-      // ingen matchning = tydlig röd ring (riktning okänd).
-      if (latestLocal) {
+      // VISAS ENDAST när registreringen bekräftats av Blitzortung: en exakt
+      // nedslagsposition som matchar avstånd + tid (±3 min) och ligger inom 50 km.
+      if (latestLocal && latestLocal.confirmed) {
         var best = null, bestScore = 1e9;
         euDots.forEach(function(e){
           var dt = Math.abs(e.tMs - latestLocal.tMs);
           if (dt > 180000) return;
           var d = Math.round(distKm(e.latlon, HOME));
+          if (d > 50) return;                       // endast inom 50 km
           var score = Math.abs(d - latestLocal.dist) * 1000 + dt / 1000;
           if (score < bestScore) { bestScore = score; best = e; }
         });
@@ -319,30 +320,8 @@
           L.marker(best.latlon, {
             icon: L.divIcon({ className: '', html: '<div style="width:18px;height:18px;border-radius:50%;background:rgba(239,68,68,0.95);animation:pulseRed 1.5s infinite;"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
             isStrike: true
-          }).addTo(mapLocal).bindPopup('<b>🔴 Senaste registrerat från sensorn</b><br>~' + latestLocal.dist + ' km från mottagaren<br><small>' + new Date(latestLocal.tMs).toLocaleString('sv-SE') + '<br>Position via Blitzortung-matchning</small>');
+          }).addTo(mapLocal).bindPopup('<b>🔴 Senaste registrerat från sensorn</b><br>~' + latestLocal.dist + ' km från mottagaren<br><small>' + new Date(latestLocal.tMs).toLocaleString('sv-SE') + '<br>✅ Bekräftad av Blitzortung</small>');
           L.polyline([best.latlon, HOME], { color: '#ef4444', weight: 2, dashArray: '4 6', opacity: 0.8, isStrike: true }).addTo(mapLocal);
-        } else {
-          // Ingen exakt matchning: placera den pulserande röda punkten PÅ ringen
-          // i riktning mot senaste kända blixten (annars NO). Uppskattad position.
-          var brg = 45;
-          var ref = null;
-          euDots.forEach(function(e){ if (!ref || e.tMs > ref.tMs) ref = e; });
-          if (ref) {
-            var dLat0 = ref.latlon[0] - HOME[0], dLon0 = ref.latlon[1] - HOME[1];
-            brg = Math.atan2(dLon0, dLat0) * 180 / Math.PI;
-          }
-          var rad = brg * Math.PI / 180;
-          var brad = Math.max(5, latestLocal.dist) * 1000;
-          var estLat = HOME[0] + (brad / 111320) * Math.cos(rad);
-          var estLon = HOME[1] + (brad / (111320 * Math.cos(HOME[0] * Math.PI / 180))) * Math.sin(rad);
-          var est = [estLat, estLon];
-          L.circle(HOME, { radius: brad, color: '#ef4444', weight: 2, fillOpacity: 0.04, isStrike: true })
-            .addTo(mapLocal).bindPopup('<b>🔴 Senaste registrerat från sensorn</b><br>~' + latestLocal.dist + ' km · riktning okänd<br><small>' + new Date(latestLocal.tMs).toLocaleString('sv-SE') + '</small>');
-          L.marker(est, {
-            icon: L.divIcon({ className: '', html: '<div style="width:18px;height:18px;border-radius:50%;background:rgba(239,68,68,0.95);animation:pulseRed 1.5s infinite;"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
-            isStrike: true
-          }).addTo(mapLocal).bindPopup('<b>🔴 Senaste registrerat från sensorn</b><br>~' + latestLocal.dist + ' km från mottagaren<br><small>' + new Date(latestLocal.tMs).toLocaleString('sv-SE') + '<br><b>Uppskattad position</b> – AS3935 ger ej riktning' + (ref ? '<br>Vinklad mot senaste kända blixt' : '') + '</small>');
-          L.polyline([est, HOME], { color: '#ef4444', weight: 2, dashArray: '4 6', opacity: 0.8, isStrike: true }).addTo(mapLocal);
         }
       }
     }
@@ -384,11 +363,11 @@
               renderLocalLayers();
             }
           } else if (sub === 'local' && typeof j.dist !== 'undefined') {
-            latestLocal = { dist: j.dist, tMs: j.t || Date.now() };
+            latestLocal = { dist: j.dist, tMs: j.t || Date.now(), confirmed: false };
             localRings.push({ km: j.dist, tMs: latestLocal.tMs });
             renderLocalLayers();
             document.getElementById('lastLocalInfo').innerHTML =
-              '🔴 Senaste registrerat från sensorn: <b>' + j.dist + ' km</b> · ' + new Date(latestLocal.tMs).toLocaleTimeString('sv-SE');
+              '🔴 Senaste registrerat från sensorn: <b>' + j.dist + ' km</b> · ' + new Date(latestLocal.tMs).toLocaleTimeString('sv-SE') + ' · ⏳ väntar på Blitzortung-bekräftelse…';
             espOnline(true);
           } else if (sub === 'noise' && typeof j.v !== 'undefined') {
             pushNoise(j.v);
@@ -746,6 +725,35 @@
     }
     window.addEventListener('resize', function(){ drawSpec(); drawNoise(); });
 
+    // Bekräfta senaste sensor-registrering mot AIO:s avståndshistorik:
+    // registreringen godkänns bara när två oberoende källor stämmer —
+    // ESP32:ens /local-detektion och ett efterföljande avståndsvärde < 50 km
+    // (AS3935-rapporterade utslagsplatser utanför 50 km ignoreras).
+    function tryConfirmLocal() {
+      if (!latestLocal || latestLocal.confirmed) return;
+      if (latestLocal.dist > 50) {
+        document.getElementById('lastLocalInfo').innerHTML =
+          '🔴 Senaste registrerat: ' + latestLocal.dist + ' km · <b>utanför 50 km – visas ej</b> · ' + new Date(latestLocal.tMs).toLocaleTimeString('sv-SE');
+        return;
+      }
+      fetchFeed('distance/data.json?hours=6').then(function(h){
+        if (!Array.isArray(h)) return;
+        var ok = false;
+        for (var i = 0; i < h.length; i++) {
+          var tMs = h[i].created_epoch * 1000;
+          if (Math.abs(tMs - latestLocal.tMs) > 180000) continue;
+          var v = parseFloat(h[i].value);
+          if (!isNaN(v) && v > 0 && v <= 50) { ok = true; break; }
+        }
+        if (ok) {
+          latestLocal.confirmed = true;
+          renderLocalLayers();
+          document.getElementById('lastLocalInfo').innerHTML =
+            '🔴 Senaste registrerat från sensorn: <b>' + latestLocal.dist + ' km</b> · ' + new Date(latestLocal.tMs).toLocaleTimeString('sv-SE') + ' · ✅ bekräftad';
+        }
+      }).catch(function(){});
+    }
+
     // Senaste registrering från den kopplade sensorn: hämtas ur AIO:s
     // avståndshistorik (senaste icke-noll-värde) så röda punkten/ringen
     // syns direkt vid sidladdning - innan första live-detektionen.
@@ -758,10 +766,8 @@
           if (!isNaN(v) && v > 0) { found = { dist: Math.round(v), tMs: h[i].created_epoch * 1000 }; break; }
         }
         if (found && (!latestLocal || found.tMs > latestLocal.tMs)) {
-          latestLocal = found;
-          renderLocalLayers();
-          document.getElementById('lastLocalInfo').innerHTML =
-            '🔴 Senaste registrerat från sensorn: <b>' + found.dist + ' km</b> · ' + new Date(found.tMs).toLocaleTimeString('sv-SE');
+          latestLocal = { dist: found.dist, tMs: found.tMs, confirmed: false };
+          tryConfirmLocal();
         }
       }).catch(function(){});
     }
@@ -783,7 +789,7 @@
     document.getElementById('qrDash').src = 'data:image/png;base64,' + QR_DASH;
     setInterval(updateData, 30000);
     setInterval(refreshCharts, 300000);
-    setInterval(refreshLastLocalHistory, 300000);
+    setInterval(function(){ tryConfirmLocal(); refreshLastLocalHistory(); }, 60000);
   </script>
 </body>
 </html>
