@@ -354,14 +354,20 @@
         try {
           var j = JSON.parse(payload.toString());
           var sub = topic.slice(TOPIC.length + 1);
-          if (sub === 'eu' && isFinite(j.lat) && isFinite(j.lon)) {
-            euDots.push({ latlon: [j.lat, j.lon], tMs: j.t || Date.now(), detectedAt: Date.now() });
-            if (euDots.length > 400) euDots.shift();
-            renderEuLayers();
-            if (distKm([j.lat, j.lon], HOME) < 150) {
-              localDots.push({ latlon: [j.lat, j.lon], tMs: j.t || Date.now(), km: Math.round(distKm([j.lat, j.lon], HOME)) });
-              renderLocalLayers();
-            }
+          if (sub === 'eu') {
+            // Batchformat från ESP32: {"s":[[lat,lon,tMs],...]} (hela Europa)
+            // eller äldre enkelformat {"lat":..,"lon":..,"t":..}
+            var arr = Array.isArray(j.s) ? j.s : (isFinite(j.lat) ? [[j.lat, j.lon, j.t]] : []);
+            arr.forEach(function(s){
+              if (!isFinite(s[0]) || !isFinite(s[1])) return;
+              var tMs = s[2] || Date.now();
+              euDots.push({ latlon: [s[0], s[1]], tMs: tMs, detectedAt: Date.now() });
+              if (distKm([s[0], s[1]], HOME) < 150) {
+                localDots.push({ latlon: [s[0], s[1]], tMs: tMs, km: Math.round(distKm([s[0], s[1]], HOME)) });
+              }
+            });
+            if (euDots.length > 600) euDots.splice(0, euDots.length - 600);
+            renderEuLayers(); renderLocalLayers();
           } else if (sub === 'local' && typeof j.dist !== 'undefined') {
             latestLocal = { dist: j.dist, tMs: j.t || Date.now(), confirmed: false };
             localRings.push({ km: j.dist, tMs: latestLocal.tMs });
