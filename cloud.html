@@ -34,6 +34,7 @@
     .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 0.78em; font-weight: 700; }
     .on  { background: #14532d; color: #4ade80; }
     .off { background: #7f1d1d; color: #fca5a5; }
+    @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); } 70% { box-shadow: 0 0 0 14px rgba(239,68,68,0); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } }
     @media (min-width: 760px) and (max-width: 1099px) {
       .card { max-width: 1080px; padding: 26px; }
       .dash-left, .dash-right { display: grid; grid-template-columns: 1fr 1fr; }
@@ -142,6 +143,7 @@
       <div class="label">Gävleborg – live</div>
       <div id="mapLocal" style="height: 280px; width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #334155;"></div>
       <div class="small" style="margin-top: 6px;">📍 Blå punkt = din mottagare · ⚡ punkter = exakt position (Blitzortung) · ─ linje = från mottagaren · ringar = riktning okänd</div>
+      <div class="small" id="lastLocalInfo" style="margin-top:4px; color:#fca5a5;">🔴 Senaste registrerat från sensorn: väntar på detektion…</div>
       <div style="margin-top: 12px;">
         <div class="label">Europa – live-aktivitet (30 min)</div>
         <div id="mapEu" style="height: 150px; width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #334155;"></div>
@@ -239,6 +241,7 @@
     var localDots = [];   // {m, tMs, lat, lon, km} exakta positioner nära hemmet
     var localRings = [];  // {m, tMs} AS3935-ringar (riktning okänd)
     var latestExact = null; // {lat, lon, km, tMs}
+    var latestLocal = null; // {dist, tMs} senaste registrering från den kopplade sensorn
     var euNearKm = -1, euNearTm = 0;
 
     function renderEuLayers() {
@@ -300,6 +303,29 @@
         L.circle(HOME, { radius: Math.max(5000, e.km * 1000), color: col, weight: 2, fillOpacity: 0.05, isStrike: true })
           .addTo(mapLocal).bindPopup('<b>Blixt ~' + e.km + ' km</b><br><small>' + new Date(e.tMs).toLocaleString('sv-SE') + '</small><br><small>Riktning okänd</small>');
       });
+      // 🔴 SENASTE registrerat från den kopplade sensorn: pulserande röd punkt.
+      // Position = Blitzortung-nedslag som bäst matchar avstånd + tid (±3 min);
+      // ingen matchning = tydlig röd ring (riktning okänd).
+      if (latestLocal) {
+        var best = null, bestScore = 1e9;
+        euDots.forEach(function(e){
+          var dt = Math.abs(e.tMs - latestLocal.tMs);
+          if (dt > 180000) return;
+          var d = Math.round(distKm(e.latlon, HOME));
+          var score = Math.abs(d - latestLocal.dist) * 1000 + dt / 1000;
+          if (score < bestScore) { bestScore = score; best = e; }
+        });
+        if (best) {
+          L.marker(best.latlon, {
+            icon: L.divIcon({ className: '', html: '<div style="width:18px;height:18px;border-radius:50%;background:rgba(239,68,68,0.95);animation:pulseRed 1.5s infinite;"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }),
+            isStrike: true
+          }).addTo(mapLocal).bindPopup('<b>🔴 Senaste registrerat från sensorn</b><br>~' + latestLocal.dist + ' km från mottagaren<br><small>' + new Date(latestLocal.tMs).toLocaleString('sv-SE') + '<br>Position via Blitzortung-matchning</small>');
+          L.polyline([best.latlon, HOME], { color: '#ef4444', weight: 2, dashArray: '4 6', opacity: 0.8, isStrike: true }).addTo(mapLocal);
+        } else {
+          L.circle(HOME, { radius: Math.max(5000, latestLocal.dist * 1000), color: '#ef4444', weight: 3, fillOpacity: 0, isStrike: true })
+            .addTo(mapLocal).bindPopup('<b>🔴 Senaste registrerat från sensorn</b><br>~' + latestLocal.dist + ' km · riktning okänd<br><small>' + new Date(latestLocal.tMs).toLocaleString('sv-SE') + '</small>');
+        }
+      }
     }
 
     function pruneLayers() {
@@ -339,8 +365,11 @@
               renderLocalLayers();
             }
           } else if (sub === 'local' && typeof j.dist !== 'undefined') {
-            localRings.push({ km: j.dist, tMs: j.t || Date.now() });
+            latestLocal = { dist: j.dist, tMs: j.t || Date.now() };
+            localRings.push({ km: j.dist, tMs: latestLocal.tMs });
             renderLocalLayers();
+            document.getElementById('lastLocalInfo').innerHTML =
+              '🔴 Senaste registrerat från sensorn: <b>' + j.dist + ' km</b> · ' + new Date(latestLocal.tMs).toLocaleTimeString('sv-SE');
             espOnline(true);
           } else if (sub === 'noise' && typeof j.v !== 'undefined') {
             pushNoise(j.v);
