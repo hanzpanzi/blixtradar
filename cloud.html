@@ -164,6 +164,7 @@
 
     <div class="block">
       <div class="small" id="boInfo" style="text-align:center;">📍 Position via Blitzortung: ...</div>
+      <div class="small" id="diagInfo" style="text-align:center; margin-top:6px; color:#94a3b8;">🔬 Sensor-diagnostik: ...</div>
       <div class="small" id="lastevent" style="text-align:center; margin-top:6px;">-</div>
       <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px;">
         <button class="btn" style="flex:0 0 auto; padding:8px 14px; font-size:0.85em;" onclick="pling()">🔔 Testa pling</button>
@@ -334,6 +335,11 @@
           } else if (sub === 'status') {
             espSeenTm = Date.now();
             espOnline(true);
+            if (j.diag) {
+              var noResp = /0x0\b|0x00|0xff/i.test(j.diag);
+              document.getElementById('diagInfo').innerText = '🔬 Sensor-diagnostik: ' + j.diag + (noResp ? ' → ingen svar på bussen (kolla kablage/ström till sensorn)' : ' → svarar');
+              document.getElementById('diagInfo').style.color = noResp ? '#f87171' : '#4ade80';
+            }
             if (j.mode) updateModeUI(j.mode);
             if (j.hist) renderChart(j.hist);
             if (j.temp) {
