@@ -1,339 +1,480 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>⚡ Blixtradar – Moln</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<style>
-  body { font-family: system-ui, -apple-system, sans-serif; background:#0f172a; color:#f8fafc; text-align:center; padding:12px; margin:0; -webkit-tap-highlight-color:transparent; }
-  .card { background:#1e293b; border-radius:20px; padding:18px; max-width:480px; margin:12px auto; box-shadow:0 10px 25px rgba(0,0,0,0.5); border:1px solid #334155; }
-  h1 { color:#38bdf8; margin:0 0 4px; font-size:1.6em; }
-  .label { color:#94a3b8; font-size:0.8em; text-transform:uppercase; letter-spacing:1.1px; }
-  .dist { font-size:3.4em; font-weight:800; color:#fde047; text-shadow:0 0 20px rgba(253,224,71,0.55); }
-  .dist.alarm { color:#ef4444; text-shadow:0 0 26px rgba(239,68,68,0.9); }
-  .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; text-align:center; }
-  .cell { background:#0f172a; border:1px solid #263449; border-radius:12px; padding:10px; }
-  .val { font-size:1.5em; font-weight:700; }
-  .small { color:#94a3b8; font-size:0.8em; margin-top:6px; }
-  .status { background:#0f172a; padding:12px; border-radius:12px; font-weight:600; color:#4ade80; margin:14px 0 4px; border:1px solid #1e293b; word-break:break-word; }
-  #updated { color:#64748b; font-size:0.75em; margin-top:10px; }
-  .offline { color:#f87171 !important; }
-  .chartbox { background:#0f172a; border:1px solid #263449; border-radius:12px; padding:10px; margin-top:12px; text-align:left; }
-  canvas { width:100%; height:130px; display:block; }
-  .legend { font-size:0.72em; color:#64748b; margin-top:4px; }
-  .mapbox { background:#0f172a; border:1px solid #263449; border-radius:12px; padding:10px; margin-top:12px; text-align:left; }
-  .map { height:260px; border-radius:10px; overflow:hidden; border:1px solid #334155; }
-  .map-eu { height:180px; }
-  .badge { display:inline-block; padding:2px 10px; border-radius:99px; font-size:0.72em; font-weight:700; margin-left:6px; vertical-align:middle; }
-  .on  { background:#14532d; color:#4ade80; }
-  .off { background:#7f1d1d; color:#fca5a5; }
-  @supports (padding:max(0px)) {
-    body { padding-left:max(12px,env(safe-area-inset-left)); padding-right:max(12px,env(safe-area-inset-right)); padding-top:max(12px,env(safe-area-inset-top)); padding-bottom:max(12px,env(safe-area-inset-bottom)); }
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>⚡ Blixtradar – Moln</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 12px; margin: 0; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+    .card { background: #1e293b; border-radius: 20px; padding: 18px; max-width: 420px; margin: 12px auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
+    h1 { color: #38bdf8; margin: 0 0 4px; font-size: 1.6em; }
+    .metric { font-size: 2.6em; font-weight: bold; color: #fbbf24; margin: 8px 0; }
+    @keyframes blinkYellow { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
+    @keyframes blinkRed { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }
+    .dist { font-size: 3.4em; font-weight: 800; color: #fde047; text-align: center; margin: 8px 0 2px; line-height: 1.1; text-shadow: 0 0 20px rgba(253, 224, 71, 0.55); }
+    .dist.blink { animation: blinkYellow 1s ease-in-out infinite; }
+    .dist.alarm { color: #ef4444; text-shadow: 0 0 26px rgba(239, 68, 68, 0.9); animation: blinkRed 0.6s steps(2, start) infinite; }
+    .dist-lbl { background: #0f172a; color: #fde047; border: 1px solid #475569; border-radius: 8px; padding: 2px 7px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .dist-lbl.latest { background: #fde047; color: #0f172a; border-color: #fde047; font-size: 13px; box-shadow: 0 0 12px rgba(253, 224, 71, 0.7); }
+    .label { color: #94a3b8; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1.1px; }
+    .status { background: #0f172a; padding: 12px; border-radius: 12px; font-weight: 600; color: #4ade80; margin: 14px 0; border: 1px solid #1e293b; word-break: break-word; }
+    .grid { display: flex; justify-content: space-around; gap: 8px; }
+    .row { display: flex; justify-content: space-around; gap: 10px; }
+    .btn { flex: 1; background: #334155; border: none; color: #f8fafc; padding: 12px; border-radius: 12px; font-size: 1em; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: #475569; }
+    .btn.active { background: #38bdf8; color: #0f172a; }
+    .small { color: #94a3b8; font-size: 0.8em; margin-top: 8px; }
+    .topbar { display: flex; flex-direction: column; }
+    .dash { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; text-align: left; }
+    .dash-left, .dash-right { display: flex; flex-direction: column; gap: 12px; }
+    .dash-mid { display: flex; }
+    .block { background: #0f172a; border: 1px solid #263449; border-radius: 14px; padding: 14px; }
+    .block-chart { text-align: center; }
+    canvas { width: 100%; height: 120px; display: block; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 0.78em; font-weight: 700; }
+    .on  { background: #14532d; color: #4ade80; }
+    .off { background: #7f1d1d; color: #fca5a5; }
+    @media (min-width: 760px) and (max-width: 1099px) {
+      .card { max-width: 1080px; padding: 26px; }
+      .dash-left, .dash-right { display: grid; grid-template-columns: 1fr 1fr; }
+      #mapLocal { height: 400px !important; }
+      #mapEu { height: 200px !important; }
+      .metric { font-size: 3em; }
+    }
+    @media (min-width: 1100px) {
+      body { overflow: hidden; }
+      .card { max-width: 1750px; margin: 10px auto; height: calc(100vh - 20px); box-sizing: border-box; display: flex; flex-direction: column; padding: 14px 18px; }
+      .topbar { flex-direction: row; align-items: center; gap: 16px; }
+      .topbar .status { flex: 1; margin: 0; }
+      .dash { flex: 1; display: grid; grid-template-columns: 310px minmax(0,1fr) minmax(0,1fr); gap: 12px; min-height: 0; margin-top: 12px; }
+      .dash-left, .dash-right { overflow-y: auto; min-height: 0; }
+      .dash-mid { min-height: 0; }
+      .dash-mid .block-map { flex: 1; display: flex; flex-direction: column; }
+      #mapLocal { flex: 1; height: auto !important; min-height: 0; }
+      #mapEu { height: 320px !important; }
+      .metric { font-size: 2.2em; }
+    }
+    @supports (padding: max(0px)) {
+      body { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 </head>
 <body>
   <div class="card">
-    <h1>⚡ Blixtradar</h1>
-    <div class="small">ESP32 live via molnet · <span id="espBadge" class="badge off">ESP32 ansluter…</span></div>
-
-    <div class="status" id="status">Hämtar data...</div>
-
-    <div style="margin:10px 0;">
-      <div class="label">Närmaste blixt</div>
-      <div class="dist" id="dist">--</div>
+    <div class="topbar">
+      <h1>⚡ Blixtradar</h1>
+      <div class="status" id="status">Laddar status...</div>
     </div>
 
-    <div class="grid">
-      <div class="cell"><div class="label">Totalt antal</div><div class="val" id="count">-</div></div>
-      <div class="cell"><div class="label">Senaste blixt</div><div class="val" id="lasttime" style="font-size:1.2em;">-</div></div>
-      <div class="cell"><div class="label">Störningar</div><div class="val" id="disturb" style="color:#f87171;">-</div></div>
-      <div class="cell"><div class="label">Brus</div><div class="val" id="noise" style="color:#fbbf24;">-</div></div>
+    <div class="dash">
+    <div class="dash-left">
+
+    <div class="block" style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+      <div style="text-align:left;">
+        <div class="label">Temperatur (Engesberg)</div>
+        <div id="temp" style="font-size:1.7em; font-weight:bold; color:#7dd3fc;">--</div>
+        <div class="small" style="margin-top:2px;" id="tempInfo">Hämtas från molnet...</div>
+      </div>
+      <span id="espBadge" class="badge off">ESP32 ansluter…</span>
     </div>
 
-    <div class="small" id="lastevent" style="margin-top:12px;">-</div>
-    <div id="updated">-</div>
+    <div class="block">
+      <div class="label">Närmaste blixt (hela Europa)</div>
+      <div class="dist" id="distance">--</div>
+      <div class="small" id="distInfo">Via Blitzortung – varning vid &lt;40 km</div>
+    </div>
 
-    <div class="mapbox">
+    <div class="block">
+      <div class="grid">
+        <div>
+          <div class="label">Totalt antal</div>
+          <div class="metric" id="count" style="font-size: 1.8em; color: #38bdf8;">0</div>
+        </div>
+        <div>
+          <div class="label">Senaste blixt registrerad</div>
+          <div id="time" style="margin-top: 8px; font-size: 0.9em; color: #cbd5e1;">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="row">
+        <div>
+          <div class="label">Störningar</div>
+          <div id="dist" style="font-size: 1.4em; color: #f87171;">0</div>
+        </div>
+        <div>
+          <div class="label">Brus</div>
+          <div id="noise" style="font-size: 1.4em; color: #fbbf24;">0</div>
+        </div>
+        <div>
+          <div class="label">Uppetid</div>
+          <div id="uptime" style="font-size: 1.4em; color: #4ade80;">-</div>
+        </div>
+      </div>
+    </div>
+    </div><!-- /dash-left -->
+
+    <div class="dash-mid">
+    <div class="block block-map" style="text-align: left;">
       <div class="label">Gävleborg – live</div>
-      <div id="mapLocal" class="map"></div>
-      <div class="legend" id="localCount">・ringar = AS3935 (avstånd från sensorn) · punkter = exakt position (Blitzortung) · senaste 30 min</div>
+      <div id="mapLocal" style="height: 280px; width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #334155;"></div>
+      <div class="small" style="margin-top: 6px;">📍 Blå punkt = din mottagare · ⚡ punkter = exakt position (Blitzortung) · ─ linje = från mottagaren · ringar = riktning okänd</div>
+      <div style="margin-top: 12px;">
+        <div class="label">Europa – live-aktivitet (30 min)</div>
+        <div id="mapEu" style="height: 150px; width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #334155;"></div>
+        <div class="small" style="margin-top: 4px;">
+          <span style="color:#ffffff;">●</span> &lt;3 min&nbsp; <span style="color:#fbbf24;">●</span> &lt;8 min&nbsp; <span style="color:#f97316;">●</span> &lt;15 min&nbsp; <span style="color:#b91c1c;">●</span> äldre
+        </div>
+      </div>
     </div>
 
-    <div class="mapbox">
-      <div class="label">Europa – live-aktivitet (30 min)</div>
-      <div id="mapEu" class="map map-eu"></div>
-      <div class="legend" id="euCount">・varje punkt = en blixt (Blitzortung-nätverket)</div>
+    </div><!-- /dash-mid -->
+
+    <div class="dash-right">
+
+    <div class="block">
+      <div class="small" id="boInfo" style="text-align:center;">📍 Position via Blitzortung: ...</div>
+      <div class="small" id="lastevent" style="text-align:center; margin-top:6px;">-</div>
+      <button class="btn" style="margin-top:10px; width:100%;" onclick="pling()">🔔 Testa pling</button>
     </div>
 
-    <div class="chartbox">
+    <div class="block block-chart">
       <div class="label">Blixtrar per timme (24 h)</div>
-      <canvas id="chartStrikes" width="600" height="260"></canvas>
-      <div class="legend" id="strikeSum">-</div>
+      <canvas id="chartStrikes" width="600" height="240"></canvas>
+      <div class="row" style="margin-top: 4px;">
+        <div><span style="color:#38bdf8;">■</span> <span class="small" style="font-size:0.7em;">Blixtar</span></div>
+        <div id="strikeSum" class="small" style="font-size:0.7em;">-</div>
+      </div>
     </div>
 
-    <div class="chartbox">
+    <div class="block block-chart">
       <div class="label">Närmaste blixtens avstånd (24 h)</div>
-      <canvas id="chartDist" width="600" height="260"></canvas>
-      <div class="legend">Gul linje = avstånd i km · luckor = inga blixtar rapporterade (0)</div>
+      <canvas id="chartDist" width="600" height="240"></canvas>
+      <div class="small" style="font-size:0.7em;">Gul linje = km · luckor = inga blixtar (0)</div>
     </div>
-  </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
-<script>
-const AIO = 'https://io.adafruit.com/api/v2/hanzpanzi/feeds/blixtradar-';
-const FEEDS = ['status','distance','count','lasttime','disturb','noise','lastevent'];
-const HOME = [60.736278, 17.286500];   // Engesberg / Norrlandet
-const MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
-const TOPIC = 'hanzpanzi/blixtradar';
+    </div><!-- /dash-right -->
+  </div><!-- /dash -->
+  </div><!-- /card -->
 
-async function fetchFeed(name) {
-  try {
-    const r = await fetch(AIO + name);
-    if (!r.ok) throw 0;
-    const j = await r.json();
-    return j.last_value;
-  } catch { return null; }
-}
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
+  <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+  <script>
+    var AIO = 'https://io.adafruit.com/api/v2/hanzpanzi/feeds/blixtradar-';
+    var HOME = [60.736278, 17.286500];
+    var MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
+    var TOPIC = 'hanzpanzi/blixtradar';
 
-async function fetchHistory(name, hours) {
-  try {
-    const r = await fetch(AIO + name + '/data.json?hours=' + hours);
-    if (!r.ok) throw 0;
-    return await r.json();
-  } catch { return null; }
-}
+    var mapLocal = L.map('mapLocal').setView(HOME, 9);
+    L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20, attribution: '&copy; Google' }).addTo(mapLocal);
+    L.circleMarker(HOME, { radius: 9, color: '#fff', weight: 2, fillColor: '#38bdf8', fillOpacity: 1 })
+      .addTo(mapLocal).bindPopup('<b>📍 Min mottagare</b><br><small>60.736, 17.287</small>');
+    var mapEu = L.map('mapEu').setView([55, 12], 4);
+    L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', { maxZoom: 20, attribution: '&copy; Google' }).addTo(mapEu);
+    L.circleMarker(HOME, { radius: 6, color: '#fff', weight: 1.5, fillColor: '#38bdf8', fillOpacity: 1 })
+      .addTo(mapEu).bindPopup('<b>📍 Min mottagare</b>');
 
-async function refresh() {
-  const vals = {};
-  await Promise.all(FEEDS.map(async f => { vals[f] = await fetchFeed(f); }));
-
-  const any = Object.values(vals).some(v => v !== null);
-  const st = document.getElementById('status');
-  if (!any) {
-    st.textContent = 'Ingen data från ESP32:n';
-    st.classList.add('offline');
-    return;
-  }
-  st.classList.remove('offline');
-
-  st.textContent = vals.status ?? '-';
-  const d = vals.distance;
-  const distEl = document.getElementById('dist');
-  if (d === null || d === undefined) { distEl.textContent = '--'; }
-  else {
-    const n = parseInt(d, 10);
-    if (isNaN(n)) { distEl.textContent = '--'; }
-    else {
-      distEl.textContent = n === 0 ? '--' : (n + ' km');
-      distEl.classList.toggle('alarm', n > 0 && n < 40);
+    function distKm(a, b) {
+      var R = 6371, p1 = a[0]*Math.PI/180, p2 = b[0]*Math.PI/180,
+          dp = (b[0]-a[0])*Math.PI/180, dl = (b[1]-a[1])*Math.PI/180;
+      var h = Math.sin(dp/2)*Math.sin(dp/2) + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)*Math.sin(dl/2);
+      return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1-h));
     }
-  }
-  document.getElementById('count').textContent = vals.count ?? '-';
-  document.getElementById('lasttime').textContent = vals.lasttime ?? '-';
-  document.getElementById('disturb').textContent = vals.disturb ?? '-';
-  document.getElementById('noise').textContent = vals.noise ?? '-';
-  document.getElementById('lastevent').textContent = vals.lastevent ?? '';
-
-  try {
-    const j = await (await fetch(AIO + 'count')).json();
-    const iso = j.updated_at.endsWith('Z') ? j.updated_at : j.updated_at + 'Z';
-    const age = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-    document.getElementById('updated').textContent =
-      'Uppdaterad ' + (age < 90 ? age + ' s sedan' : Math.round(age/60) + ' min sedan');
-  } catch {}
-}
-
-// ---------- Diagram (ren canvas) ----------
-function prepCanvas(cv) {
-  const dpr = window.devicePixelRatio || 1;
-  const w = cv.clientWidth || 300, h = 130;
-  cv.width = w * dpr; cv.height = h * dpr;
-  const ctx = cv.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, w, h);
-  return { ctx, w, h };
-}
-
-function drawBars(cv, buckets) {
-  const { ctx, w, h } = prepCanvas(cv);
-  const padB = 18, padT = 10;
-  const maxV = Math.max(1, ...buckets);
-  const bw = w / 24;
-  ctx.font = '9px system-ui';
-  ctx.strokeStyle = '#263449';
-  ctx.beginPath(); ctx.moveTo(0, h - padB); ctx.lineTo(w, h - padB); ctx.stroke();
-  buckets.forEach((v, i) => {
-    const bh = v / maxV * (h - padB - padT);
-    const x = i * bw + 1, y = h - padB - bh;
-    ctx.fillStyle = v > 0 ? (i === 23 ? '#fbbf24' : '#38bdf8') : '#1e293b';
-    ctx.fillRect(x, y, bw - 2, Math.max(v > 0 ? 2 : 1, bh));
-  });
-  ctx.fillStyle = '#64748b';
-  ctx.fillText(String(maxV), 2, 9);
-  for (let i = 0; i <= 24; i += 6) {
-    const hh = new Date(Date.now() - (23 - i + 1) * 3600e3).getHours();
-    ctx.fillText(String(hh).padStart(2, '0'), Math.min(w - 14, i * bw + 1), h - 5);
-  }
-}
-
-function drawLine(cv, pts) {
-  const { ctx, w, h } = prepCanvas(cv);
-  const padB = 18, padT = 10, padR = 24;
-  const valid = pts.filter(p => p.km !== null);
-  ctx.font = '9px system-ui';
-  ctx.strokeStyle = '#263449';
-  ctx.beginPath(); ctx.moveTo(0, h - padB); ctx.lineTo(w, h - padB); ctx.stroke();
-  if (valid.length < 2) {
-    ctx.fillStyle = '#64748b';
-    ctx.fillText('Inga blixtrörelser att visa', 8, h / 2);
-    return;
-  }
-  const maxKm = Math.max(10, ...valid.map(p => p.km));
-  const t0 = pts[0].t, t1 = pts[pts.length - 1].t;
-  const xOf = t => (t - t0) / Math.max(1, t1 - t0) * (w - padR);
-  const yOf = km => h - padB - (km / maxKm) * (h - padB - padT);
-  ctx.strokeStyle = '#fde047'; ctx.lineWidth = 1.6;
-  ctx.beginPath();
-  let pen = false;
-  pts.forEach(p => {
-    if (p.km === null) { pen = false; return; }
-    const x = xOf(p.t), y = yOf(p.km);
-    if (!pen) { ctx.moveTo(x, y); pen = true; } else ctx.lineTo(x, y);
-  });
-  ctx.stroke();
-  ctx.fillStyle = '#64748b'; ctx.lineWidth = 1;
-  ctx.fillText(maxKm + ' km', 2, 9);
-  for (let i = 0; i <= 24; i += 6) {
-    const hh = new Date(Date.now() - (23 - i + 1) * 3600e3).getHours();
-    ctx.fillText(String(hh).padStart(2, '0'), Math.min(w - 14, i * (w / 24) + 1), h - 5);
-  }
-}
-
-async function refreshCharts() {
-  const [cnt, dist] = await Promise.all([fetchHistory('count', 24), fetchHistory('distance', 24)]);
-  if (Array.isArray(cnt) && cnt.length > 1) {
-    const old2new = cnt.slice().reverse();
-    const buckets = new Array(24).fill(0);
-    const now = Date.now();
-    for (let i = 1; i < old2new.length; i++) {
-      const v0 = parseFloat(old2new[i-1].value), v1 = parseFloat(old2new[i].value);
-      if (isNaN(v0) || isNaN(v1)) continue;
-      const delta = v1 >= v0 ? v1 - v0 : v1;
-      if (delta <= 0) continue;
-      const ageH = (now - old2new[i].created_epoch * 1000) / 3600e3;
-      const b = 23 - Math.min(23, Math.floor(ageH));
-      if (b >= 0 && b < 24) buckets[b] += delta;
+    function agoStr(t) {
+      if (!t) return '-';
+      var s = Math.floor(Date.now() / 1000) - t;
+      if (s < 0) s = 0;
+      if (s < 5) return 'just nu';
+      if (s < 60) return s + ' s sedan';
+      if (s < 3600) return Math.floor(s / 60) + ' min sedan';
+      if (s < 86400) return Math.floor(s / 3600) + ' tim sedan';
+      return Math.floor(s / 86400) + ' dagar sedan';
     }
-    drawBars(document.getElementById('chartStrikes'), buckets);
-    const sum = buckets.reduce((a, b) => a + b, 0);
-    document.getElementById('strikeSum').textContent = sum + ' blixtrar senaste 24 h';
-  }
-  if (Array.isArray(dist) && dist.length > 1) {
-    const old2new = dist.slice().reverse();
-    const pts = old2new.map(p => {
-      const km = parseFloat(p.value);
-      return { t: p.created_epoch * 1000, km: (isNaN(km) || km === 0) ? null : km };
-    });
-    drawLine(document.getElementById('chartDist'), pts);
-  }
-}
 
-// ---------- Kartor ----------
-const mapLocal = L.map('mapLocal', { center: HOME, zoom: 8 });
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(mapLocal);
-L.circleMarker(HOME, { radius: 6, color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 1 })
-  .bindPopup('Sensorn (Engesberg)').addTo(mapLocal);
+    // ---------- Live-strike-lager (från MQTT-reläet) ----------
+    var euDots = [];      // {m, tMs} Europa-punkter
+    var localDots = [];   // {m, tMs, lat, lon, km} exakta positioner nära hemmet
+    var localRings = [];  // {m, tMs} AS3935-ringar (riktning okänd)
+    var latestExact = null; // {lat, lon, km, tMs}
+    var euNearKm = -1, euNearTm = 0;
 
-const mapEu = L.map('mapEu', { center: [56, 15], zoom: 3 });
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(mapEu);
-L.circleMarker(HOME, { radius: 4, color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 1 }).addTo(mapEu);
-
-const localRings = [];   // {m, t} AS3935-ringar på mapLocal
-const localDots  = [];   // {m, t} exakta BO-positioner på mapLocal
-const euDots     = [];   // {m, t} alla Europa-punkter på mapEu
-let euTotal = 0;
-
-function haversineKm(lat1, lon1, lat2, lon2) {
-  const R = 6371, rad = x => x * Math.PI / 180;
-  const a = Math.sin(rad(lat2-lat1)/2)**2 + Math.cos(rad(lat1))*Math.cos(rad(lat2))*Math.sin(rad(lon2-lon1)/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-function addEuStrike(lat, lon, t) {
-  const now = Date.now();
-  const m = L.circleMarker([lat, lon], { radius: 3, color: '#fbbf24', fillColor: '#fbbf24', fillOpacity: 0.85 })
-    .bindPopup(new Date(t).toLocaleTimeString('sv-SE')).addTo(mapEu);
-  euDots.push({ m, t: now });
-  euTotal++;
-  if (haversineKm(HOME[0], HOME[1], lat, lon) < 150) {
-    const md = L.circleMarker([lat, lon], { radius: 5, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.9 })
-      .bindPopup('Blixt ' + new Date(t).toLocaleTimeString('sv-SE')).addTo(mapLocal);
-    localDots.push({ m: md, t: now });
-  }
-  document.getElementById('euCount').textContent = '・' + euDots.length + ' blixtrar senaste 30 min (' + euTotal + ' totalt sedan sidan öppnades)';
-}
-
-function addLocalStrike(km, t) {
-  const now = Date.now();
-  const r = (km >= 0 ? km : 20) * 1000;
-  const col = km >= 0 && km < 40 ? '#ef4444' : '#fde047';
-  const m = L.circle(HOME, { radius: r, color: col, weight: 1.5, fillColor: col, fillOpacity: 0.08 })
-    .bindPopup('AS3935: ' + (km >= 0 ? km + ' km' : 'okänt avstånd') + ' · ' + new Date(t).toLocaleTimeString('sv-SE'))
-    .addTo(mapLocal);
-  localRings.push({ m, t: now });
-}
-
-function pruneMaps() {
-  const cutoff = Date.now() - 30 * 60e3;
-  [localRings, localDots, euDots].forEach(arr => {
-    for (let i = arr.length - 1; i >= 0; i--) {
-      if (arr[i].t < cutoff) { arr[i].m.remove(); arr.splice(i, 1); }
-    }
-  });
-  document.getElementById('localCount').textContent =
-    '・' + localRings.length + ' ring(ar), ' + localDots.length + ' exakta punkter · senaste 30 min';
-  if (euDots.length) document.getElementById('euCount').textContent =
-    '・' + euDots.length + ' blixtrar senaste 30 min (' + euTotal + ' totalt sedan sidan öppnades)';
-}
-setInterval(pruneMaps, 60000);
-
-// ---------- MQTT live-ström från ESP32:en ----------
-function espOnline(ok) {
-  const b = document.getElementById('espBadge');
-  b.textContent = ok ? 'ESP32 online' : 'ESP32 offline';
-  b.className = 'badge ' + (ok ? 'on' : 'off');
-}
-let espSeenTm = 0;
-setInterval(() => { if (espSeenTm && Date.now() - espSeenTm > 150000) espOnline(false); }, 20000);
-
-try {
-  const client = mqtt.connect(MQTT_URL, { clientId: 'blixtradar-web-' + Math.random().toString(16).slice(2, 10), reconnectPeriod: 5000 });
-  client.on('connect', () => client.subscribe(TOPIC + '/#'));
-  client.on('message', (topic, payload) => {
-    try {
-      const j = JSON.parse(payload.toString());
-      const sub = topic.slice(TOPIC.length + 1);
-      if (sub === 'eu' && isFinite(j.lat) && isFinite(j.lon)) {
-        addEuStrike(j.lat, j.lon, j.t || Date.now());
-      } else if (sub === 'local' && typeof j.dist !== 'undefined') {
-        addLocalStrike(j.dist, j.t || Date.now());
-        espOnline(true);
-      } else if (sub === 'status') {
-        espSeenTm = Date.now();
-        espOnline(true);
+    function renderEuLayers() {
+      mapEu.eachLayer(function(l){ if (l.options && l.options.isEu) mapEu.removeLayer(l); });
+      var now = Date.now();
+      var last = null;
+      euDots.forEach(function(e){ if (!last || e.detectedAt > last.detectedAt) last = e; });
+      euDots.forEach(function(e){
+        var age = now - e.tMs;
+        var col = age < 180000 ? '#ffffff' : age < 480000 ? '#fbbf24' : age < 900000 ? '#f97316' : '#b91c1c';
+        L.circleMarker(e.latlon, { radius: 5, color: '#ffffff', weight: 2, fillColor: col, fillOpacity: 0.95, isEu: true })
+          .addTo(mapEu);
+      });
+      if (last) {
+        var dKm = Math.round(distKm(last.latlon, HOME));
+        var lineE = L.polyline([last.latlon, HOME], { color: '#fde047', weight: 4, opacity: 0.95, isEu: true })
+          .addTo(mapEu)
+          .bindPopup('<b>⚡ Senaste blixt: ' + dKm + ' km från dig</b><br><small>' + agoStr(Math.floor(last.tMs/1000)) + '</small>');
+        if (L.polylineDecorator) {
+          L.polylineDecorator(lineE, { patterns: [{ offset: '100%', repeat: 0, symbol: L.Symbol.arrowHead({ pixelSize: 14, polygon: false, pathOptions: { stroke: true, color: '#fde047', weight: 3 } }) }] }).addTo(mapEu);
+        }
+        L.marker([(HOME[0]+last.latlon[0])/2, (HOME[1]+last.latlon[1])/2], { icon: L.divIcon({ className: 'dist-lbl latest', html: dKm + ' km' }), isEu: true, interactive: false }).addTo(mapEu);
       }
-    } catch {}
-  });
-  client.on('close', () => {});   // mqtt.js återansluter automatiskt
-} catch (e) {}
+      // uppdatera euNear
+      euNearKm = -1; euNearTm = 0;
+      euDots.forEach(function(e){
+        var d = distKm(e.latlon, HOME);
+        if (euNearKm < 0 || d < euNearKm) { euNearKm = d; euNearTm = Math.floor(e.tMs/1000); }
+      });
+    }
 
-refresh();
-refreshCharts();
-setInterval(refresh, 30000);
-setInterval(refreshCharts, 300000);
-</script>
+    function renderLocalLayers() {
+      mapLocal.eachLayer(function(l){ if (l.options && l.options.isStrike) mapLocal.removeLayer(l); });
+      var colors = ['#fbbf24','#f87171','#a78bfa'];
+      localDots.forEach(function(e, i){
+        var col = colors[(i % 3)];
+        var when = new Date(e.tMs).toLocaleString('sv-SE');
+        L.circleMarker(e.latlon, { radius: 7, color: '#ffffff', weight: 1.5, fillColor: col, fillOpacity: 0.9, isStrike: true })
+          .addTo(mapLocal).bindPopup('<b>Blixt ' + e.km + ' km</b><br><small>' + when + '</small><br><small>Exakt position via Blitzortung</small>');
+        if (!latestExact || e.tMs > latestExact.tMs) latestExact = e;
+      });
+      // Linjer från mottagaren till exakta positioner (senaste får tjock gul linje)
+      localDots.forEach(function(e){
+        var isLatest = latestExact && e === latestExact;
+        var line = L.polyline([e.latlon, HOME], isLatest
+            ? { color: '#fde047', weight: 4, opacity: 0.95, isStrike: true }
+            : { color: colors[(localDots.indexOf(e) % 3)], weight: 2, dashArray: '7 6', opacity: 0.75, isStrike: true })
+          .addTo(mapLocal)
+          .bindPopup(isLatest ? '<b>⚡ Senaste nedslag: ' + e.km + ' km</b><br><small>Linje ända till din position</small>'
+                              : '<b>Blixt ' + e.km + ' km från mottagaren</b>');
+        if (L.polylineDecorator) {
+          L.polylineDecorator(line, { patterns: [{ offset: '100%', repeat: 0, symbol: L.Symbol.arrowHead({ pixelSize: 12, polygon: false, pathOptions: { stroke: true, color: isLatest ? '#fde047' : '#94a3b8', weight: 2 } }) }] }).addTo(mapLocal);
+        }
+        L.marker([(HOME[0] + e.latlon[0]) / 2, (HOME[1] + e.latlon[1]) / 2], { icon: L.divIcon({ className: 'dist-lbl' + (isLatest ? ' latest' : ''), html: e.km + ' km' }), isStrike: true, interactive: false }).addTo(mapLocal);
+      });
+      // Ringar (AS3935, riktning okänd)
+      localRings.forEach(function(e){
+        var col = e.km >= 0 && e.km < 40 ? '#ef4444' : '#fde047';
+        L.circle(HOME, { radius: Math.max(5000, e.km * 1000), color: col, weight: 2, fillOpacity: 0.05, isStrike: true })
+          .addTo(mapLocal).bindPopup('<b>Blixt ~' + e.km + ' km</b><br><small>' + new Date(e.tMs).toLocaleString('sv-SE') + '</small><br><small>Riktning okänd</small>');
+      });
+    }
+
+    function pruneLayers() {
+      var cutoff = Date.now() - 30 * 60e3;
+      [euDots, localDots, localRings].forEach(function(arr){
+        for (var i = arr.length - 1; i >= 0; i--) if (arr[i].tMs < cutoff) arr.splice(i, 1);
+      });
+      renderEuLayers(); renderLocalLayers();
+    }
+    setInterval(pruneLayers, 60000);
+    window.addEventListener('resize', function(){ try { mapLocal.invalidateSize(); mapEu.invalidateSize(); } catch(e){} });
+
+    // ---------- MQTT: live-ström från ESP32:en ----------
+    function espOnline(ok) {
+      var b = document.getElementById('espBadge');
+      b.textContent = ok ? 'ESP32 online' : 'ESP32 offline';
+      b.className = 'badge ' + (ok ? 'on' : 'off');
+      var bo = document.getElementById('boInfo');
+      bo.innerText = ok ? '📍 Position via Blitzortung: aktiv (live via molnet)' : '📍 ESP32: ej ansluten till molnet';
+    }
+    var espSeenTm = 0;
+    setInterval(function(){ if (espSeenTm && Date.now() - espSeenTm > 150000) espOnline(false); }, 20000);
+
+    try {
+      var client = mqtt.connect(MQTT_URL, { clientId: 'blixtradar-web-' + Math.random().toString(16).slice(2, 10), reconnectPeriod: 5000 });
+      client.on('connect', function(){ client.subscribe(TOPIC + '/#'); });
+      client.on('message', function(topic, payload){
+        try {
+          var j = JSON.parse(payload.toString());
+          var sub = topic.slice(TOPIC.length + 1);
+          if (sub === 'eu' && isFinite(j.lat) && isFinite(j.lon)) {
+            euDots.push({ latlon: [j.lat, j.lon], tMs: j.t || Date.now(), detectedAt: Date.now() });
+            if (euDots.length > 400) euDots.shift();
+            renderEuLayers();
+            if (distKm([j.lat, j.lon], HOME) < 150) {
+              localDots.push({ latlon: [j.lat, j.lon], tMs: j.t || Date.now(), km: Math.round(distKm([j.lat, j.lon], HOME)) });
+              renderLocalLayers();
+            }
+          } else if (sub === 'local' && typeof j.dist !== 'undefined') {
+            localRings.push({ km: j.dist, tMs: j.t || Date.now() });
+            renderLocalLayers();
+            espOnline(true);
+          } else if (sub === 'status') {
+            espSeenTm = Date.now();
+            espOnline(true);
+            if (j.temp) document.getElementById('temp').innerText = j.temp;
+            if (j.uptime) document.getElementById('uptime').innerText = j.uptime;
+          }
+        } catch (e) {}
+      });
+    } catch (e) {}
+
+    // ---------- Adafruit IO: statusvärden ----------
+    function fetchFeed(name) {
+      return fetch(AIO + name).then(function(r){ return r.ok ? r.json() : null; }).catch(function(){ return null; });
+    }
+    var lastCount = null;
+    function updateData() {
+      Promise.all(['status','distance','count','lasttime','disturb','noise','temp','lastevent'].map(fetchFeed)).then(function(vals){
+        var v = { status: vals[0], distance: vals[1], count: vals[2], lasttime: vals[3], disturb: vals[4], noise: vals[5], temp: vals[6], lastevent: vals[7] };
+        function last(f){ return v[f] ? v[f].last_value : null; }
+        var count = parseInt(last('count'), 10);
+        if (!isNaN(count)) {
+          if (lastCount !== null && count > lastCount) { pling(); blixNotis('⚡ Blixt detekterad!'); }
+          lastCount = count;
+          document.getElementById('count').innerText = count;
+        }
+        document.getElementById('status').innerText = last('status') || '-';
+        document.getElementById('time').innerText = last('lasttime') || '-';
+        document.getElementById('dist').innerText = last('disturb') || '0';
+        document.getElementById('noise').innerText = last('noise') || '0';
+        document.getElementById('temp').innerText = last('temp') || '--';
+        document.getElementById('lastevent').innerText = last('lastevent') || '-';
+        var tAge = v.temp ? Math.round((Date.now() - new Date(v.temp.updated_at).getTime()) / 60000) : null;
+        if (document.getElementById('temp').innerText === '--' && last('temp')) document.getElementById('temp').innerText = last('temp');
+        document.getElementById('tempInfo').innerText = 'Från ESP32 via molnet';
+        // Uppetid: från reläets retained status
+        var up = espSeenTm ? agoStr(Math.floor(espSeenTm / 1000)).replace(' sedan', '') : '-';
+        document.getElementById('uptime').innerText = espSeenTm ? 'online' : '-';
+        // Närmaste blixt: hellre live euNear från MQTT, annars AIO distance
+        var km = euNearKm >= 0 ? Math.round(euNearKm) : (parseInt(last('distance'), 10) || 0);
+        var alarm = km >= 0 && km <= 40;
+        var dEl = document.getElementById('distance');
+        dEl.innerText = km > 0 ? km + ' km' : '--';
+        dEl.classList.toggle('blink', km > 0 && !alarm);
+        dEl.classList.toggle('alarm', alarm);
+        var di = document.getElementById('distInfo');
+        if (km > 0) {
+          di.innerText = (alarm ? '🚨 Åska inom 40 km – varning!' : 'Via Blitzortung (hela Europa)') +
+                         (euNearTm ? ' · ' + agoStr(euNearTm) : '');
+        } else {
+          di.innerText = 'Via Blitzortung (hela Europa) – ingen blixt än';
+        }
+      });
+    }
+
+    // ---------- Diagram (24 h, från AIO-historik) ----------
+    function prepCanvas(cv) {
+      var dpr = window.devicePixelRatio || 1;
+      var w = cv.clientWidth || 300, h = 120;
+      cv.width = w * dpr; cv.height = h * dpr;
+      var ctx = cv.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      return { ctx: ctx, w: w, h: h };
+    }
+    function drawBars(cv, buckets) {
+      var p = prepCanvas(cv), ctx = p.ctx, w = p.w, h = p.h;
+      var padB = 18, padT = 10, maxV = Math.max(1, Math.max.apply(null, buckets)), bw = w / 24;
+      ctx.font = '9px system-ui';
+      ctx.strokeStyle = '#263449';
+      ctx.beginPath(); ctx.moveTo(0, h - padB); ctx.lineTo(w, h - padB); ctx.stroke();
+      buckets.forEach(function(v, i){
+        var bh = v / maxV * (h - padB - padT);
+        ctx.fillStyle = v > 0 ? (i === 23 ? '#fbbf24' : '#38bdf8') : '#1e293b';
+        ctx.fillRect(i * bw + 1, h - padB - bh, bw - 2, Math.max(v > 0 ? 2 : 1, bh));
+      });
+      ctx.fillStyle = '#64748b';
+      ctx.fillText(String(maxV), 2, 9);
+      for (var i = 0; i <= 24; i += 6) {
+        var hh = new Date(Date.now() - (23 - i + 1) * 3600e3).getHours();
+        ctx.fillText(String(hh).padStart(2, '0'), Math.min(w - 14, i * bw + 1), h - 5);
+      }
+    }
+    function drawLine(cv, pts) {
+      var p = prepCanvas(cv), ctx = p.ctx, w = p.w, h = p.h;
+      var padB = 18, padT = 10, padR = 24;
+      var valid = pts.filter(function(x){ return x.km !== null; });
+      ctx.font = '9px system-ui';
+      ctx.strokeStyle = '#263449';
+      ctx.beginPath(); ctx.moveTo(0, h - padB); ctx.lineTo(w, h - padB); ctx.stroke();
+      if (valid.length < 2) {
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('Inga blixtrörelser att visa', 8, h / 2);
+        return;
+      }
+      var maxKm = Math.max(10, Math.max.apply(null, valid.map(function(x){ return x.km; })));
+      var t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+      var xOf = function(t){ return (t - t0) / Math.max(1, t1 - t0) * (w - padR); };
+      var yOf = function(km){ return h - padB - (km / maxKm) * (h - padB - padT); };
+      ctx.strokeStyle = '#fde047'; ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      var pen = false;
+      pts.forEach(function(x){
+        if (x.km === null) { pen = false; return; }
+        if (!pen) { ctx.moveTo(xOf(x.t), yOf(x.km)); pen = true; } else ctx.lineTo(xOf(x.t), yOf(x.km));
+      });
+      ctx.stroke();
+      ctx.fillStyle = '#64748b'; ctx.lineWidth = 1;
+      ctx.fillText(maxKm + ' km', 2, 9);
+      for (var i = 0; i <= 24; i += 6) {
+        var hh = new Date(Date.now() - (23 - i + 1) * 3600e3).getHours();
+        ctx.fillText(String(hh).padStart(2, '0'), Math.min(w - 14, i * (w / 24) + 1), h - 5);
+      }
+    }
+    function refreshCharts() {
+      Promise.all([fetchFeed('count/data.json?hours=24'), fetchFeed('distance/data.json?hours=24')]).then(function(res){
+        var cnt = res[0], dist = res[1];
+        if (Array.isArray(cnt) && cnt.length > 1) {
+          var old2new = cnt.slice().reverse();
+          var buckets = new Array(24).fill(0);
+          var now = Date.now();
+          for (var i = 1; i < old2new.length; i++) {
+            var v0 = parseFloat(old2new[i-1].value), v1 = parseFloat(old2new[i].value);
+            if (isNaN(v0) || isNaN(v1)) continue;
+            var delta = v1 >= v0 ? v1 - v0 : v1;
+            if (delta <= 0) continue;
+            var b = 23 - Math.min(23, Math.floor((now - old2new[i].created_epoch * 1000) / 3600e3));
+            if (b >= 0 && b < 24) buckets[b] += delta;
+          }
+          drawBars(document.getElementById('chartStrikes'), buckets);
+          var sum = buckets.reduce(function(a, b){ return a + b; }, 0);
+          document.getElementById('strikeSum').textContent = sum + ' st senaste 24 h';
+        }
+        if (Array.isArray(dist) && dist.length > 1) {
+          var pts = dist.slice().reverse().map(function(p){
+            var km = parseFloat(p.value);
+            return { t: p.created_epoch * 1000, km: (isNaN(km) || km === 0) ? null : km };
+          });
+          drawLine(document.getElementById('chartDist'), pts);
+        }
+      });
+    }
+
+    // ---------- Ljud + notiser (som på ESP32-dashboarden) ----------
+    function pling() {
+      try {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        var ctx = new Ctx();
+        [880, 1320].forEach(function(f, i) {
+          var o = ctx.createOscillator(), g = ctx.createGain();
+          o.type = 'sine'; o.frequency.value = f;
+          var t0 = ctx.currentTime + i * 0.18;
+          g.gain.setValueAtTime(0.001, t0);
+          g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.35);
+          o.connect(g); g.connect(ctx.destination);
+          o.start(t0); o.stop(t0 + 0.4);
+        });
+      } catch (e) {}
+    }
+    function blixNotis(msg) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try { new Notification('⚡ Blixtradar', { body: msg }); } catch (e) {}
+      }
+    }
+    document.addEventListener('click', function h() {
+      if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+      document.removeEventListener('click', h);
+    });
+
+    updateData(); refreshCharts();
+    setInterval(updateData, 30000);
+    setInterval(refreshCharts, 300000);
+  </script>
 </body>
 </html>
