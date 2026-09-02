@@ -423,16 +423,11 @@
         document.getElementById('time').innerText = last('lasttime') || '-';
         document.getElementById('dist').innerText = last('disturb') || '0';
         document.getElementById('noise').innerText = last('noise') || '0';
-        document.getElementById('temp').innerText = last('temp') || '--';
+        // Temp: AIO-feeden 'blixtradar-temp' finns inte i molnet – ESP32:en
+        // skickar temperaturen via MQTT-heartbeaten. Skriv bara över om
+        // feeden faktiskt har ett värde, annars nollställs heartbeat-värdet.
+        if (last('temp')) document.getElementById('temp').innerText = last('temp');
         document.getElementById('lastevent').innerText = last('lastevent') || '-';
-        var tAge = v.temp ? Math.round((Date.now() - new Date(v.temp.updated_at).getTime()) / 60000) : null;
-        if (document.getElementById('temp').innerText === '--' && last('temp')) {
-          document.getElementById('temp').innerText = last('temp');
-          document.getElementById('tempInfo').innerText = 'Uppdaterad ' + (v.temp.updated_at ? new Date(v.temp.updated_at).toLocaleTimeString('sv-SE') : '-') + ' · skanna QR:en för live';
-        }
-        // Uppetid: från reläets retained status
-        var up = espSeenTm ? agoStr(Math.floor(espSeenTm / 1000)).replace(' sedan', '') : '-';
-        document.getElementById('uptime').innerText = espSeenTm ? 'online' : '-';
         // Närmaste blixt: hellre live euNear från MQTT, annars AIO distance
         var km = euNearKm >= 0 ? Math.round(euNearKm) : (parseInt(last('distance'), 10) || 0);
         var alarm = km >= 0 && km <= 40;
