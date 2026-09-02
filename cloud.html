@@ -82,7 +82,7 @@
     </div>
 
     <div class="block">
-      <div class="label">Närmaste blixt (hela Europa)</div>
+      <div class="label">Närmaste blixt (inom området)</div>
       <div class="dist" id="distance">--</div>
       <div class="small" id="distInfo">Via Blitzortung – varning vid &lt;40 km</div>
     </div>
@@ -145,7 +145,7 @@
       <div class="small" style="margin-top: 6px;">📍 Blå punkt = din mottagare · ⚡ punkter = exakt position (Blitzortung) · ─ linje = från mottagaren · ringar = riktning okänd</div>
       <div class="small" id="lastLocalInfo" style="margin-top:4px; color:#fca5a5;">🔴 Senaste registrerat från sensorn: väntar på detektion…</div>
       <div style="margin-top: 12px;">
-        <div class="label">Europa – live-aktivitet (30 min)</div>
+        <div class="label">Område – live-aktivitet (30 min) · <span id="euDotCount" style="color:#38bdf8;">0</span> blixtrar</div>
         <div id="mapEu" style="height: 150px; width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid #334155;"></div>
         <div class="small" style="margin-top: 4px;">
           <span style="color:#ffffff;">●</span> &lt;3 min&nbsp; <span style="color:#fbbf24;">●</span> &lt;8 min&nbsp; <span style="color:#f97316;">●</span> &lt;15 min&nbsp; <span style="color:#b91c1c;">●</span> äldre
@@ -219,6 +219,17 @@
     L.circleMarker(HOME, { radius: 6, color: '#fff', weight: 1.5, fillColor: '#38bdf8', fillOpacity: 1 })
       .addTo(mapEu).bindPopup('<b>📍 Min mottagare</b>');
 
+    // ---------- Områdesfilter (samma vy som lightningmaps-länken: y=60.0353 x=33.0762 z=4) ----------
+    // Endast blixtrar inom denna rektangel sparas, ritas och räknas.
+    var REGION = { n: 68.9, s: 44.0, w: 4.0, e: 56.0 };
+    function inRegion(lat, lon) {
+      return lat >= REGION.s && lat <= REGION.n && lon >= REGION.w && lon <= REGION.e;
+    }
+    // Rita områdesgränsen på kartan (tunn streckad linje) så filtret syns
+    L.rectangle([[REGION.s, REGION.w], [REGION.n, REGION.e]],
+      { color: '#38bdf8', weight: 1.5, dashArray: '6 6', fill: false, interactive: false })
+      .addTo(mapEu).bindPopup('<b>Filterområde</b><br><small>Endast blixtrar inom denna ruta visas</small>');
+
     function distKm(a, b) {
       var R = 6371, p1 = a[0]*Math.PI/180, p2 = b[0]*Math.PI/180,
           dp = (b[0]-a[0])*Math.PI/180, dl = (b[1]-a[1])*Math.PI/180;
@@ -248,8 +259,9 @@
       mapEu.eachLayer(function(l){ if (l.options && l.options.isEu) mapEu.removeLayer(l); });
       var now = Date.now();
       var last = null;
-      euDots.forEach(function(e){ if (!last || e.detectedAt > last.detectedAt) last = e; });
+      euDots.forEach(function(e){ if (inRegion(e.latlon[0], e.latlon[1]) && (!last || e.detectedAt > last.detectedAt)) last = e; });
       euDots.forEach(function(e){
+        if (!inRegion(e.latlon[0], e.latlon[1])) return;   // säkerhetsfilter
         var age = now - e.tMs;
         var col = age < 180000 ? '#ffffff' : age < 480000 ? '#fbbf24' : age < 900000 ? '#f97316' : '#b91c1c';
         L.circleMarker(e.latlon, { radius: 5, color: '#ffffff', weight: 2, fillColor: col, fillOpacity: 0.95, isEu: true })
@@ -265,9 +277,10 @@
         }
         L.marker([(HOME[0]+last.latlon[0])/2, (HOME[1]+last.latlon[1])/2], { icon: L.divIcon({ className: 'dist-lbl latest', html: dKm + ' km' }), isEu: true, interactive: false }).addTo(mapEu);
       }
-      // uppdatera euNear
+      // uppdatera euNear (endast punkter inom området)
       euNearKm = -1; euNearTm = 0;
       euDots.forEach(function(e){
+        if (!inRegion(e.latlon[0], e.latlon[1])) return;
         var d = distKm(e.latlon, HOME);
         if (euNearKm < 0 || d < euNearKm) { euNearKm = d; euNearTm = Math.floor(e.tMs/1000); }
       });
@@ -358,8 +371,11 @@
             // Batchformat från ESP32: {"s":[[lat,lon,tMs],...]} (hela Europa)
             // eller äldre enkelformat {"lat":..,"lon":..,"t":..}
             var arr = Array.isArray(j.s) ? j.s : (isFinite(j.lat) ? [[j.lat, j.lon, j.t]] : []);
+            var regionCount = 0;
             arr.forEach(function(s){
               if (!isFinite(s[0]) || !isFinite(s[1])) return;
+              if (!inRegion(s[0], s[1])) return;          // bara valt område
+              regionCount++;
               var tMs = s[2] || Date.now();
               euDots.push({ latlon: [s[0], s[1]], tMs: tMs, detectedAt: Date.now() });
               if (distKm([s[0], s[1]], HOME) < 150) {
@@ -368,6 +384,7 @@
             });
             if (euDots.length > 600) euDots.splice(0, euDots.length - 600);
             renderEuLayers(); renderLocalLayers();
+            document.getElementById('euDotCount').innerText = euDots.filter(function(e){ return inRegion(e.latlon[0], e.latlon[1]); }).length;
           } else if (sub === 'local' && typeof j.dist !== 'undefined') {
             latestLocal = { dist: j.dist, tMs: j.t || Date.now(), confirmed: false };
             localRings.push({ km: j.dist, tMs: latestLocal.tMs });
@@ -437,10 +454,10 @@
         dEl.classList.toggle('alarm', alarm);
         var di = document.getElementById('distInfo');
         if (km > 0) {
-          di.innerText = (alarm ? '🚨 Åska inom 40 km – varning!' : 'Via Blitzortung (hela Europa)') +
+          di.innerText = (alarm ? '🚨 Åska inom 40 km – varning!' : 'Inom valt område') +
                          (euNearTm ? ' · ' + agoStr(euNearTm) : '');
         } else {
-          di.innerText = 'Via Blitzortung (hela Europa) – ingen blixt än';
+          di.innerText = 'Inom valt område – ingen blixt än';
         }
       });
     }
