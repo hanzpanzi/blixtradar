@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>🔥 Dieselvärmare – Moln</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 12px; margin: 0; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+    .card { background: #1e293b; border-radius: 20px; padding: 18px; max-width: 420px; margin: 12px auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
+    h1 { color: #fbbf24; margin: 0 0 4px; font-size: 1.6em; }
+    .label { color: #94a3b8; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1.1px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 14px 0; }
+    @media (max-width: 380px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .metric { font-size: 2.4em; font-weight: 800; margin: 4px 0; }
+    .block { background: #0f172a; border: 1px solid #263449; border-radius: 14px; padding: 14px; margin: 10px 0; }
+    .big { font-size: 1.5em; font-weight: 700; }
+    .small { color: #94a3b8; font-size: 0.8em; margin-top: 6px; }
+    .status { background: #0f172a; padding: 12px; border-radius: 12px; font-weight: 600; color: #4ade80; margin: 14px 0; border: 1px solid #1e293b; word-break: break-word; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 0.78em; font-weight: 700; }
+    .on  { background: #14532d; color: #4ade80; }
+    .off { background: #7f1d1d; color: #fca5a5; }
+    .row { display: flex; gap: 10px; }
+    .btn { flex: 1; background: #334155; border: none; color: #f8fafc; padding: 12px; border-radius: 12px; font-size: 1em; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: #475569; }
+    .btn.active { background: #38bdf8; color: #0f172a; }
+    .btn.danger { background: #7f1d1d; color: #fecaca; }
+    .btn.danger:hover { background: #991b1b; }
+    .btn.fire { background: #b45309; color: #fff7ed; }
+    .btn.fire:hover { background: #d97706; }
+    input[type=number], input[type=password] { font: inherit; background: #0f172a; color: #f8fafc; border: 1px solid #475569; border-radius: 10px; padding: 10px; width: 100%; box-sizing: border-box; text-align: center; }
+    .temp-picker { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+    .temp-picker button { width: 44px; height: 38px; border-radius: 9px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-weight: 700; cursor: pointer; }
+    .temp-picker button.sel { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(251,191,36,0.6); } 70% { box-shadow: 0 0 0 16px rgba(251,191,36,0); } 100% { box-shadow: 0 0 0 0 rgba(251,191,36,0); } }
+    .heating { animation: pulse 1.6s infinite; }
+    @supports (padding: max(0px)) {
+      body { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🔥 Dieselvärmare</h1>
+    <div><span id="cloudBadge" class="badge off">Molnet ansluter…</span>
+         <span id="espBadge" class="badge off">Värmare offline</span></div>
+
+    <div class="grid">
+      <div class="block" style="margin:0">
+        <div class="label">Inne</div>
+        <div class="metric" id="tRoom" style="color:#7dd3fc;">--</div>
+      </div>
+      <div class="block" style="margin:0">
+        <div class="label">Värmare</div>
+        <div class="metric" id="tHeat" style="color:#f87171;">--</div>
+      </div>
+      <div class="block" style="margin:0">
+        <div class="label">Batteri</div>
+        <div class="metric" id="volt" style="color:#4ade80;">--</div>
+      </div>
+    </div>
+
+    <div class="status" id="statusBlock">Väntar på status från molnet…</div>
+
+    <div class="block">
+      <div class="row">
+        <button class="btn fire" id="btnOn" onclick="sendPower(true)">▶ Starta</button>
+        <button class="btn" id="btnOff" onclick="sendPower(false)">■ Stäng av</button>
+      </div>
+      <button class="btn danger" id="btnStop" style="width:100%; margin-top:8px;" onclick="shutdown()">🛑 Nödstopp</button>
+    </div>
+
+    <div class="block">
+      <div class="label">Måltemperatur (8–36 °C)</div>
+      <div class="temp-picker" id="tempPicker"></div>
+      <div class="small">Skickar kommando till värmaren via molnet — kräver att PC:n hemma kör heater_server.py</div>
+    </div>
+
+    <div class="block">
+      <div class="label">Effektnivå (1–10)</div>
+      <div class="temp-picker" id="lvlPicker"></div>
+    </div>
+
+    <div class="small" id="lastInfo">–</div>
+  </div>
+
+  <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+  <script>
+    var MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
+    var TOPIC = 'hanzpanzi/heater';
+
+    // ---- lösenord (samma som heater_server.py: perkele1) ----
+    var PWD = sessionStorage.getItem('heater_pwd');
+    if (!PWD) {
+      var m = location.search.match(/[?&]pwd=([^&]*)/);
+      if (m) PWD = decodeURIComponent(m[1]);
+    }
+    while (!PWD) {
+      PWD = prompt('Lösenord till dieselvärmaren:') || '';
+      if (!PWD) document.body.innerHTML = '<h1 style="font-family:system-ui;padding:3rem">Avbrutet</h1>';
+    }
+    sessionStorage.setItem('heater_pwd', PWD);
+
+    var lastPayload = null;
+
+    function cloudOnline(ok) {
+      var b = document.getElementById('cloudBadge');
+      b.textContent = ok ? 'Molnet online' : 'Molnet offline';
+      b.className = 'badge ' + (ok ? 'on' : 'off');
+    }
+    function heaterOnline(ok) {
+      var b = document.getElementById('espBadge');
+      b.textContent = ok ? 'Värmare ansluten' : 'Värmare offline';
+      b.className = 'badge ' + (ok ? 'on' : 'off');
+      document.getElementById('statusBlock').className = 'status' + (ok && lastPayload && lastPayload.power ? ' heating' : '');
+      if (!ok) document.getElementById('statusBlock').innerText = 'Värmaren är offline — PC:n hemma kör inte heater_server.py, eller Bluetooth är bortkopplat.';
+    }
+
+    try {
+      var client = mqtt.connect(MQTT_URL, { clientId: 'heater-web-' + Math.random().toString(16).slice(2,10), reconnectPeriod: 5000 });
+      client.on('connect', function(){ cloudOnline(true); client.subscribe(TOPIC + '/status'); });
+      client.on('reconnect', function(){ cloudOnline(false); });
+      client.on('close', function(){ cloudOnline(false); });
+      client.on('error', function(){ cloudOnline(false); });
+      client.on('message', function(topic, payload){
+        try {
+          var s = JSON.parse(payload.toString());
+          lastPayload = s;
+          heaterOnline(!!s.connected);
+          var seen = s.server_time ? new Date(s.server_time) : new Date();
+          document.getElementById('tRoom').innerText = s.temp_room != null ? s.temp_room + '°' : '--';
+          document.getElementById('tHeat').innerText = s.temp_heater != null ? s.temp_heater + '°' : '--';
+          document.getElementById('volt').innerText = s.voltage != null ? s.voltage + 'V' : '--';
+          var st = s.power ? '🔥 ' + (s.state || 'Värmer') : '⚫ ' + (s.state || 'Av');
+          if (s.mode === 'auto' && s.target != null) st += ' · mål ' + s.target + ' °C';
+          if (s.error && s.error !== 'Inget fel') { st += ' · ⚠ ' + s.error; }
+          document.getElementById('statusBlock').innerText = st;
+          document.getElementById('btnOn').classList.toggle('active', !!s.power);
+          document.getElementById('btnOff').classList.toggle('active', s.connected && !s.power);
+          document.getElementById('lastInfo').innerText = 'Uppdaterad ' + seen.toLocaleTimeString('sv-SE') + ' (hemmadatorn skickar var 3:e sekund)';
+        } catch (e) {}
+      });
+    } catch (e) { cloudOnline(false); }
+
+    function send(obj) {
+      obj.pwd = PWD;
+      try { client.publish(TOPIC + '/cmd', JSON.stringify(obj)); } catch (e) { alert('Molnet är nere — försök igen snart.'); }
+    }
+    function sendPower(on) { send({ action: 'power', on: on }); }
+    function shutdown() {
+      if (confirm('Nödstopp — stänga av värmaren nu?')) send({ action: 'shutdown' });
+    }
+
+    // temperaturväljare 8–36
+    var tp = document.getElementById('tempPicker');
+    for (var t = 8; t <= 36; t++) {
+      (function(t){
+        var b = document.createElement('button');
+        b.textContent = t;
+        b.onclick = function(){
+          send({ action: 'temp', value: t });
+          Array.prototype.forEach.call(tp.children, function(c){ c.classList.remove('sel'); });
+          b.classList.add('sel');
+        };
+        tp.appendChild(b);
+      })(t);
+    }
+    // nivåväljare 1–10
+    var lp = document.getElementById('lvlPicker');
+    for (var l = 1; l <= 10; l++) {
+      (function(l){
+        var b = document.createElement('button');
+        b.textContent = l;
+        b.onclick = function(){
+          send({ action: 'level', value: l });
+          Array.prototype.forEach.call(lp.children, function(c){ c.classList.remove('sel'); });
+          b.classList.add('sel');
+        };
+        lp.appendChild(b);
+      })(l);
+    }
+
+    // offline-varning om inga statusar på 2 min
+    setInterval(function(){
+      if (lastPayload && lastPayload.server_time) {
+        var age = Date.now() - new Date(lastPayload.server_time).getTime();
+        if (age > 120000) heaterOnline(false);
+      }
+    }, 20000);
+  </script>
+</body>
+</html>
