@@ -72,7 +72,7 @@
     <div class="block">
       <div class="label">Måltemperatur (8–36 °C)</div>
       <div class="temp-picker" id="tempPicker"></div>
-      <div class="small">Skickar kommando till värmaren via molnet — kräver att PC:n hemma kör heater_server.py</div>
+      <div class="small">Skickar kommando till värmaren via molnet — kräver att ESP32:n hemma är på och ansluten till värmaren</div>
     </div>
 
     <div class="block">
@@ -112,7 +112,7 @@
       b.textContent = ok ? 'Värmare ansluten' : 'Värmare offline';
       b.className = 'badge ' + (ok ? 'on' : 'off');
       document.getElementById('statusBlock').className = 'status' + (ok && lastPayload && lastPayload.power ? ' heating' : '');
-      if (!ok) document.getElementById('statusBlock').innerText = 'Värmaren är offline — PC:n hemma kör inte heater_server.py, eller Bluetooth är bortkopplat.';
+      if (!ok) document.getElementById('statusBlock').innerText = 'Värmaren är offline — ESP32:n hemma är avstängd eller har tappat Bluetooth-kopplingen till värmaren.';
     }
 
     try {
@@ -126,7 +126,7 @@
           var s = JSON.parse(payload.toString());
           lastPayload = s;
           heaterOnline(!!s.connected);
-          var seen = s.server_time ? new Date(s.server_time) : new Date();
+          var seen = s.updated ? new Date(s.updated) : new Date();
           document.getElementById('tRoom').innerText = s.temp_room != null ? s.temp_room + '°' : '--';
           document.getElementById('tHeat').innerText = s.temp_heater != null ? s.temp_heater + '°' : '--';
           document.getElementById('volt').innerText = s.voltage != null ? s.voltage + 'V' : '--';
@@ -136,7 +136,7 @@
           document.getElementById('statusBlock').innerText = st;
           document.getElementById('btnOn').classList.toggle('active', !!s.power);
           document.getElementById('btnOff').classList.toggle('active', s.connected && !s.power);
-          document.getElementById('lastInfo').innerText = 'Uppdaterad ' + seen.toLocaleTimeString('sv-SE') + ' (hemmadatorn skickar var 3:e sekund)';
+          document.getElementById('lastInfo').innerText = 'Uppdaterad ' + seen.toLocaleTimeString('sv-SE') + ' (ESP32:n skickar var 5:e sekund)';
         } catch (e) {}
       });
     } catch (e) { cloudOnline(false); }
