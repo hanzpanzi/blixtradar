@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Köp källkoden — Vevor Diesel Heater ESP32-S3</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; max-width: 720px; margin: 0 auto; padding: 24px 18px 60px; line-height: 1.65; }
+  h1 { color: #fbbf24; margin: 0 0 4px; }
+  h2 { color: #38bdf8; margin-top: 30px; }
+  .price { font-size: 3em; font-weight: 800; color: #4ade80; margin: 12px 0; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 20px; margin: 16px 0; }
+  ul { padding-left: 20px; }
+  li { margin: 6px 0; }
+  a.btn { display: inline-block; background: #0070ba; color: #fff; text-decoration: none; font-weight: 700; padding: 14px 26px; border-radius: 12px; font-size: 1.1em; }
+  a.btn:hover { background: #003087; }
+  code { background: #0f172a; padding: 2px 6px; border-radius: 6px; color: #7dd3fc; }
+  .small { color: #94a3b8; font-size: 0.88em; }
+  details { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 12px 16px; margin: 12px 0; }
+  summary { cursor: pointer; font-weight: 700; color: #fbbf24; }
+</style>
+</head>
+<body>
+
+<h1>🔧 Källkod — Vevor Diesel Heater (ESP32-S3)</h1>
+<p style="color:#94a3b8">Komplett, beprövad firmware för fjärrstyrning av Vevor-dieselvärmare via Bluetooth.</p>
+
+<div class="card" style="text-align:center;">
+  <div class="price">$1</div>
+  <p>Engångsbetalning — all kod, inga prenumerationer.</p>
+  <a class="btn" href="https://paypal.me/HANZPANZI/1" target="_blank" rel="noopener">Betala $1 via PayPal</a>
+  <p style="margin:16px 0 4px;"><a href="varmare.ino" download style="color:#7dd3fc;font-weight:700;">⬇ Hämta varmare.ino</a> <span class="small">(öppnas efter betalning — tack för stödet!)</span></p>
+  <p class="small" style="margin-top:10px;">Efter betalning: klicka på kodlänken nedan. (Lösenordet till kodpaketet får du i betalningsmeddelandet — skriv gärna "kod" när du betalar.)</p>
+</div>
+
+<h2>Vad du får</h2>
+<div class="card">
+<ul>
+  <li><code>varmare.ino</code> — komplett firmware (~1100 rader):</li>
+  <li>✅ BLE-klient mot Vevor "Heater5905" (ABBA-protokollet, checksummor, +20 dBm)</li>
+  <li>✅ Webb-API: status, start/stopp, temperatur 8–36 °C, nivå 1–10</li>
+  <li>✅ Schemaläggning: 8 scheman, veckodagar, över-midnatt-fönster, sparas i flashminne</li>
+  <li>✅ MQTT-moln: status var 5:e s + kommandon + schemaläggning via molnet</li>
+  <li>✅ "Släpp Bluetooth"-fönster så mobilappen kan användas</li>
+  <li>✅ Lösenordsskyddad OTA-uppdatering från webbsidan</li>
+</ul>
+</div>
+
+<h2>Så använder du koden</h2>
+<ol>
+  <li>Ladda ner <code>varmare.ino</code> (länk efter betalning) och lägg den i en mapp som heter <code>varmare</code>.</li>
+  <li>Ändra överst i filen: <code>WIFI_SSID</code>, <code>WIFI_PASSWORD</code>, <code>WEB_PASSWORD</code> och <code>MQTT_TOPIC</code> (välj ett unikt ämne!).</li>
+  <li>Programmera via USB (ESP32-S3 Dev Module), öppna serie-monitor och notera IP-adressen.</li>
+  <li>Klart — följ <a href="https://hanzpanzi.github.io/blixtradar/vevor-diesel-heater.html">bygg-sidan</a> för moln och scheman.</li>
+</ol>
+
+<details>
+<summary>Villkor (kort)</summary>
+<p class="small">Koden säljs i befintligt skick ("as is") för privat bruk. Inga garantier;
+dielevärmare är brandfarliga — du ansvarar för säker installation. Koden får inte
+återsäljas vidare. Framtagningen är verifierad mot en riktig Vevor Heater5905.</p>
+</details>
+
+<p style="margin-top:30px"><a href="https://hanzpanzi.github.io/blixtradar/vevor-diesel-heater.html">← Tillbaka till byggsidan</a></p>
+
+</body>
+</html>
