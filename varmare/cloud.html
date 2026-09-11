@@ -27,7 +27,12 @@
     .btn.danger:hover { background: #991b1b; }
     .btn.fire { background: #b45309; color: #fff7ed; }
     .btn.fire:hover { background: #d97706; }
-    input[type=number], input[type=password] { font: inherit; background: #0f172a; color: #f8fafc; border: 1px solid #475569; border-radius: 10px; padding: 10px; width: 100%; box-sizing: border-box; text-align: center; }
+    input[type=number], input[type=password], input[type=time], select { font: inherit; background: #0f172a; color: #f8fafc; border: 1px solid #475569; border-radius: 10px; padding: 10px; width: 100%; box-sizing: border-box; text-align: center; }
+    .sched-days { display: flex; gap: 5px; justify-content: center; margin-top: 8px; }
+    .sched-days button { flex: 1; padding: 8px 0; border-radius: 9px; border: 1px solid #475569; background: #0f172a; color: #94a3b8; font-weight: 700; cursor: pointer; font-size: 0.9em; }
+    .sched-days button.sel { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
+    .sched-row { display: flex; align-items: center; justify-content: space-between; background: #0f172a; border: 1px solid #263449; border-radius: 10px; padding: 8px 10px; margin-top: 6px; font-size: 0.95em; }
+    .sched-row .del { background: none; border: none; color: #f87171; font-size: 1.1em; cursor: pointer; padding: 2px 6px; }
     .temp-picker { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
     .temp-picker button { width: 44px; height: 38px; border-radius: 9px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-weight: 700; cursor: pointer; }
     .temp-picker button.sel { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
@@ -80,6 +85,23 @@
       <div class="temp-picker" id="lvlPicker"></div>
     </div>
 
+    <div class="block" id="schedBlock">
+      <div class="label">⏰ Schemaläggning (veckodagar + tider)</div>
+      <div id="schedList" class="small" style="margin-top:4px;">Hämtar scheman…</div>
+      <div style="margin-top:10px; text-align:left;">
+        <div class="sched-days" id="schedDays"></div>
+        <div class="row" style="margin-top:8px;">
+          <input type="time" id="schedOn" value="06:30">
+          <input type="time" id="schedOff" placeholder="av (valfri)">
+        </div>
+        <div class="row" style="margin-top:8px;">
+          <select id="schedTemp"></select>
+        </div>
+        <button class="btn" style="width:100%; margin-top:8px;" onclick="schedAdd()">+ Lägg till schema</button>
+        <div class="small" style="text-align:center;">Sluttid före starttid = över midnatt (t.ex. 22:00→06:15). Sparas i värmarens flashminne.</div>
+      </div>
+    </div>
+
     <div class="small" id="lastInfo">–</div>
   </div>
 
@@ -117,13 +139,14 @@
 
     try {
       var client = mqtt.connect(MQTT_URL, { clientId: 'heater-web-' + Math.random().toString(16).slice(2,10), reconnectPeriod: 5000 });
-      client.on('connect', function(){ cloudOnline(true); client.subscribe(TOPIC + '/status'); });
+      client.on('connect', function(){ cloudOnline(true); client.subscribe(TOPIC + '/status'); client.subscribe(TOPIC + '/sched'); setTimeout(function(){ send({ action: 'sched_get' }); }, 1500); });
       client.on('reconnect', function(){ cloudOnline(false); });
       client.on('close', function(){ cloudOnline(false); });
       client.on('error', function(){ cloudOnline(false); });
       client.on('message', function(topic, payload){
         try {
           var s = JSON.parse(payload.toString());
+          if (topic === TOPIC + '/sched') { renderSched(s); return; }
           lastPayload = s;
           heaterOnline(!!s.connected);
           var seen = s.updated ? new Date(s.updated) : new Date();
@@ -186,6 +209,58 @@
         if (age > 120000) heaterOnline(false);
       }
     }, 20000);
+
+    // ---- schemaläggning via molnet ----
+    var DAY_NAMES = ['Må','Ti','On','To','Fr','Lö','Sö'];
+    var selDays = 0;
+    var sd = document.getElementById('schedDays');
+    for (var d = 0; d < 7; d++) {
+      (function(d){
+        var b = document.createElement('button');
+        b.textContent = DAY_NAMES[d];
+        b.onclick = function(){
+          selDays ^= (1 << d);
+          b.classList.toggle('sel', !!(selDays & (1 << d)));
+        };
+        sd.appendChild(b);
+      })(d);
+    }
+    var st = document.getElementById('schedTemp');
+    for (var t = 8; t <= 36; t++) {
+      var o = document.createElement('option');
+      o.value = t; o.textContent = t + ' °C';
+      if (t === 21) o.selected = true;
+      st.appendChild(o);
+    }
+    function renderSched(list) {
+      var el = document.getElementById('schedList');
+      el.innerHTML = '';
+      if (!list.schedules || !list.schedules.length) {
+        el.innerText = 'Inga scheman sparade.';
+        return;
+      }
+      list.schedules.forEach(function(sc){
+        var row = document.createElement('div');
+        row.className = 'sched-row';
+        var days = '';
+        for (var i = 0; i < 7; i++) days += (sc.days & (1 << i)) ? DAY_NAMES[i] + ' ' : '';
+        if (!days) days = 'alla dagar ';
+        var span = document.createElement('span');
+        span.textContent = sc.on + (sc.off ? '–' + sc.off : ' → dygnet runt') + ' · ' + sc.temp + ' °C · ' + days.trim();
+        var del = document.createElement('button');
+        del.className = 'del'; del.textContent = '🗑'; del.title = 'Ta bort';
+        del.onclick = function(){ send({ action: 'sched_del', i: sc.i }); };
+        row.appendChild(span); row.appendChild(del);
+        el.appendChild(row);
+      });
+    }
+    function schedAdd() {
+      var on = document.getElementById('schedOn').value;
+      var off = document.getElementById('schedOff').value;
+      if (!selDays) { alert('Välj minst en veckodag.'); return; }
+      if (!on) { alert('Välj starttid.'); return; }
+      send({ action: 'sched_add', days: selDays, on: on, off: off, temp: parseInt(st.value, 10) });
+    }
   </script>
 </body>
 </html>
