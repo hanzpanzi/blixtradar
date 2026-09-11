@@ -1,1 +1,44 @@
-<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0; url=cloud.html"><title>Blixtradar</title></head><body><a href="cloud.html">Öppna Blixtradar</a></body></html>
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blixtradar &amp; Dieselvärmare</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #f8fafc; display: flex; min-height: 100vh; align-items: center; justify-content: center; margin: 0; padding: 16px; box-sizing: border-box; }
+  .wrap { max-width: 480px; width: 100%; }
+  h1 { color: #fbbf24; font-size: 1.7em; margin: 0 0 4px; }
+  p.sub { color: #94a3b8; margin: 0 0 22px; font-size: 0.95em; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin-bottom: 14px; }
+  .card h2 { font-size: 1.05em; margin: 0 0 10px; color: #7dd3fc; }
+  a.big { display: block; background: #334155; color: #f8fafc; text-decoration: none; padding: 13px 16px; border-radius: 12px; margin: 8px 0; font-weight: 600; }
+  a.big:hover { background: #475569; }
+  a.big span.d { display: block; font-weight: 400; font-size: 0.82em; color: #94a3b8; margin-top: 2px; }
+  a.guide { background: #172554; }
+  a.guide:hover { background: #1e3a8a; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⚡ Blixtradar &amp; 🔥 Dieselvärmare</h1>
+  <p class="sub">Projektsida — paneler, styrning och guider</p>
+
+  <div class="card">
+    <h2>⚡ Blixtradar</h2>
+    <a class="big" href="cloud.html">Blixtradar-dashboardet<span>Blixtmottagare — livekarta och data</span></a>
+  </div>
+
+  <div class="card">
+    <h2>🔥 Dieselvärmare (Vevor + ESP32-S3)</h2>
+    <a class="big" href="varmare/cloud.html">Molnpanel — styr var som helst<span>Status, start/stopp, temperatur, schemaläggning via molnet</span></a>
+    <a class="big" href="varmare/bilvarmare.html">Bilvärmare — direktpanel hemma<span>Samma panel direkt mot kortet på WiFi</span></a>
+  </div>
+
+  <div class="card">
+    <h2>📚 Guider</h2>
+    <a class="big guide" href="START.html">🚀 Startguide<span>Kom igång: flasha, öppna webbsidan, använd molnet</span></a>
+    <a class="big guide" href="HOWTO.html">🔧 Bygg din egen — how-to<span>Full guide: ESP32-S3 mot dieselvärmare med Bluetooth</span></a>
+  </div>
+</div>
+</body>
+</html>
