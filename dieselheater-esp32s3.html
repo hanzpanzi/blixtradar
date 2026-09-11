@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dieselheater ESP32-S3 — fjärrstyr din dieselvärmare</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; max-width: 820px; margin: 0 auto; padding: 24px 18px 60px; line-height: 1.65; }
+  h1 { color: #fbbf24; font-size: 2em; margin: 0 0 4px; }
+  h2 { color: #38bdf8; margin-top: 32px; border-bottom: 1px solid #334155; padding-bottom: 6px; }
+  h3 { color: #fbbf24; margin-top: 20px; }
+  a { color: #38bdf8; }
+  code { background: #1e293b; padding: 2px 6px; border-radius: 6px; font-size: 0.92em; color: #7dd3fc; }
+  pre { background: #1e293b; padding: 14px; border-radius: 12px; overflow-x: auto; }
+  pre code { padding: 0; color: #e2e8f0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  th, td { border: 1px solid #334155; padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #1e293b; color: #fbbf24; }
+  blockquote { border-left: 4px solid #fbbf24; margin: 14px 0; padding: 6px 16px; color: #94a3b8; background: #1e293b; border-radius: 0 10px 10px 0; }
+  .warn { border-left: 4px solid #f87171; background: #450a0a; color: #fecaca; padding: 10px 16px; border-radius: 0 10px 10px 0; margin: 14px 0; }
+  .tag { display: inline-block; background: #1e293b; border: 1px solid #334155; color: #94a3b8; border-radius: 99px; padding: 2px 12px; font-size: 0.8em; margin: 2px 4px 2px 0; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 18px; margin: 14px 0; }
+  .feat { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 560px) { .feat { grid-template-columns: 1fr; } }
+  .feat div { background: #0f172a; border: 1px solid #263449; border-radius: 12px; padding: 10px 14px; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 5px 0; }
+</style>
+</head>
+<body>
+
+<h1>🔥 Dieselheater ESP32-S3</h1>
+<p style="color:#94a3b8">Fjärrstyr en Vevor-dieselvärmare (Bluetooth) med ESP32-S3 — webbpanel, schemaläggning, moln och trådlösa uppdateringar. Hela projektet, på ett ställe.</p>
+
+<p>
+<span class="tag">ESP32-S3</span>
+<span class="tag">Bluetooth LE</span>
+<span class="tag">Vevor Heater5905</span>
+<span class="tag">Webbpanel</span>
+<span class="tag">MQTT-moln</span>
+<span class="tag">Scheman</span>
+<span class="tag">OTA</span>
+</p>
+
+<h2>Funktioner</h2>
+<div class="feat">
+  <div>📊 <strong>Live-status</strong><br>Innetemp, värmartemp, batteri — var 5:e sekund</div>
+  <div>🌡️ <strong>Styrning</strong><br>Start/stopp, temperatur 8–36 °C, nivå 1–10</div>
+  <div>⏰ <strong>Schemaläggning</strong><br>8 scheman, veckodagar, över-midnatt, sparas i flashminnet</div>
+  <div>☁️ <strong>Moln</strong><br>Styr från var som helst via MQTT + webbsida</div>
+  <div>📱 <strong>App-kompatibel</strong><br>"Släpp Bluetooth" — AirHeaterPro fungerar samtidigt</div>
+  <div>⬆️ <strong>OTA</strong><br>Trådlösa uppdateringar från webbsidan — aldrig mer USB</div>
+</div>
+
+<h2>Så fungerar det</h2>
+<pre><code>[Telefon-app]--(BLE, vid behov)---[Värmaren]
+                                      |
+[ESP32-S3]----(BLE, alltid på)--------+
+    |
+    +--(WiFi hemma)--&gt; Webbpanel + REST-API + schemamotor
+    +--(MQTT)--------&gt; Publik broker --&gt; Moln-webbsida var som helst</code></pre>
+<p>ESP32:n <strong>äger Bluetooth-kopplingen dygnet runt</strong> och översätter kommandon från webb/moln till värmarens råa protokoll. Schemana triggas av kortets NTP-synkade klocka — de går på minuten utan mobil eller dator, och överlever strömavbrott (flashminne).</p>
+
+<h2>Kom igång — snabbversion</h2>
+<div class="card">
+<ol>
+  <li><strong>Skaffa</strong> en ESP32-S3 (DevKitC-1 eller klon) och Arduino IDE med ESP32-paketet.</li>
+  <li><strong>Skaffa koden</strong> — hela firmwaren säljs för <strong>$1</strong>: <a href="vevor-diesel-heater-code/">köp och info här</a> (Swish, betalning öppnas löpande).</li>
+  <li><strong>Fyll i</strong> WiFi, webblösenord och unikt MQTT-ämne överst i <code>varmare.ino</code>.</li>
+  <li><strong>Programmera</strong> via USB, notera IP:en från serie-monitor.</li>
+  <li><strong>Klart</strong> — födjupp med molnpanel och scheman enligt guiderna nedan.</li>
+</ol>
+</div>
+
+<h2>Guiderna (alla publika)</h2>
+<table>
+  <tr><th>Guide</th><th>Innehåll</th></tr>
+  <tr><td><a href="vevor-diesel-heater.html">🔥 Bygget — hur vi gjorde</a></td><td>Hela historien: BLE-reverse-engineering, protokolltabell, firmware-byggstenar, felsökning</td></tr>
+  <tr><td><a href="HOWTO.html">🔧 How-to — bygg din egen</a></td><td>Generisk steg-för-steg: hårdvara, protokoll, säkerhet, drift</td></tr>
+  <tr><td><a href="START.html">🚀 Startguide</a></td><td>Använda systemet: flashning, webbsida, moln, rutiner</td></tr>
+  <tr><td><a href="varmare/cloud.html">☁️ Molnpanel (demo)</a></td><td>Levande exempel — status och styrning via MQTT</td></tr>
+  <tr><td><a href="vevor-diesel-heater-code/">💵 Köp källkoden ($1)</a></td><td>Komplett firmware, personlig licens, Swish-betalning</td></tr>
+</table>
+
+<h2>BLE-protokollet i korthet</h2>
+<pre><code>ba ab 04 &lt;cmd&gt; &lt;arg&gt; 00 00 &lt;checksum&gt;     checksum = summan av byte &amp; 0xFF
+
+0xA1 = på/av        0xDB &lt;v&gt; = lagra mål     0xAD = temperatur-läge
+0xA2/0xA3 = nivå ±1                          0xAC = nivå-läge</code></pre>
+<blockquote>De tre fällorna: ramar utan checksumma ignoreras <em>tyst</em>; <code>0xAC</code> och <code>0xAD</code> är lätta att förväxla; läget växlar inte av <code>0xDB</code> ensamt — skicka värdet först, pausa 800 ms, sedan lägeskommandot.</blockquote>
+
+<h2>Säkerhet</h2>
+<div class="warn"><strong>Värmaren bränner.</strong> Ha alltid en fysisk avbrytargång, testa med uppsikt och behåll appen som reservväg. Schemalagd uppvärmning av oövervakade utrymmen sker på din egen riskbedömning.</div>
+<ul>
+  <li>Lösenord på alla styrkommandon — aldrig hemligheter i publika filer</li>
+  <li>Unika MQTT-ämnen — behandla publik broker som avlyssnad</li>
+  <li>Koden säljs med <strong>personlig, icke-överlåtbar licens</strong> — en värmare per köp</li>
+</ul>
+
+<p style="margin-top:36px"><a href="index.html">← Landningssidan</a> · <a href="vevor-diesel-heater.html">Bygget i detalj</a> · <a href="vevor-diesel-heater-code/">Köp koden</a></p>
+
+<p style="color:#64748b;margin-top:24px;font-size:0.9em">Verifierat mot en riktig Vevor Heater5905 — varje kommando, tidssekvens och fälla är levd, inte gissad.</p>
+
+</body>
+</html>
