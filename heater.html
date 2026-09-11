@@ -88,7 +88,7 @@
     var MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
     var TOPIC = 'hanzpanzi/heater';
 
-    // ---- lösenord (samma som heater_server.py: perkele1) ----
+    // ---- lösenord anges av användaren (sparas bara i sessionen) ----
     var PWD = sessionStorage.getItem('heater_pwd');
     if (!PWD) {
       var m = location.search.match(/[?&]pwd=([^&]*)/);

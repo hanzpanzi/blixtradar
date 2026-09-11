@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bilvärmare — livepanel</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; background: #0b1220; color: #e2e8f0; margin: 0; padding: 1.2rem; max-width: 560px; margin-inline: auto; }
+  h1 { font-size: 1.25rem; display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
+  .pill { padding: .15rem .7rem; border-radius: 999px; font-size: .8rem; border: 1px solid #35456b; }
+  .on  { background: #14532d; color: #86efac; border-color: #16a34a; }
+  .off { background: #450a0a; color: #fca5a5; border-color: #b91c1c; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; margin-top: 1rem; }
+  .card { background: #16213a; border: 1px solid #24304d; border-radius: 12px; padding: .9rem 1.1rem; }
+  .label { color: #7c8db0; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; }
+  .value { font-size: 1.9rem; font-weight: 700; margin-top: .2rem; }
+  button { font: inherit; background: #24304d; color: #e2e8f0; border: 1px solid #35456b; border-radius: 10px; padding: .6rem 1rem; cursor: pointer; }
+  button.primary { background: #2563eb; border-color: #2563eb; }
+  button.fire { background: #b45309; border-color: #b45309; }
+  button.danger { background: #b91c1c; border-color: #b91c1c; }
+  .row { display: flex; gap: .6rem; margin: .9rem 0; }
+  .row button { flex: 1; }
+  .tp { display: flex; flex-wrap: wrap; gap: 5px; margin-top: .6rem; }
+  .tp button { width: 44px; height: 38px; border-radius: 8px; padding: 0; font-weight: 700; }
+  .tp button.sel { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
+  h2 { font-size: .95rem; color: #93a4c4; margin: 1.2rem 0 .4rem; }
+  .small { color: #7c8db0; font-size: .78rem; }
+  .meta { color: #7c8db0; font-size: .75rem; margin-top: .4rem; font-family: ui-monospace, monospace; }
+  input, select { font: inherit; background: #0b1220; color: #e2e8f0; border: 1px solid #35456b; border-radius: 8px; padding: .45rem; }
+  .sched-item { display: flex; justify-content: space-between; align-items: center; background: #16213a; border: 1px solid #24304d; border-radius: 10px; padding: .6rem .8rem; margin: .45rem 0; font-size: .95em; text-align: left; }
+  .sched-item button { padding: .25rem .6rem; }
+  .days { display: flex; gap: 4px; justify-content: center; margin-top: 8px; flex-wrap: wrap; }
+  .days button { width: 40px; padding: .5rem 0; border-radius: 8px; font-weight: 700; }
+  .days button.sel { background: #38bdf8; color: #0f172a; border-color: #38bdf8; }
+  #err { color: #fca5a5; font-size: .8rem; min-height: 1.1em; margin-top: .4rem; }
+</style>
+</head>
+<body>
+<h1>🔥 Dieselvärmare <span id="conn" class="pill off">—</span></h1>
+<div>
+  <span class="small">Enhet:</span>
+  <input id="base" size="26" value="http://192.168.1.101:8081">
+  <span class="small">Lösenord:</span>
+  <input id="pwd" size="10" type="password" placeholder="lösenord">
+  <button onclick="applyCfg()">Använd</button>
+</div>
+<div class="cards">
+  <div class="card"><div class="label">Inne</div><div class="value" id="tRoom">–</div></div>
+  <div class="card"><div class="label">Värmare</div><div class="value" id="tHeat">–</div></div>
+  <div class="card"><div class="label">Batteri</div><div class="value" id="volt">–</div></div>
+  <div class="card"><div class="label">Status</div><div class="value" id="state" style="font-size:1.2rem">–</div></div>
+</div>
+<div class="meta" id="meta"></div>
+<div id="err"></div>
+<div class="row">
+  <button class="fire" id="btnOn">▶ Starta</button>
+  <button id="btnOff">■ Stäng av</button>
+  <button id="btnRel" title="Koppla från ESP32:n så att AirHeaterPro-appen kan använda värmaren. Återansluter automatiskt.">📲 Släpp BT (10 min)</button>
+</div>
+<h2>Måltemperatur (8–36 °C)</h2>
+<div class="tp" id="tp"></div>
+<h2>Effektnivå (1–10)</h2>
+<div class="tp" id="lp"></div>
+<h2>⏰ Schemaläggning (veckodagar + tider)</h2>
+<div id="schedList"></div>
+<div class="card">
+  <div class="small">Nytt schema — veckodagar, starttid, valfri sluttid (24h):</div>
+  <div class="days" id="dayBtns"></div>
+  <div style="display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:.6rem">
+    <span class="small">På</span> <input type="time" id="onTime" value="06:30">
+    <span class="small">Av</span> <input type="time" id="offTime">
+    <label class="small"><input type="checkbox" id="noOff"> ingen</label>
+    <select id="tempSel"></select>
+  </div>
+  <button class="primary" style="width:100%;margin-top:.6rem" id="btnAdd">+ Lägg till schema</button>
+  <button style="width:100%;margin-top:.4rem" id="btnAlways">♻ Dygnet runt (alla dagar 00:00, ingen stopptid)</button>
+  <div class="small">Sluttid före starttid = över midnatt (t.ex. 22:00→06:15). Sparas i ESP32:ns flashminne — gäller efter strömavbrott. Max 8.</div>
+</div>
+<script>
+const DAYS = ['Må','Ti','On','To','Fr','Lö','Sö'];
+let base = localStorage.getItem('vb') || document.getElementById('base').value;
+let pwd  = localStorage.getItem('vp') || document.getElementById('pwd').value;
+document.getElementById('base').value = base;
+document.getElementById('pwd').value = pwd;
+function applyCfg() {
+  base = document.getElementById('base').value.replace(/\/+$/, '');
+  pwd  = document.getElementById('pwd').value;
+  localStorage.setItem('vb', base); localStorage.setItem('vp', pwd);
+  refresh(); refreshSched();
+}
+function q() { return '?pwd=' + encodeURIComponent(pwd); }
+async function api(p, body) {
+  const r = await fetch(base + p + q(), body ? {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)} : {});
+  if (r.status === 401) throw new Error('Fel lösenord');
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json().catch(() => ({}));
+}
+function mark(id, on) { const el = document.getElementById(id); if (el) el.classList.toggle('sel', !!on); }
+async function refresh() {
+  try {
+    const s = await api('/api/status');
+    document.getElementById('err').textContent = '';
+    const conn = document.getElementById('conn');
+    conn.textContent = s.connected ? 'ansluten' : 'ej ansluten';
+    conn.className = 'pill ' + (s.connected ? 'on' : 'off');
+    document.getElementById('tRoom').textContent = s.temp_room > -50 ? s.temp_room + ' °C' : '–';
+    document.getElementById('tHeat').textContent = s.temp_heater > -50 ? s.temp_heater + ' °C' : '–';
+    document.getElementById('volt').textContent  = s.voltage ? s.voltage + ' V' : '–';
+    document.getElementById('state').textContent = s.power ? '🔥 ' + s.state : '⚫ ' + s.state;
+    document.getElementById('state').style.color = s.power ? '#4ade80' : '#93a4c4';
+    document.getElementById('meta').textContent =
+      `fw ${s.ver ?? '?'} · uppdaterad ${s.updated} · heap ${s.heap ?? '–'} · RSSI ${s.rssi ?? '–'} dBm · mål ${s.target > 0 ? s.target + ' °C' : '–'} · nivå ${s.level > 0 ? s.level : '–'}`;
+    for (let t = 8; t <= 36; t++) mark('tp' + t, s.target === t);
+    for (let l = 1; l <= 10; l++) mark('lp' + l, s.level === l);
+  } catch (e) {
+    document.getElementById('err').textContent = 'Kan inte nå enheten: ' + e.message;
+    document.getElementById('conn').textContent = 'nås ej';
+    document.getElementById('conn').className = 'pill off';
+  }
+}
+async function post(p, b) { try { await api(p, b); } catch (e) { document.getElementById('err').textContent = e.message; } refresh(); }
+const tp = document.getElementById('tp');
+for (let t = 8; t <= 36; t++) {
+  const b = document.createElement('button'); b.id = 'tp' + t; b.textContent = t;
+  b.onclick = () => post('/api/temp', {value: t});
+  tp.appendChild(b);
+}
+const lp = document.getElementById('lp');
+for (let l = 1; l <= 10; l++) {
+  const b = document.createElement('button'); b.id = 'lp' + l; b.textContent = l;
+  b.onclick = () => post('/api/level', {value: l});
+  lp.appendChild(b);
+}
+document.getElementById('btnOn').onclick  = () => post('/api/power', {on: true});
+document.getElementById('btnOff').onclick = () => post('/api/power', {on: false});
+document.getElementById('btnRel').onclick = () => post('/api/ble/release', {mins: 10});
+let schedDays = 0;
+const db = document.getElementById('dayBtns');
+DAYS.forEach((d, i) => {
+  const b = document.createElement('button'); b.textContent = d;
+  b.onclick = () => { schedDays ^= (1 << i); b.classList.toggle('sel', !!(schedDays & (1 << i))); };
+  db.appendChild(b);
+});
+const ts = document.getElementById('tempSel');
+for (let t = 8; t <= 36; t++) { const o = document.createElement('option'); o.value = t; o.textContent = t + ' °C'; ts.appendChild(o); }
+ts.value = 21;
+async function refreshSched() {
+  try {
+    const s = await api('/api/schedules');
+    const el = document.getElementById('schedList'); el.innerHTML = '';
+    (s.schedules || []).forEach(sc => {
+      const row = document.createElement('div'); row.className = 'sched-item';
+      const dn = DAYS.map((d, i) => (sc.days & (1 << i)) ? d : '·').join(' ');
+      const span = document.createElement('span');
+      span.innerHTML = '<b>' + sc.on + '</b>–' + (sc.off || '—') + ' · ' + sc.temp + ' °C<br><span style="font-size:.8em;color:#7c8db0">' + dn + '</span>';
+      row.appendChild(span);
+      const del = document.createElement('button'); del.textContent = '🗑';
+      del.onclick = async () => { await post('/api/schedules/del', {i: sc.i}); refreshSched(); };
+      row.appendChild(del);
+      el.appendChild(row);
+    });
+    if (!(s.schedules || []).length) el.innerHTML = '<div class="small">Inga scheman än — lägg till nedan.</div>';
+  } catch (e) {}
+}
+document.getElementById('btnAdd').onclick = async () => {
+  const on = document.getElementById('onTime').value;
+  const off = document.getElementById('noOff').checked ? '' : document.getElementById('offTime').value;
+  if (!on) { alert('Välj starttid.'); return; }
+  if (!schedDays) { alert('Välj minst en veckodag.'); return; }
+  const r = await api('/api/schedules', { days: schedDays, on: on, off: off, temp: parseInt(ts.value) }).catch(e => ({e: e.message}));
+  if (r.e) { alert(r.e); return; }
+  refreshSched();
+};
+document.getElementById('btnAlways').onclick = () => {
+  schedDays = 127;
+  [...db.children].forEach(b => b.classList.add('sel'));
+  document.getElementById('onTime').value = '00:00';
+  document.getElementById('noOff').checked = true;
+};
+refresh(); refreshSched(); setInterval(refresh, 3000); setInterval(refreshSched, 15000);
+</script>
+</body>
+</html>
