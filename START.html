@@ -1,0 +1,77 @@
+<!DOCTYPE html><html lang="sv"><head><title>Startguide dieselvärmare</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;max-width:820px;margin:0 auto;padding:24px;line-height:1.6}
+h1,h2,h3{color:#fbbf24} a{color:#38bdf8} code{background:#1e293b;padding:2px 6px;border-radius:6px;font-size:0.95em;color:#7dd3fc}
+pre{background:#1e293b;padding:14px;border-radius:12px;overflow-x:auto} pre code{padding:0;color:#e2e8f0}
+table{border-collapse:collapse;width:100%} th,td{border:1px solid #334155;padding:8px;text-align:left}
+th{background:#1e293b;color:#fbbf24} blockquote{border-left:4px solid #fbbf24;margin:0;padding:4px 16px;color:#94a3b8}
+</style></head><body>
+<h1>🚀 Startguide — Dieselvärmare (Vevor Heater5905 + ESP32-S3)</h1>
+<p>Kortfattat: ESP32-kortet sitter vid värmaren, håller Bluetooth-kopplingen</p>
+<p>till värmaren och visar allt på webbsidor. Du kan styra temp, nivå,</p>
+<p>start/stopp och schemalägga veckodagar + tider.</p>
+<p>---</p>
+<h2>1. Flasha firmware (första gången, eller om kortet är nytt)</h2>
+<p><strong>Via USB-kabel (endast gång det behövs):</strong></p>
+<p>1. Koppla kortet till datorn med USB-kabel.</p>
+<p>2. Dubbelklicka på <strong><code>flash_varmare_usb.bat</code></strong> — klart på någon minut.</p>
+<p>(Kräver arduino-cli; ligger i Arduino-IDE-installationen.)</p>
+<p><strong>Via webbsidan (OTA — alla senare uppdateringar):</strong></p>
+<p>1. Öppna webbsidan (adress nedan).</p>
+<p>2. Rulla till <strong>⬆ Firmware (OTA)</strong> → välj <code>varmare.ino.bin</code> → <strong>Ladda upp</strong>.</p>
+<p>3. Kortet startar om automatiskt. Versionen syns i meta-raden ("fw 3.4" osv.)</p>
+<p>Färdig firmware-binär som motsvarar vad som körs just nu:</p>
+<p><code>varmare.merged.bin</code> (hela flashminnet, för esptool) — OTA-filen</p>
+<p><code>varmare.ino.bin</code> byggs varje gång koden kompileras.</p>
+<p>---</p>
+<h2>2. Öppna webbsidan (hemma på WiFi)</h2>
+<p><strong>Adress:</strong> http://&lt;kortets-ip&gt;:8081/</p>
+<p><strong>Lösenord:</strong> <code>ditt lösenord</code> (finns förifyllt i panelen hemma)</p>
+<p>Allt du behöver finns på sidan:</p>
+<ul>
+<li><strong>Temperatur, värmartemp, batteri</strong> — live var 5:e sekund</li>
+<li><strong>▶ Starta / ■ Stäng av</strong> — direkt styrning</li>
+<li><strong>Måltemperatur (8–36 °C)</strong> och <strong>Effektnivå (1–10)</strong></li>
+<li><strong>⏰ Schemaläggning</strong> — veckodagar, starttid, valfri sluttid</li>
+</ul>
+<p>(sluttid före starttid = över midnatt, t.ex. 22:00→06:15), temperatur.</p>
+<p>Sparas i flashminnet — gäller även efter strömavbrott. Max 8 scheman.</p>
+<ul>
+<li><strong>📲 Släpp Bluetooth</strong> — kopplar ifrån i valda minuter (1–120) så att</li>
+</ul>
+<p>AirHeaterPro-appen kan använda värmaren. Kortet återansluter självt efteråt.</p>
+<ul>
+<li><strong>⬆ Firmware (OTA)</strong> — trådlösa uppdateringar</li>
+</ul>
+<h2>3. Använda molnet (utanför hemmet — 4G, jobb, semester)</h2>
+<p><strong>Adress:</strong> https://<ditt-github-användarnamn>.github.io/<ditt-repo>/varmare/cloud.html</p>
+<p><strong>Lösenord:</strong> <code>ditt lösenord</code> (frågas en gång per session)</p>
+<p>Fungerar var som helst i världen via MQTT-brokern (broker.emqx.io):</p>
+<ul>
+<li>Samma status som hemma (innetemp, batteri, driftstatus)</li>
+<li>Starta/stäng av, nödstopp, temperatur, nivå</li>
+<li><strong>⏰ Schemaläggning — även från molnet</strong> (kräver fw 3.4+)</li>
+</ul>
+<p>Kommandon körs när kortet når brokern (kortet skickar status var 5:e sekund).</p>
+<p>Publik panel hemma: https://<ditt-github-användarnamn>.github.io/<ditt-repo>/varmare/bilvarmare.html</p>
+<h2>4. Vardagsrutin + tips</h2>
+<ul>
+<li><strong>Schemat sköter starten</strong> — t.ex. Fr 05:50 startar med 21 °C på minuten,</li>
+</ul>
+<p>förutsatt att värmaren har ström och kortet är kopplat.</p>
+<ul>
+<li><strong>Ska du använda appen?</strong> Tryck först "📲 Släpp Bluetooth" på webbsidan.</li>
+</ul>
+<p>Värmaren tar bara EN Bluetooth-klient åt gången.</p>
+<ul>
+<li><strong>Temp = –99 eller "offline"?</strong> Värmaren har tappat ström eller signalen</li>
+</ul>
+<p>är för svag — flytta kortet närmare värmaren (1–2 m fritt).</p>
+<ul>
+<li><strong>Batteriet:</strong> kortet klarar sig, men värmaren behöver 12 V-källan.</li>
+</ul>
+<h2>5. Felsökning</h2>
+<table><tr><th>Problem</th><th>Åtgärd</th></tr><tr><td>Webbsidan når inte kortet</td><td>Kolla att kortet har ström och sitter på WiFi (samma nät som telefonen/datorn)</td></tr><tr><td>"Låst" på sidan</td><td>Lösenordet är <code>ditt lösenord</code>, eller öppna http://&lt;kortets-ip&gt;:8081/?pwd=ditt lösenord</td></tr><tr><td>Temp visas ej (–99)</td><td>Värmaren är utanför Bluetooth-räckvidd eller avstängd; vänta 1 min, kolla strömmen</td></tr><tr><td>Appen hittar inte värmaren</td><td>Tryck "📲 Släpp Bluetooth" 10 min på webbsidan först</td></tr><tr><td>Molnsidan visar "offline"</td><td>Kortet hemma tappat WiFi/ström — kolla hemma; molnet är nästan alltid uppe</td></tr><tr><td>Uppdateringen "tog inte"</td><td>Kolla fw-versionen i meta-raden; kompilera om och OTA:a igen</td></tr></table>
+<p>Testskript (från dator, valfri tid): <code>python mqtt_check.py</code> visar live-status</p>
+<p>från molnet; <code>python mqtt_sched_test.py</code> hämtar schemalistan via molnet.</p>
+<p>Mer detaljer (protokoll, kommandon, arkitektur): se <code>README.md</code>.</p>
+</body></html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html><html lang="sv"><head><title>How-to: ESP32-S3 dieselvärmare</title><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{font-family:system-ui,-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;max-width:820px;margin:0 auto;padding:24px;line-height:1.6}
+h1,h2,h3{color:#fbbf24} a{color:#38bdf8} code{background:#1e293b;padding:2px 6px;border-radius:6px;font-size:0.95em;color:#7dd3fc}
+pre{background:#1e293b;padding:14px;border-radius:12px;overflow-x:auto} pre code{padding:0;color:#e2e8f0}
+table{border-collapse:collapse;width:100%} th,td{border:1px solid #334155;padding:8px;text-align:left}
+th{background:#1e293b;color:#fbbf24} blockquote{border-left:4px solid #fbbf24;margin:0;padding:4px 16px;color:#94a3b8}
+</style></head><body>
+<h1>🔧 How-to: Bygg din egen dieselvärmare-styrning med ESP32-S3</h1>
+<p>Guide för dig som vill fjärrstyra en billig dieselvärmare (Vevor/liknande</p>
+<p>med Bluetooth-app) med en ESP32-S3: webbsida, schemaläggning med</p>
+<p>veckodagar, moln via MQTT och trådlösa uppdateringar — utan att tappa</p>
+<p>app-funktionen. Inga förkunskaper utöver grundläggande Arduino-IDE.</p>
+<blockquote>Allt nedan är generiskt — byt ut lösenord, ämnesnamn och IP mot dina egna.</blockquote>
+<p>---</p>
+<h2>1. Det du behöver</h2>
+<table><tr><th>Del</th><th>Kommentar</th></tr><tr><td>ESP32-S3-utvecklingskort</td><td>Med Bluetooth LE 5 (t.ex. DevKitC-1 eller klon, ~100 kr)</td></tr><tr><td>Dieselvärmare med BLE-app</td><td>Vevor "Heater5905"/AirHeaterPro-typ — värmaren tar bara <strong>en</strong> BLE-klient</td></tr><tr><td>5 V USB-försörjning</td><td>Kortet ska sitta nära värmaren (BLE-antennen är liten)</td></tr><tr><td>Arduino IDE 2.x + arduino-cli</td><td>ESP32-paketet: Boards Manager URL <code>https://espressif.github.io/arduino-esp32/package_esp32_index.json</code></td></tr><tr><td>Bibliotek</td><td>BLE, ESPAsyncWebServer (+ AsyncTCP), PubSubClient, ArduinoJson, Preferences</td></tr></table>
+<h2>2. Så fungerar upplägget</h2>
+<pre><code>[Telefon-app]--(BLE, vid behov)--[Värmaren]
+<table></table>
+<p>[ESP32-S3]----(BLE, alltid på)-------+</p>
+<table></table>
+<p>+--(WiFi hemma)--&gt; Webbsida + REST-API + schemamotor (flashminne)</p>
+<p>+--(MQTT/TLS)----&gt; Publik broker --&gt; Moln-webbsida var som helst</p>
+<p></code></pre></p>
+<ul>
+<li><strong>ESP32:n äger BLE-kopplingen</strong> dygnet runt och översätter kommandon</li>
+</ul>
+<p>från webb/moln till värmarens råa protokoll.</p>
+<ul>
+<li><strong>Appen kan fortfarande användas</strong>: en "Släpp Bluetooth"-funktion kopplar</li>
+</ul>
+<p>ifrån i N minuter så appen får värmaren för sig själv (värmaren tar bara</p>
+<p>en klient!).</p>
+<ul>
+<li><strong>Scheman</strong> lagras i flashminnet (Preferences) och triggas av kortets</li>
+</ul>
+<p>NTP-synkade klocka — de överlever strömavbrott.</p>
+<h2>3. Kärnan i BLE-protokollet (Vevor "ABBA")</h2>
+<p>Värmaren annonserar som t.ex. <code>Heater5905</code>. Skriv råa ramar till</p>
+<p>skriv-karakteristiken; status kommer som notiser. Ramformat:</p>
+<pre><code>ba ab 04 &lt;cmd&gt; &lt;arg&gt; 00 00 &lt;checksum&gt;     checksum = summa av alla byte &amp; 0xFF
+<p></code></pre></p>
+<table><tr><th>Kommando</th><th>Betydelse</th><th>Testat beteende</th></tr><tr><td><code>0xA0</code></td><td>Statusfråga</td><td>Svarar med 20-byte statusram</td></tr><tr><td><code>0xA1</code></td><td>På/av-toggla</td><td>Växlar driftläge</td></tr><tr><td><code>0xA2</code> / <code>0xA3</code></td><td>Nivå +1 / −1</td><td>Stegar brännarnivån (så gör appen)</td></tr><tr><td><code>0xDB &lt;v&gt;</code></td><td>Lagra värde</td><td>Sätter <strong>mål</strong>, men växlar inte läge</td></tr><tr><td><code>0xAD</code></td><td>Aktivera temperatur-läge</td><td>Följ alltid efter <code>0xDB &lt;8–36&gt;</code></td></tr><tr><td><code>0xAC</code></td><td>Aktivera nivå-läge</td><td>Nivå styrs i praktiken med <code>0xA2/0xA3</code></td></tr></table>
+<p><strong>Statusramen</strong> (efter <code>0xA0</code>): byte 6 = aktuell modulering/nivå,</p>
+<p>byte 7 = satt värde, byte 5 = läge (0 = nivå, 1 = temperatur),</p>
+<p>byte 8 = auto-start/stop-flagga, plus innetemp, värmartemp, spänning.</p>
+<p>⚠️ <strong>Lärdomar som sparar dig timmar:</strong></p>
+<p>1. <strong>Checksumma på ALLT</strong> — ramar utan checksumma ignoreras tyst.</p>
+<p>2. <strong>Lägeskommandona är lätta att förväxla</strong> — <code>0xAD</code> är temperatur-läge,</p>
+<p><code>0xAC</code> nivå-läge. Bevisa med råa statusramar, inte antaganden.</p>
+<p>3. <strong>Skriv utan respons</strong> (WRITE_NO_RSP) mot skriv-karakteristiken.</p>
+<p>4. <strong>Max TX-effekt</strong>: <code>esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, ESP_PWR_LVL_P20)</code></p>
+<p>— standard +9 dBm vs +20 dBm är en fördubbling av räckvidden.</p>
+<p>5. <strong>Logga råramar</strong> under utveckling (i vårt fall ett <code>dbg</code>-fält i API:t) —</p>
+<p>protokollet är odokumenterat och bara jämförelse av ramar avslöjar buggar.</p>
+<h2>4. Byggstenar i firmware (<code>varmare.ino</code> som mall)</h2>
+<p>1. <strong>BLE-klient</strong> (BLELib): skanna → matcha namn → connect → MTU 185 →</p>
+<p>prenumerera notiser → skriv kommandon. Auto-återanslut i en FreeRTOS-task.</p>
+<p>2. <strong>Statusparser</strong> → struct med temp/volt/läge/mål → senaste värden cache.</p>
+<p>3. <strong>Webb-API</strong> (ESPAsyncWebServer):</p>
+<ul>
+<li><code>GET /api/status</code> — JSON med alla värden + fw-version</li>
+<li><code>POST /api/power|temp|level</code> — styrning (temp: <code>0xDB v</code> + paus + <code>0xAD</code>)</li>
+<li><code>GET/POST/DELETE /api/schedules</code> — scheman med veckodags-bitmask,</li>
+</ul>
+<p><code>on</code>/<code>off</code> i minuter (off &lt; on = över midnatt)</p>
+<ul>
+<li><code>POST /api/ble-release</code> — app-fönster: koppla ifrån N minuter</li>
+<li>Lösenord via <code>?pwd=</code>-parameter + no-cache-headers (annars fastnar</li>
+</ul>
+<p>webbläsaren på gammal sida!)</p>
+<p>4. <strong>Schemamotor</strong>: NTP (<code>configTime</code>, TZ) + minut-tick som matchar</p>
+<p>veckodag + tid, startsekvens <em>på → vänta 800 ms → läge → vänta → temp</em></p>
+<p>(värmaren hinner annars inte registrera snabba kommandon).</p>
+<p>5. <strong>MQTT</strong> (PubSubClient, <strong><code>setBufferSize(512)</code></strong> — standard 256 räcker</p>
+<p>inte för status-JSON!): publicera status var 5:e s, ta emot kommandon</p>
+<p>på <code>&lt;topic&gt;/cmd</code>, scheman via <code>sched_get/add/del</code>.</p>
+<p>6. <strong>OTA</strong> (<code>AsyncElegantOTA</code> eller WebServer-uppdatering) — uppdatera</p>
+<p>aldrig igen via USB-kabel.</p>
+<h2>5. Kom igång steg för steg</h2>
+<p>1. <strong>Installera</strong> Arduino IDE + ESP32-paket + biblioteken ovan.</p>
+<p>2. <strong>Koppla upp firmware</strong> till ditt nät: WiFi-SSID/lösenord, webb-lösenord,</p>
+<p>MQTT-ämnen (unika! skriv inte över någon annans — byt t.ex. till</p>
+<p><code>dittnamn/heater</code>), NTP och TZ.</p>
+<p>3. <strong>Programmera kortet</strong> via USB (ESP32-S3: "ESP32S3 Dev Module",</p>
+<p>USB-CDC enabled). Notera IP:n från serie-monitor.</p>
+<p>4. <strong>Testa BLE</strong> först med ett Python/bleak-skript mot värmaren — verifiera</p>
+<p>att du kan toggla på/av och läsa status innan du bygger resten.</p>
+<p>5. <strong>Bygg webbsidan</strong> — börja med status + start/stopp, lägg scheman och</p>
+<p>moln sedan. Kopiera gärna panelens layout (dark card + pickers).</p>
+<p>6. <strong>Molnet</strong>: skapa ett GitHub-repo med sidan, GitHub Pages på; MQTT:</p>
+<p>broker.emqx.io (publik) eller din egen Mosquitto — använd TLS-porten</p>
+<p>och ett lösenord i kommandon, <strong>inga hemligheter i sidkoden</strong> (Pages</p>
+<p>är publikt för världen!).</p>
+<p>7. <strong>Sätt kortet nära värmaren</strong> (1–2 m, fritt, inte mot metall) och låt</p>
+<p>det köra.</p>
+<h2>6. Säkerhet &amp; drift</h2>
+<ul>
+<li><strong>Lösenord</strong>: aldrig i publika filer eller kommentarer — och aldrig</li>
+</ul>
+<p>inkompatibla binärer i publika repo (firmware innehåller strängarna!).</p>
+<ul>
+<li><strong>MQTT</strong>: unika ämnen + pwd i varje kommando; tro publik broker är avlyssnad.</li>
+<li><strong>Värmaren är eld</strong>: testregeln — styr aldrig uppvärmning du inte kan</li>
+</ul>
+<p>avbryta fysiskt; behåll alltid appen som reservväg ("Släpp BT").</p>
+<ul>
+<li><strong>Klockan</strong>: scheman kräver NTP — verifiera att kortet visar rätt tid</li>
+</ul>
+<p>innan du litar på starttiden.</p>
+<h2>7. Felsökning (de klassiska)</h2>
+<table><tr><th>Symptom</th><th>Trolig orsak</th></tr><tr><td>Kommandon "försvinner"</td><td>Saknad checksumma, eller skriv med respons till karaktäristik som bara tar utan</td></tr><tr><td>Värmaren syns inte i skanning</td><td>Någon är redan ansluten (app öppen?) eller för svag signal</td></tr><tr><td>Koppling ok men temp –99</td><td>Fel statusbytes-parsning — jämför råramar</td></tr><tr><td>Moln-status tystnar</td><td>PubSubClient-bufferfull: <code>setBufferSize(512)</code></td></tr><tr><td>Sidan visar gammal låssida</td><td>Webbläsarcache — skicka <code>Cache-Control: no-store</code> i firmware</td></tr><tr><td>Schemat startar inte</td><td>Fel klocka (NTP), eller värmaren utan ström just då</td></tr><tr><td>"Låst"-deadlock</td><td>Utan no-cache-header + lösenordsruta med faktiskt inputfält</td></tr></table>
+<p>---</p>
+<p>*Byggt och levt: hela flödet (BLE-protokoll med checksummor, lägeskommandon,</p>
+<p>nivå-stegning, släpp-BT-fönster, scheman med över-midnatt, moln via MQTT,</p>
+<p>OTA) är verifiersat mot en riktig Vevor — se README.md i samma mapp för</p>
+<p>protokolldetaljer och START.md för användarguide.*</p>
+</body></html>
