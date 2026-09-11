@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vevor Diesel Heater — så byggde vi styrningen med ESP32-S3</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; max-width: 860px; margin: 0 auto; padding: 24px 18px 60px; line-height: 1.65; }
+  h1 { color: #fbbf24; font-size: 1.9em; margin: 0 0 4px; }
+  h2 { color: #38bdf8; margin-top: 34px; border-bottom: 1px solid #334155; padding-bottom: 6px; }
+  h3 { color: #fbbf24; margin-top: 22px; }
+  a { color: #38bdf8; }
+  code { background: #1e293b; padding: 2px 6px; border-radius: 6px; font-size: 0.92em; color: #7dd3fc; }
+  pre { background: #1e293b; padding: 14px; border-radius: 12px; overflow-x: auto; }
+  pre code { padding: 0; color: #e2e8f0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+  th, td { border: 1px solid #334155; padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #1e293b; color: #fbbf24; }
+  blockquote { border-left: 4px solid #fbbf24; margin: 14px 0; padding: 6px 16px; color: #94a3b8; background: #1e293b; border-radius: 0 10px 10px 0; }
+  .warn { border-left: 4px solid #f87171; background: #450a0a; color: #fecaca; padding: 10px 16px; border-radius: 0 10px 10px 0; margin: 14px 0; }
+  .tag { display: inline-block; background: #1e293b; border: 1px solid #334155; color: #94a3b8; border-radius: 99px; padding: 2px 12px; font-size: 0.8em; margin: 2px 4px 2px 0; }
+</style>
+</head>
+<body>
+
+<h1>🔥 Vevor Diesel Heater</h1>
+<p style="color:#94a3b8">Så byggde vi en komplett fjärrstyrning med ESP32-S3 — webbpanel, schemaläggning med veckodagar, moln via MQTT, trådlösa uppdateringar — utan att tappa mobilappen.</p>
+
+<p>
+<span class="tag">ESP32-S3</span>
+<span class="tag">Bluetooth LE</span>
+<span class="tag">Vevor Heater5905</span>
+<span class="tag">MQTT</span>
+<span class="tag">ESPAsyncWebServer</span>
+<span class="tag">OTA</span>
+<span class="tag">GitHub Pages</span>
+</p>
+
+<h2>Vad resultatet blev</h2>
+<ul>
+  <li><strong>Webbpanel hemma</strong> — temp, batteri, start/stopp, temperatur 8–36 °C, effektnivå, scheman, direkt mot kortet på WiFi.</li>
+  <li><strong>Molnpanel</strong> — samma funktioner var som helst i världen, via publik MQTT-broker + GitHub Pages.</li>
+  <li><strong>Schemaläggning</strong> — upp till 8 scheman med veckodagar och exakta tider, över-midnatt-fönster tillåtet (t.ex. 22:00→06:15). Sparas i flashminnet och överlever strömavbrott.</li>
+  <li><strong>"Släpp Bluetooth"</strong> — knappen kopplar ifrån i N minuter så AirHeaterPro-appen kan använda värmaren; kortet återansluter självt.</li>
+  <li><strong>OTA</strong> — alla senare uppdateringar sker trådlöst från webbsidan, aldrig mer USB.</li>
+</ul>
+
+<h2>1. Det vi byggde med</h2>
+<table>
+  <tr><th>Del</th><th>Kommentar</th></tr>
+  <tr><td>ESP32-S3-utvecklingskort</td><td>DevKitC-1 eller klon — krävs: Bluetooth LE 5</td></tr>
+  <tr><td>Vevor-dieselvärmare med BLE-app</td><td>"Heater5905"/AirHeaterPro-typ. ⚠️ Tar bara <strong>en</strong> BLE-klient åt gången</td></tr>
+  <tr><td>5 V USB-försörjning</td><td>Kortet ska sitta nära värmaren — den lilla PCB-antennen är begränsningen</td></tr>
+  <tr><td>Arduino IDE 2.x + arduino-cli</td><td>ESP32-paket: <code>https://espressif.github.io/arduino-esp32/package_esp32_index.json</code></td></tr>
+  <tr><td>Bibliotek</td><td>BLE, ESPAsyncWebServer + AsyncTCP, PubSubClient, ArduinoJson, Preferences</td></tr>
+  <tr><td>Moln</td><td>Publik MQTT-broker (broker.emqx.io) + GitHub Pages för webbsidorna</td></tr>
+</table>
+
+<h2>2. Arkitekturen</h2>
+<pre><code>[Telefon-app]--(BLE, vid behov)---[Värmaren]
+                                      |
+[ESP32-S3]----(BLE, alltid på)--------+
+    |
+    +--(WiFi hemma)--&gt; Webbpanel + REST-API + schemamotor (flashminne)
+    +--(MQTT)--------&gt; Publik broker --&gt; Moln-webbsida var som helst</code></pre>
+
+Principen: <strong>ESP32:n äger Bluetooth-kopplingen dygnet runt</strong> och översätter
+kommandon från webb/moln till värmarens råa protokoll. Appen får plats genom
+"släpp Bluetooth"-fönstret. Schemana triggas av kortets NTP-synkade klocka,
+så de går på minuten även utan mobil eller dator.
+
+<h2>3. BLE-protokollet vi reverse-engineerade</h2>
+
+<p>Värmaren annonserar som <code>Heater5905</code> (öppen, ingen pairing). Allt styrs med
+7-byte ramar till skriv-karakteristiken; status kommer som notiser:</p>
+
+<pre><code>ba ab 04 &lt;cmd&gt; &lt;arg&gt; 00 00 &lt;checksum&gt;
+
+checksum = (summan av alla föregående byte) &amp; 0xFF</code></pre>
+
+<table>
+  <tr><th>Kommando</th><th>Betydelse</th><th>Vad vi lärde oss live</th></tr>
+  <tr><td><code>0xA0</code></td><td>Statusfråga</td><td>Svarar med ~20-byte statusram (temp, spänning, läge, nivå)</td></tr>
+  <tr><td><code>0xA1</code></td><td>På/av-toggla</td><td>Växlar driftläge</td></tr>
+  <tr><td><code>0xA2</code> / <code>0xA3</code></td><td>Nivå +1 / −1</td><td>Så stegar appen brännarnivån — inte absolutvärden</td></tr>
+  <tr><td><code>0xDB &lt;v&gt;</code></td><td>Lagra mål-värde</td><td>Sätter bara målet — växlar inte läge</td></tr>
+  <tr><td><code>0xAD</code></td><td>Aktivera temperatur-läge</td><td>Skickas efter <code>0xDB 8–36</code></td></tr>
+  <tr><td><code>0xAC</code></td><td>Aktivera nivå-läge</td><td>Praktisk nivåstyrning görs med <code>0xA2/0xA3</code></td></tr>
+</table>
+
+<blockquote><strong>Tre fällor som kostade oss mest tid:</strong><br>
+1. Ramar <em>utan checksumma ignoreras tyst</em> — inget fel, inget svar, ingenting.<br>
+2. Lägeskommandona <code>0xAC</code> och <code>0xAD</code> är lätta att förväxla — bevisa med råa statusramar.<br>
+3. Läget växlar inte av <code>0xDB</code> ensamt: rätt sekvens är <code>0xDB &lt;värde&gt;</code> → paus → <code>0xAD</code>.</blockquote>
+
+<p><strong>Statusramen</strong> vi parse:ar: byte 5 = läge (0 = nivå, 1 = temperatur),
+byte 6 = aktuell modulering, byte 7 = satt värde/mål, byte 8 = auto-flagga —
+plus innetemp, värmartemp och batterispänning längre fram i ramen.</p>
+
+<h2>4. Firmwarens byggstenar</h2>
+
+<h3>BLE-klienten</h3>
+<ul>
+  <li>Skanna → matcha namn → connect → MTU 185 → prenumerera notiser.</li>
+  <li>Auto-återanslut i egen FreeRTOS-task, kommandon köas som text (hex-ramar separerade med <code>;</code>).</li>
+  <li><strong>Max sändningseffekt:</strong> <code>esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, ESP_PWR_LVL_P20)</code> — standard är +9 dBm men chipet klarar +20. Det var det som fick kopplingen att sitta på >25 m avstånd.</li>
+</ul>
+
+<h3>Webb-API (ESPAsyncWebServer)</h3>
+<table>
+  <tr><th>Endpoint</th><th>Funktion</th></tr>
+  <tr><td><code>GET /api/status</code></td><td>JSON: temp, volt, läge, mål, fw-version, heap, RSSI</td></tr>
+  <tr><td><code>POST /api/power</code></td><td>Starta/stänga (togglar)</td></tr>
+  <tr><td><code>POST /api/temp</code></td><td><code>0xDB v</code> → 800 ms paus → <code>0xAD</code> (värmaren hinner annars inte)</td></tr>
+  <tr><td><code>POST /api/level</code></td><td>Stega nivå med <code>0xA2/0xA3</code> till önskad nivå</td></tr>
+  <tr><td><code>GET/POST /api/schedules</code></td><td>Scheman: veckodags-bitmask, on/off i minuter, off&lt;on = över midnatt</td></tr>
+  <tr><td><code>POST /api/ble-release</code></td><td>App-fönster: koppla ifrån N minuter (1–120)</td></tr>
+  <tr><td><code>/update</code></td><td>OTA-upload med lösenord</td></tr>
+</table>
+<ul>
+  <li><strong>Lösenord</strong> via <code>?pwd=</code> + session — och <code>Cache-Control: no-store</code> på allt, annars fastnar webbläsaren på gamla sidor (klassisk fälla).</li>
+</ul>
+
+<h3>Schemamotorn</h3>
+<ul>
+  <li>NTP (<code>configTime</code> + svensk tidszon) → exakt-minut-tick.</li>
+  <li>Matchar veckodag + tid mot schemana i Preferences (flashminne).</li>
+  <li>Startsekvens: <em>på → vänta 800 ms → läge → vänta 800 ms → temperatur</em> — snabba kommandon i följd tappas av värmaren.</li>
+</ul>
+
+<h3>MQTT-molnet</h3>
+<ul>
+  <li>PubSubClient med <strong><code>setBufferSize(512)</code></strong> — standard 256 räcker inte för status-JSON, publiceringen dör tyst.</li>
+  <li>Status var 5:e sekund på <code>&lt;topic&gt;/status</code> (retained); kommandon på <code>&lt;topic&gt;/cmd</code> med lösenord i varje meddelande.</li>
+  <li>Schemaläggning fungerar även via molnet: <code>sched_get/add/del</code> på cmd-ämnet, svar på <code>&lt;topic&gt;/sched</code>.</li>
+</ul>
+
+<h3>OTA</h3>
+<ul>
+  <li>Lösenordsskyddad uppladdning av <code>.bin</code> direkt från webbsidan; kortet startar om självt.</li>
+  <li>Fw-version i status-JSON gör att man <em>ser</em> att en uppdatering tagit.</li>
+</ul>
+
+<h2>5. Webbsidorna</h2>
+<ul>
+  <li><strong>Panelen hemma</strong> bygger på kortets egen server — mörk card-layout, temp-/nivåväljare, schemasektion, OTA-ruta.</li>
+  <li><strong>Molnpanelen</strong> ligger på GitHub Pages (statisk HTML + mqtt.js över WebSocket) och prenumererar på status + scheman, publicerar kommandon. GitHub Pages är <em>publikt</em> — därför: aldrig lösenord eller IP:er i sidkoden, och aldrig inbyggda firmware-binärer i repot (de innehåller lösenords-strängar!).</li>
+</ul>
+
+<h2>6. Så satte vi upp allt — steg för steg</h2>
+<ol>
+  <li><strong>Reverse-engineera BLE</strong> med Python + bleak mot värmaren: hitta skriv-/notiser-karakteristiker, toggla på/av, jämför statusramar. Bevisa varje kommando innan firmware skrivs.</li>
+  <li><strong>BLE-klient + status</strong> i firmware först — "läs temp på webbsidan" är milstolpe 1.</li>
+  <li><strong>Styrning</strong> — power, temp (med pauser!), nivå. Testa varje kommando via ett rått debug-endpoint (<code>/api/raw</code>) utan att OTA:a om och om igen.</li>
+  <li><strong>Scheman</strong> i flashminne + NTP-klocka. Skapa ett testschema 2 minuter fram i tiden och bevaka att det startar på exakta minuten.</li>
+  <li><strong>OTA</strong> så tidigt som möjligt — allt efter det uppdateras trådlöst.</li>
+  <li><strong>MQTT + molnpanel</strong> på GitHub Pages. Testa kedjan med en minimalistisk MQTT-klient (raw sockets räcker).</li>
+  <li><strong>Placering:</strong> kortet 1–2 m från värmaren, fritt i luften, inte mot metallhöljet. Med +20 dBm satt sitter kopplingen ändå på betydligt längre avstånd.</li>
+</ol>
+
+<h2>7. Säkerhet</h2>
+<div class="warn"><strong>Värmaren bränner.</strong> Testa alltid med uppsikt, ha en fysisk avbrytargång,
+och behåll appen som reservväg ("släpp Bluetooth"-funktionen gör den kompatibel).
+Schemalagd uppvärmning av rymden du inte kan övervaka = din egen riskbedömning.</div>
+<ul>
+  <li>Lösenord på alla styr-endpoints, aldrig hemligheter i publika filer/binärer.</li>
+  <li>Unika MQTT-ämnen + lösenord i varje kommando — behandla publik broker som avlyssnad.</li>
+  <li>HTTPS på molnsidorna (GitHub Pages ger det gratis).</li>
+</ul>
+
+<h2>8. Felsökningstabellen vi önskat vi haft från dag 1</h2>
+<table>
+  <tr><th>Symptom</th><th>Trolig orsak</th></tr>
+  <tr><td>Kommandon "försvinner" spårlöst</td><td>Saknad checksumma, eller skriv <em>med</em> respons till karaktäristik som bara tar utan</td></tr>
+  <tr><td>Värmaren syns inte i skanning</td><td>Någon är redan ansluten (app öppen?) eller för svag signal</td></tr>
+  <tr><td>Koppling ok men temp visas ej</td><td>Fel bytes i statusparse — jämför råramar</td></tr>
+  <tr><td>Kopplingen funkar nära men inte längre bort</td><td>Standard TX-effekt — sätt +20 dBm</td></tr>
+  <tr><td>Molnstatus tystnar</td><td>MQTT-bufferfull: <code>setBufferSize(512)</code></td></tr>
+  <tr><td>Webbsidan visar gammal version/lås</td><td>Webbläsarcache — skicka <code>Cache-Control: no-store</code> i firmware</td></tr>
+  <tr><td>Schemat startar inte</td><td>Fel klocka (NTP ej synkat), värmaren utan ström, eller kommandon utan pauser</td></tr>
+  <tr><td>Appen hittar inte värmaren</td><td>Kortet håller den upptagen — använd släpp-funktionen</td></tr>
+</table>
+
+<h2>9. Färdiga filer att utgå ifrån</h2>
+<ul>
+  <li><strong>Firmware</strong>: komplett <code>varmare.ino</code> med allt ovan — BLE-klient, schemamotor, MQTT, OTA, webb-API (finns i projektrepot).</li>
+  <li><strong>Guider</strong>: <a href="START.html">Startguide</a> (använda systemet) och <a href="HOWTO.html">How-to</a> (bygg det själv) — även de på den här sidan.</li>
+  <li><strong>Paneler</strong>: <a href="varmare/cloud.html">molnpanel</a> och <a href="varmare/bilvarmare.html">direktpanel</a> som levande exempel.</li>
+</ul>
+
+<p style="color:#64748b;margin-top:40px;font-size:0.9em">Byggt och verifiersat mot en riktig Vevor Heater5905 under flera veckors drift — varje kommando, tidssekvens och fälla i den här sidan är levd, inte gissad.</p>
+
+</body>
+</html>
