@@ -3,87 +3,118 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Köp källkoden — Vevor Diesel Heater ESP32-S3</title>
+<title>Källkod — Vevor Diesel Heater ESP32-S3</title>
 <style>
-  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; max-width: 720px; margin: 0 auto; padding: 24px 18px 60px; line-height: 1.65; }
-  h1 { color: #fbbf24; margin: 0 0 4px; }
-  h2 { color: #38bdf8; margin-top: 30px; }
-  .price { font-size: 3em; font-weight: 800; color: #4ade80; margin: 12px 0; }
-  .card { background: #1e293b; border: 1px solid #334155; border-radius: 16px; padding: 20px; margin: 16px 0; }
-  ul { padding-left: 20px; }
-  li { margin: 6px 0; }
-  a.btn { display: inline-block; background: #0070ba; color: #fff; text-decoration: none; font-weight: 700; padding: 14px 26px; border-radius: 12px; font-size: 1.1em; }
-  a.btn:hover { background: #003087; }
-  code { background: #0f172a; padding: 2px 6px; border-radius: 6px; color: #7dd3fc; }
-  .small { color: #94a3b8; font-size: 0.88em; }
-  details { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 12px 16px; margin: 12px 0; }
-  summary { cursor: pointer; font-weight: 700; color: #fbbf24; }
+  :root { --bg:#0b1220; --panel:#111a2c; --border:#24324a; --text:#dbe4f0; --muted:#8fa1b8; --accent:#3b82f6; --accent2:#38bdf8; }
+  * { box-sizing: border-box; }
+  body { font-family: Georgia, 'Times New Roman', serif; background: var(--bg); color: var(--text); max-width: 760px; margin: 0 auto; padding: 40px 22px 70px; line-height: 1.7; }
+  h1 { font-family: system-ui, sans-serif; font-size: 1.7em; font-weight: 600; letter-spacing: .3px; margin: 0 0 6px; color: #f4f7fb; }
+  h2 { font-family: system-ui, sans-serif; font-size: 1.15em; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: var(--accent2); margin: 38px 0 10px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  p { margin: 10px 0; }
+  .lede { color: var(--muted); font-size: 1.05em; font-style: italic; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 22px 24px; margin: 18px 0; }
+  .buybox { text-align: center; padding: 28px 24px; }
+  .price { font-family: system-ui, sans-serif; font-size: 2.6em; font-weight: 700; color: #f4f7fb; margin: 6px 0 2px; }
+  .per { color: var(--muted); font-size: .95em; margin-bottom: 18px; }
+  ul { padding-left: 22px; }
+  li { margin: 7px 0; }
+  a.btn { display: inline-block; font-family: system-ui, sans-serif; text-decoration: none; font-weight: 600; padding: 12px 28px; border-radius: 6px; font-size: 1em; margin: 6px 4px; }
+  a.btn-pay { background: #ffc439; color: #14202e; }
+  a.btn-pay:hover { background: #eab308; }
+  a.btn-dl { background: var(--accent); color: #fff; }
+  a.btn-dl:hover { background: #2563eb; }
+  code { font-family: Consolas, monospace; font-size: .9em; background: #0b1220; border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; color: var(--accent2); }
+  a { color: var(--accent2); }
+  .small { color: var(--muted); font-size: .9em; }
+  .divider { text-align: center; color: var(--muted); margin: 18px 0; font-size: .85em; letter-spacing: 2px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: .95em; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { font-family: system-ui, sans-serif; font-size: .85em; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
+  .note { border-left: 3px solid var(--accent); padding: 10px 16px; background: var(--panel); border-radius: 0 8px 8px 0; margin: 16px 0; }
+  details { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; margin: 14px 0; }
+  summary { cursor: pointer; font-family: system-ui, sans-serif; font-weight: 600; color: #f4f7fb; }
+  .footer { margin-top: 44px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: .88em; }
 </style>
 </head>
 <body>
 
-<h1>🔧 Källkod — Vevor Diesel Heater (ESP32-S3)</h1>
-<p style="color:#94a3b8">Komplett, beprövad firmware för fjärrstyrning av Vevor-dieselvärmare via Bluetooth.</p>
+<h1>Vevor Diesel Heater — firmware för ESP32-S3</h1>
+<p class="lede">Komplett källkod för fjärrstyrning av Bluetooth-utrustade dieselvärmare. Framtagen och verifierad mot en riktig Vevor Heater5905.</p>
 
-<div class="card" style="text-align:center;">
-  <div class="price">$1</div>
-  <p>Engångsbetalning — all kod, inga prenumerationer.</p>
-  
-<div style="text-align:center; margin:18px 0;">
-  <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAUgAAAFICAIAAAC9dvBkAAAHLUlEQVR4nO3dwW1jNxRAUTuYArRMD+m/lPSQpTpQKvgLAiRIXp2zTr41si8o4Ink7+fz+QFa/tr9AoD5hA1BwoYgYUOQsCFI2BAkbAgSNgQJG4KEDUHChiBhQ5CwIUjYECRsCPoz+j+8/v7n5wbv//6d8vpnPWf0+U+efu6s54wa/bmjZv2+qn/PT6zYECRsCBI2BAkbgoQNQcKGIGFD0PAce9c885Y55y3vw6y5/a55+Or3+X3579GKDUHChiBhQ5CwIUjYECRsCBI2BE2bY3/bvt9Zzx+dG8/672/fD/9k9fvwuuTv2YoNQcKGIGFDkLAhSNgQJGwIEjYELZ9jn2bXvuXV8+fTXs8t57RXWbEhSNgQJGwIEjYECRuChA1Bwoagr5tjjzpt//PqfeO79i3Pmm+fti99Fys2BAkbgoQNQcKGIGFDkLAhSNgQtHyOfcv8cPX89un5u+55Xn2+96x7tk/7+3kf9nqeWLEhSNgQJGwIEjYECRuChA1BwoagP7fsE95l1rncs56/61zx21//e9I927ewYkOQsCFI2BAkbAgSNgQJG4KEDUG/n8/n55us3oe86zzt084Dn+WWfdqnsWJDkLAhSNgQJGwIEjYECRuChA1Bw3Ps1XPF1fuHd82TT7vX+rR59ahb9ku/J/1eRp9jxYYgYUOQsCFI2BAkbAgSNgQJG4KWz7FXz6VvOS969TnYt+wPP+17Crf8nYyyYkOQsCFI2BAkbAgSNgQJG4KEDUHT7sfeZdc+59U/97TvC4zatU/+lnPa34v3t1uxIUjYECRsCBI2BAkbgoQNQcKGIPdjH3qe9u3nZs+a396yD/x92Pzcig1BwoYgYUOQsCFI2BAkbAgSNgQN78e+5Zzn0eevnlePzlFPm4s+/dzV+8afnHbu+izuxwYe+SgOQcKGIGFDkLAhSNgQJGwImnau+Ojcsjo/nGXXPuRRu/Y/nzbPf7Lr78eKDUHChiBhQ5CwIUjYECRsCBI2BC0/V3zXPcmznv9k133Uu+bVo275974OO7/dueLAIx/FIUjYECRsCBI2BAkbgoQNQdPm2Kv3qa6e0572/F33OY/6tu8p3PL6rdgQJGwIEjYECRuChA1BwoYgYUPQNeeKP9l1P/Nqs+6L3rXf2Lx97+/Lig1BwoYgYUOQsCFI2BAkbAgSNgQN78c+bf/t7ed475rD79onPOq01/m65N5yKzYECRuChA1BwoYgYUOQsCFI2BC07VzxUbv2G99y/vmo0/ar37Jv/H3Yue5PrNgQJGwIEjYECRuChA1BwoYgYUPQtP3Yu+acp50Hftp9zqfdH37ac57s2vduPzbwyEdxCBI2BAkbgoQNQcKGIGFD0LT7sWc57b7rXfufb5nT7nr+rnPUZ7EfGxjmozgECRuChA1BwoYgYUOQsCFo2xz7lnuPbz9/e9br3LXv/bT97a/B99P92MA0PopDkLAhSNgQJGwIEjYECRuCpt2Pvdqs85lXn/N82nnUq+95HrXr557GfmxgmI/iECRsCBI2BAkbgoQNQcKGoG1z7NPOtT5tf/hpdu1Xv2Wu/l78PYLR982KDUHChiBhQ5CwIUjYECRsCBI2BE2bY6+eG++aP582Dz9t/j/6nCen3Wf+5JbvQVixIUjYECRsCBI2BAkbgoQNQcKGoOE59mnzulvOIb9lrnva+zDL+7B9/s4VB4b5KA5BwoYgYUOQsCFI2BAkbAhafq747fuTb98PfNq+7tV2nVv+Puzv04oNQcKGIGFDkLAhSNgQJGwIEjYEbbsfe9TqOe23zcNPmxt/2/7tJ84VBx75KA5BwoYgYUOQsCFI2BAkbAg67lzx259/y73io69nteo+8Nem71NYsSFI2BAkbAgSNgQJG4KEDUHChqBr9mPPUt13veu+8dXz21nem753sIsVG4KEDUHChiBhQ5CwIUjYECRsCPoz+j9823nXq1/Paft4n6ye0+6ah78umUuPsmJDkLAhSNgQJGwIEjYECRuChA1Bw3PsJ7fsZ/6213naPurR5++an486bT+5FRuChA1BwoYgYUOQsCFI2BAkbAiaNse+5dzsWfPkXfd4z9rXPfp6Ru06P/z2cwRmsWJDkLAhSNgQJGwIEjYECRuChA1By+fYp9k17316/ur90qv/vavn1aed+/1efK77rPfNig1BwoYgYUOQsCFI2BAkbAgSNgR93Rx7ltP2dY9afU747XPj9+BzVn/vYJQVG4KEDUHChiBhQ5CwIUjYECRsCFo+x961b3bUrjnzrnnprOevdtr7/zpsfv7Eig1BwoYgYUOQsCFI2BAkbAgSNgT9fj6f5D3Dq+e9u/ZpnzZn3vX9hV3vz/uS7ztYsSFI2BAkbAgSNgQJG4KEDUHChqDhOTZwPis2BAkbgoQNQcKGIGFDkLAhSNgQJGwIEjYECRuChA1BwoYgYUOQsCFI2PDT8z9q/sy3Rul5pQAAAABJRU5ErkJggg==" alt="QR-kod till köpsidan" style="width:170px;height:170px;image-rendering:pixelated;background:#fff;border-radius:12px;padding:8px;">
-  <p class="small" style="margin:6px 0 0;">📱 Skanna för att dela den här sidan</p>
-</div>
-<div class="price" style="font-size:2em; color:#fbbf24;">Betala $1 via PayPal — hämta direkt</div>
-  <div style="display:flex; gap:18px; align-items:center; justify-content:center; flex-wrap:wrap; margin:14px 0;">
-    <div style="text-align:center;">
-      <a class="btn" href="https://paypal.me/esp32s3/1" target="_blank" rel="noopener" style="background:#ffc439; color:#111; font-size:1.15em;">🅿️ Betala $1 via PayPal</a>
-      <p class="small" style="margin:8px 0 0;">Öppnar PayPal med beloppet förifyllt ($1).</p>
-    </div>
-    <div style="text-align:center;">
-      <a class="btn" href="varmare.ino" download="varmare.ino" style="background:#16a34a;">⬇ Hämta varmare.ino</a>
-      <p class="small" style="margin:8px 0 0;">Nedladdningen startar direkt.</p>
-    </div>
-  </div>
-  <p class="small" style="text-align:center; margin-top:4px;">Frågor om betalning? <a href="mailto:hanzpanzi@gmail.com" style="color:#7dd3fc;">maila</a> så hjälper vi till.</p>
-  <p class="small" style="margin-top:6px;">⚠️ <strong>Personlig licens:</strong> koden gäller en (1) värmare och får inte kopieras eller delas vidare — se villkoren längst ner.</p>
-</div>
+<h2>Översikt</h2>
+<p>Firwaren gör en ESP32-S3 till en permanent styrcentral för värmaren: kortet äger
+Bluetooth-kopplingen, exponerar ett lösenordsskyddat webb-API i det lokala nätverket,
+kör veckoscheman med exakt minuterlighet och rapporterar status till ett valfritt
+MQTT-moln. Den ursprungliga mobilappen kan fortfarande användas via en släppfunktion
+som ger appen ensam åtkomst under vald tid.</p>
 
-<h2>Vad du får</h2>
-<div class="card">
+<h2>Funktioner</h2>
+<div class="panel">
 <ul>
-  <li><code>varmare.ino</code> — komplett firmware (~1100 rader):</li>
-  <li>✅ BLE-klient mot Vevor "Heater5905" (ABBA-protokollet, checksummor, +20 dBm)</li>
-  <li>✅ Webb-API: status, start/stopp, temperatur 8–36 °C, nivå 1–10</li>
-  <li>✅ Schemaläggning: 8 scheman, veckodagar, över-midnatt-fönster, sparas i flashminne</li>
-  <li>✅ MQTT-moln: status var 5:e s + kommandon + schemaläggning via molnet</li>
-  <li>✅ "Släpp Bluetooth"-fönster så mobilappen kan användas</li>
-  <li>✅ Lösenordsskyddad OTA-uppdatering från webbsidan</li>
+  <li><strong>BLE-klient</strong> mot Vevor Heater5905 — fullständig implementation av ABBA-protokollet med checksummor och förstärkt sändning (+20 dBm)</li>
+  <li><strong>Webb-API</strong> — status, start/stopp, temperaturinställning 8–36 °C, effektnivå 1–10</li>
+  <li><strong>Schemaläggning</strong> — 8 scheman med veckodagar och över-midnatt-fönster, lagras i flashminne och överlever strömavbrott</li>
+  <li><strong>MQTT-integration</strong> — status var femte sekund, fjärrkommandon och fjärrschemaläggning</li>
+  <li><strong>Appkompatibilitet</strong> — styrbar frigivning av Bluetooth-anslutningen till originalappen</li>
+  <li><strong>OTA-uppdatering</strong> — lösenordsskyddad trådlös uppdatering direkt från webbsidan</li>
 </ul>
 </div>
 
-<h2>Så använder du koden</h2>
-<ol>
-  <li>Hämta <code>varmare.ino</code> (knappen ovan) och lägg den i en mapp som heter <code>varmare</code>.</li>
-  <li>Ändra överst i filen: <code>WIFI_SSID</code>, <code>WIFI_PASSWORD</code>, <code>WEB_PASSWORD</code> och <code>MQTT_TOPIC</code> (välj ett unikt ämne!).</li>
-  <li>Programmera via USB (ESP32-S3 Dev Module), öppna serie-monitor och notera IP-adressen.</li>
-  <li>Klart — följ <a href="https://hanzpanzi.github.io/blixtradar/vevor-diesel-heater.html">bygg-sidan</a> för moln och scheman.</li>
-</ol>
+<h2>Köpa</h2>
+<div class="panel buybox">
+  <div class="price">$1</div>
+  <div class="per">Engångsbetalning. Inga prenumerationer eller upprepad avgift.</div>
+  <a class="btn btn-pay" href="https://paypal.me/esp32s3/1" target="_blank" rel="noopener">Betala $1 via PayPal</a>
+  <a class="btn btn-dl" href="varmare.ino" download="varmare.ino">Hämta källkoden (varmare.ino)</a>
+  <p class="small" style="margin-top:16px;">Vid frågor om betalning eller leverans:
+  <a href="mailto:hanzpanzi@gmail.com">hanzpanzi@gmail.com</a></p>
+</div>
+<div class="note">
+<strong>Licens.</strong> Koden säljs som personlig licens: användning i en (1) egen värmare.
+Kopiering, delning, vidareförsäljning och publicering är inte tillåten. Fullständiga
+villkor finns längst ner på sidan.
+</div>
+
+<h2>Leverans och konfiguration</h2>
+<div class="panel">
+<p>Filen är rensad från säljarens personliga inställningar. Efter nedladdning fyller du
+i din egen konfiguration överst i koden:</p>
+<table>
+  <tr><th>Parameter</th><th>Beskrivning</th></tr>
+  <tr><td><code>WIFI_SSID</code></td><td>Namnet på ditt WiFi-nätverk</td></tr>
+  <tr><td><code>WIFI_PASSWORD</code></td><td>Lösenordet till WiFi-nätverket</td></tr>
+  <tr><td><code>WEB_PASSWORD</code></td><td>Lösenord som skyddar webbsidan och API:t</td></tr>
+  <tr><td><code>OTA_PASSWORD</code></td><td>Lösenord för trådlösa firmware-uppdateringar</td></tr>
+  <tr><td><code>MQTT_TOPIC</code></td><td>Valfritt unikt MQTT-ämne, t.ex. <code>ditt-namn/heater</code></td></tr>
+</table>
+<p class="small">Sätt filen i en mapp med namnet <code>varmare</code>, öppna i Arduino IDE
+(ESP32-S3 Dev Module) och programmera via USB. IP-adressen visas i serieövervakningen.</p>
+</div>
+
+<h2>Stöd och dokumentation</h2>
+<p>Byggguiden med arkitektur, BLE-protokolltabell och felsökning finns på
+<a href="https://hanzpanzi.github.io/blixtradar/vevor-diesel-heater.html">byggsidan</a>.
+En generisk steg-för-steg-guide för egna byggen finns som
+<a href="https://hanzpanzi.github.io/blixtradar/HOWTO.html">HOWTO</a>.</p>
 
 <details>
-<summary>Villkor (kort) — personlig licens, en användare</summary>
-<p class="small"><strong>Licensen gäller endast köparen</strong> och är <strong>personlig och icke-överlåtbar</strong>:</p>
+<summary>Licensvillkor — personlig, icke-överlåtbar</summary>
 <ul class="small">
-  <li>📝 Koden får användas i <strong>en (1) egen värmare</strong> i ditt eget hem.</li>
-  <li>🚫 <strong>Kopiering, delning, vidareförsäljning eller publicering</strong> av koden — helt eller delvis — är förbjudet.</li>
-  <li>🚫 Koden får inte laddas upp på forum, GitHub, gratissajter eller delas med vänner/släkt.</li>
-  <li>🔑 Varje köp registreras — filen spåras till köparen, och brott mot licensen stänger ute framtida uppdateringar.</li>
-  <li>💼 Vill du använda koden i flera värmare eller kommersiellt? Maila för flerlicens: <a href="mailto:hanzpanzi@gmail.com" style="color:#7dd3fc;">hanzpanzi@gmail.com</a></li>
+  <li>Licensen gäller endast köparen och omfattar användning i <strong>en (1) värmare</strong> i köparens eget hem.</li>
+  <li><strong>Kopiering, delning, vidareförsäljning eller publicering</strong> av koden, helt eller delvis, är förbjudet.</li>
+  <li>Uppladdning till forum, kodtjänster eller fildelning är förbjuden, liksom delning med tredje part.</li>
+  <li>Varje köp registreras; överträdelser stänger ute tillgång till framtida uppdateringar.</li>
+  <li>Flerlicens eller kommersiell användning förhandlas via <a href="mailto:hanzpanzi@gmail.com">hanzpanzi@gmail.com</a>.</li>
 </ul>
-<p class="small">Koden säljs i befintligt skick ("as is"). Inga garantier; dielevärmare är brandfarliga — du ansvarar för säker installation.
-Framtagningen är verifierad mot en riktig Vevor Heater5905.</p>
+<p class="small">Koden levereras i befintligt skick utan garantier. Dieselvärmare innebär
+brandrisk — installatören ansvarar för säker montering och drift. Protokollet är verifierat
+mot en Vevor Heater5905; kompatibilitet med andra modeller garanteras inte.</p>
 </details>
 
-<p style="margin-top:30px"><a href="https://hanzpanzi.github.io/blixtradar/vevor-diesel-heater.html">← Tillbaka till byggsidan</a></p>
+<div class="footer">
+  <a href="https://hanzpanzi.github.io/blixtradar/vevor-diesel-heater.html">Tillbaka till byggsidan</a> ·
+  <a href="https://hanzpanzi.github.io/blixtradar/">Startsidan</a>
+</div>
 
 </body>
 </html>
