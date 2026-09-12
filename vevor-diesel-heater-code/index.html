@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Källkod — Vevor Diesel Heater ESP32-S3</title>
+<title>Source code / Källkod — Vevor Diesel Heater ESP32-S3</title>
 <style>
   :root { --bg:#0b1220; --panel:#111a2c; --border:#24324a; --text:#dbe4f0; --muted:#8fa1b8; --accent:#3b82f6; --accent2:#38bdf8; }
   * { box-sizing: border-box; }
@@ -26,23 +26,34 @@
   code { font-family: Consolas, monospace; font-size: .9em; background: #0b1220; border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; color: var(--accent2); }
   a { color: var(--accent2); }
   .small { color: var(--muted); font-size: .9em; }
-  .divider { text-align: center; color: var(--muted); margin: 18px 0; font-size: .85em; letter-spacing: 2px; }
+  .note { border-left: 3px solid var(--accent); padding: 10px 16px; background: var(--panel); border-radius: 0 8px 8px 0; margin: 16px 0; }
   table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: .95em; }
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
   th { font-family: system-ui, sans-serif; font-size: .85em; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
-  .note { border-left: 3px solid var(--accent); padding: 10px 16px; background: var(--panel); border-radius: 0 8px 8px 0; margin: 16px 0; }
   details { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; margin: 14px 0; }
   summary { cursor: pointer; font-family: system-ui, sans-serif; font-weight: 600; color: #f4f7fb; }
   .footer { margin-top: 44px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: .88em; }
+  /* Språkväxlare */
+  .langbar { position: sticky; top: 0; z-index: 10; background: var(--bg); padding: 10px 0 12px; display: flex; justify-content: flex-end; gap: 8px; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+  .langbar button { font-family: system-ui, sans-serif; font-size: .85em; font-weight: 600; letter-spacing: .5px; padding: 6px 16px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--muted); cursor: pointer; }
+  .langbar button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 </style>
 </head>
 <body>
+
+<div class="langbar">
+  <button id="btn-sv" onclick="setLang('sv')">Svenska</button>
+  <button id="btn-en" onclick="setLang('en')">English</button>
+</div>
+
+<!-- ============================== SVENSKA ============================== -->
+<div id="lang-sv">
 
 <h1>Vevor Diesel Heater — firmware för ESP32-S3</h1>
 <p class="lede">Komplett källkod för fjärrstyrning av Bluetooth-utrustade dieselvärmare. Framtagen och verifierad mot en riktig Vevor Heater5905.</p>
 
 <h2>Översikt</h2>
-<p>Firwaren gör en ESP32-S3 till en permanent styrcentral för värmaren: kortet äger
+<p>Firmwaren gör en ESP32-S3 till en permanent styrcentral för värmaren: kortet äger
 Bluetooth-kopplingen, exponerar ett lösenordsskyddat webb-API i det lokala nätverket,
 kör veckoscheman med exakt minuterlighet och rapporterar status till ett valfritt
 MQTT-moln. Den ursprungliga mobilappen kan fortfarande användas via en släppfunktion
@@ -115,6 +126,109 @@ mot en Vevor Heater5905; kompatibilitet med andra modeller garanteras inte.</p>
   <a href="https://hanzpanzi.github.io/blixtradar/vevor-diesel-heater.html">Tillbaka till byggsidan</a> ·
   <a href="https://hanzpanzi.github.io/blixtradar/">Startsidan</a>
 </div>
+
+</div>
+
+<!-- ============================== ENGLISH ============================== -->
+<div id="lang-en" style="display:none;">
+
+<h1>Vevor Diesel Heater — firmware for ESP32-S3</h1>
+<p class="lede">Complete source code for remote control of Bluetooth-equipped diesel heaters. Developed and verified against a real Vevor Heater5905.</p>
+
+<h2>Overview</h2>
+<p>The firmware turns an ESP32-S3 into a permanent control hub for the heater: the board
+owns the Bluetooth connection, exposes a password-protected web API on the local network,
+runs weekly schedules with exact minute accuracy and reports status to any MQTT broker.
+The original mobile app can still be used through a release function that gives the app
+exclusive access for a chosen period of time.</p>
+
+<h2>Features</h2>
+<div class="panel">
+<ul>
+  <li><strong>BLE client</strong> for the Vevor Heater5905 — full implementation of the ABBA protocol with checksums and boosted transmission (+20 dBm)</li>
+  <li><strong>Web API</strong> — status, start/stop, temperature setting 8–36 °C, power level 1–10</li>
+  <li><strong>Scheduling</strong> — 8 schedules with weekdays and over-midnight windows, stored in flash memory and resistant to power outages</li>
+  <li><strong>MQTT integration</strong> — status every five seconds, remote commands and remote scheduling</li>
+  <li><strong>App compatibility</strong> — controlled release of the Bluetooth connection to the original app</li>
+  <li><strong>OTA updates</strong> — password-protected wireless updates directly from the web page</li>
+</ul>
+</div>
+
+<h2>Purchase</h2>
+<div class="panel buybox">
+  <div class="price">$1</div>
+  <div class="per">One-time payment. No subscriptions or recurring fees.</div>
+  <a class="btn btn-pay" href="https://paypal.me/esp32s3/1" target="_blank" rel="noopener">Pay $1 via PayPal</a>
+  <a class="btn btn-dl" href="varmare.ino" download="varmare.ino">Download the source code (varmare.ino)</a>
+  <p class="small" style="margin-top:16px;">For questions about payment or delivery:
+  <a href="mailto:hanzpanzi@gmail.com">hanzpanzi@gmail.com</a></p>
+</div>
+<div class="note">
+<strong>License.</strong> The code is sold as a personal license: use in one (1) heater of
+your own. Copying, sharing, resale and publication are not permitted. Full terms are
+provided at the bottom of the page.
+</div>
+
+<h2>Delivery and configuration</h2>
+<div class="panel">
+<p>The file is stripped of the seller's personal settings. After downloading, enter your
+own configuration at the top of the code:</p>
+<table>
+  <tr><th>Parameter</th><th>Description</th></tr>
+  <tr><td><code>WIFI_SSID</code></td><td>Name of your WiFi network</td></tr>
+  <tr><td><code>WIFI_PASSWORD</code></td><td>Password of your WiFi network</td></tr>
+  <tr><td><code>WEB_PASSWORD</code></td><td>Password protecting the web page and the API</td></tr>
+  <tr><td><code>OTA_PASSWORD</code></td><td>Password for wireless firmware updates</td></tr>
+  <tr><td><code>MQTT_TOPIC</code></td><td>Any unique MQTT topic, e.g. <code>your-name/heater</code></td></tr>
+</table>
+<p class="small">Place the file in a folder named <code>varmare</code>, open it in the
+Arduino IDE (ESP32-S3 Dev Module) and program over USB. The IP address is shown in the
+serial monitor.</p>
+</div>
+
+<h2>Support and documentation</h2>
+<p>The build guide, covering architecture, the BLE protocol table and troubleshooting, is
+available on the <a href="https://hanzpanzi.github.io/blixtradar/vevor-diesel-heater.html">project page</a>.
+A generic step-by-step guide for building your own is available as the
+<a href="https://hanzpanzi.github.io/blixtradar/HOWTO.html">HOWTO</a>.</p>
+
+<details>
+<summary>License terms — personal, non-transferable</summary>
+<ul class="small">
+  <li>The license applies to the buyer only and covers use in <strong>one (1) heater</strong> in the buyer's own home.</li>
+  <li><strong>Copying, sharing, resale or publication</strong> of the code, in whole or in part, is prohibited.</li>
+  <li>Uploading to forums, code hosting services or file sharing is prohibited, as is sharing with third parties.</li>
+  <li>Every purchase is registered; violations terminate access to future updates.</li>
+  <li>Multi-license or commercial use is negotiated via <a href="mailto:hanzpanzi@gmail.com">hanzpanzi@gmail.com</a>.</li>
+</ul>
+<p class="small">The code is provided as is, without warranty of any kind. Diesel heaters
+pose a fire risk — the installer is responsible for safe mounting and operation. The
+protocol has been verified against a Vevor Heater5905; compatibility with other models
+is not guaranteed.</p>
+</details>
+
+<div class="footer">
+  <a href="https://hanzpanzi.github.io/blixtradar/vevor-diesel-heater.html">Back to the project page</a> ·
+  <a href="https://hanzpanzi.github.io/blixtradar/">Home</a>
+</div>
+
+</div>
+
+<script>
+function setLang(lang) {
+  document.getElementById('lang-sv').style.display = lang === 'sv' ? '' : 'none';
+  document.getElementById('lang-en').style.display = lang === 'en' ? '' : 'none';
+  document.getElementById('btn-sv').className = lang === 'sv' ? 'on' : '';
+  document.getElementById('btn-en').className = lang === 'en' ? 'on' : '';
+  document.documentElement.lang = lang;
+  try { localStorage.setItem('shop-lang', lang); } catch (e) {}
+}
+(function () {
+  var lang = 'sv';
+  try { lang = localStorage.getItem('shop-lang') || ((navigator.language || 'sv').slice(0, 2) === 'en' ? 'en' : 'sv'); } catch (e) {}
+  setLang(lang);
+})();
+</script>
 
 </body>
 </html>
