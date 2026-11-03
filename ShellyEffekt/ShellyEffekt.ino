@@ -1,5 +1,5 @@
 // =====================================================================
-//  ShellyEffekt – ESP32-S3 läser en Shelly Gen1-effektmätare
+//  Husets effekt – ESP32-S3 läser en Shelly Gen1-effektmätare
 // =====================================================================
 //  Kortet och Shelly-mätaren måste vara på samma nätverk. Kortet hämtar
 //  Shellyns /status var 2:a sekund och visar:
@@ -18,7 +18,7 @@
 //  port 80 i routern mot kortets IP. Då nås sidan på
 //  http://<namn>.duckdns.org  – med inloggning.
 //
-//  Webbsida:  http://shellyeffekt.local   (eller kortets IP)
+//  Webbsida:  http://husetseffekt.local   (eller kortets IP)
 //  JSON:      /api/power   /api/history   /api/config   /api/remote
 //  OTA:       /update  (inloggning + OTA-lösenord)
 // =====================================================================
@@ -39,19 +39,19 @@
 // ==========================================
 // 1. WI-FI & GRUNDINSTÄLLNINGAR
 // ==========================================
-// FORCE_AP_MODE = 1 -> kortet startar ALLTID eget Wi-Fi (ShellyEffekt)
+// FORCE_AP_MODE = 1 -> kortet startar ALLTID eget Wi-Fi (Husets effekt)
 // FORCE_AP_MODE = 0 -> försöker ansluta till hem-Wi-Fi först
 #define FORCE_AP_MODE 0
 
 const char* WIFI_SSID     = "getingbo";
 const char* WIFI_PASSWORD = "bykt1f8c";
 
-const char* AP_SSID = "ShellyEffekt";
+const char* AP_SSID = "Husets effekt";
 const char* AP_PASS = "12345678";
 
-const char* MDNS_NAME   = "shellyeffekt";      // http://shellyeffekt.local
+const char* MDNS_NAME   = "husetseffekt";      // http://husetseffekt.local
 const char* OTA_PASSWORD = "perkele";
-const char* FW_VERSION  = "1.1";
+const char* FW_VERSION  = "1.2";
 
 // Standardkonto för webbsidan (ändras i webbsidan, sparas i flash)
 const char* DEFAULT_WEB_USER = "hanzpanzi";
@@ -143,6 +143,8 @@ static RemoteState rs;
 
 // Live-buffer för momentan effekt (skyddas av stateMux)
 static float    liveW[LIVE_SLOTS];
+static float    liveV[LIVE_SLOTS];
+static float    livePh[3][LIVE_SLOTS];
 static uint8_t  liveIdx   = 0;
 static uint16_t liveCount = 0;
 static SemaphoreHandle_t stateMux  = nullptr;
@@ -172,7 +174,11 @@ static void resetArrays() {
   st.minuteStartMs = 0;
   st.whBoot = st.whHour1 = st.whToday = 0;
 
-  for (int i = 0; i < LIVE_SLOTS; i++) liveW[i] = 0;
+  for (int i = 0; i < LIVE_SLOTS; i++) {
+    liveW[i] = 0;
+    liveV[i] = 0;
+    livePh[0][i] = livePh[1][i] = livePh[2][i] = 0;
+  }
   liveIdx = 0;
   liveCount = 0;
 }
@@ -643,6 +649,8 @@ static void shellyTask(void* param) {
 
       // spara ett live-prov (äldst -> nyast läses ut i handleLive)
       liveW[liveIdx] = pW;
+      liveV[liveIdx] = vV;
+      for (int i = 0; i < 3; i++) livePh[i][liveIdx] = phW[i];
       liveIdx = (liveIdx + 1) % LIVE_SLOTS;
       if (liveCount < LIVE_SLOTS) liveCount++;
     } else {
@@ -707,26 +715,46 @@ void handlePower() {
   web.send(200, "application/json", json);
 }
 
-// Live-effekt: senaste ~5 minuterna (150 prov à 2 s), äldst först
+// Live: senaste ~5 minuterna (150 prov à 2 s), äldst först.
+// Returnerar effekt, snittspänning och snitteffekt per fas.
 void handleLive() {
   if (!requireAuth()) return;
 
-  float buf[LIVE_SLOTS];
+  float bufW[LIVE_SLOTS];
+  float bufV[LIVE_SLOTS];
+  float phAvg[3] = { 0, 0, 0 };
   uint16_t n;
+
   xSemaphoreTake(stateMux, portMAX_DELAY);
   n = liveCount;
   for (uint16_t i = 0; i < n; i++) {
     int idx = ((int)liveIdx - (int)n + (int)i + LIVE_SLOTS) % LIVE_SLOTS;
-    buf[i] = liveW[idx];
+    bufW[i] = liveW[idx];
+    bufV[i] = liveV[idx];
+    for (int k = 0; k < 3; k++) phAvg[k] += livePh[k][idx];
   }
   xSemaphoreGive(stateMux);
 
+  if (n > 0) {
+    for (int k = 0; k < 3; k++) phAvg[k] /= (float)n;
+  }
+
   String json;
-  json.reserve(24 + n * 8);
+  json.reserve(64 + n * 14);
   json += "{\"w\":[";
   for (uint16_t i = 0; i < n; i++) {
     if (i) json += ",";
-    json += String(buf[i], 1);
+    json += String(bufW[i], 1);
+  }
+  json += "],\"v\":[";
+  for (uint16_t i = 0; i < n; i++) {
+    if (i) json += ",";
+    json += String(bufV[i], 1);
+  }
+  json += "],\"phAvg\":[";
+  for (int k = 0; k < 3; k++) {
+    if (k) json += ",";
+    json += String(phAvg[k], 1);
   }
   json += "]}";
 
@@ -934,7 +962,7 @@ const char HTML_LOGIN[] PROGMEM = R"rawliteral(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Logga in – Shelly effekt</title>
+<title>Logga in – Husets effekt</title>
 <style>
   body { font-family:system-ui,-apple-system,sans-serif; background:#0f172a; color:#f8fafc;
          display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; padding:16px;
@@ -956,7 +984,7 @@ const char HTML_LOGIN[] PROGMEM = R"rawliteral(
 </head>
 <body>
 <div class="card">
-  <h1>⚡ Shelly effekt</h1>
+  <h1>⚡ Husets effekt</h1>
   __ERR__
   <form method="POST" action="/login">
     <label>Användare</label>
@@ -965,7 +993,7 @@ const char HTML_LOGIN[] PROGMEM = R"rawliteral(
     <input name="pass" type="password" autocomplete="current-password" required>
     <button type="submit">Logga in</button>
   </form>
-  <div class="foot">ShellyEffekt · ESP32-S3</div>
+  <div class="foot">Husets effekt · ESP32-S3</div>
 </div>
 </body>
 </html>
@@ -975,7 +1003,7 @@ const char HTML_OTA[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="sv"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ShellyEffekt – OTA</title>
+<title>Husets effekt – OTA</title>
 <style>body{font-family:system-ui,sans-serif;background:#0f172a;color:#f8fafc;text-align:center;padding:20px}
 .card{background:#1e293b;border-radius:16px;padding:20px;max-width:420px;margin:30px auto;border:1px solid #334155}
 h1{color:#38bdf8;font-size:1.3em}input,button{width:100%;box-sizing:border-box;margin-top:10px;padding:11px;
@@ -1070,7 +1098,7 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>⚡ Shelly effekt</title>
+<title>⚡ Husets effekt</title>
 <style>
   body { font-family:system-ui,-apple-system,sans-serif; background:#0f172a; color:#f8fafc;
          padding:12px; margin:0; -webkit-text-size-adjust:100%; -webkit-tap-highlight-color:transparent; }
@@ -1134,6 +1162,16 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
   .phase .pname { color:#38bdf8; font-weight:700; font-size:.8em; letter-spacing:.5px; }
   .phase .pw { font-size:1.25em; font-weight:800; color:#fbbf24; margin:3px 0 2px; }
   .phase .pmeta { color:#94a3b8; font-size:.72em; line-height:1.55; }
+  .voltbox { background:#0f172a; border:1px solid #263449; border-radius:14px;
+             padding:10px 12px 8px; margin-top:10px; }
+  .voltnow { text-align:center; font-size:1.4em; font-weight:800; color:#34d399; margin-top:2px; }
+  .voltgraph { width:100%; height:56px; display:block; margin-top:2px; }
+  .phasehdr { color:#94a3b8; font-size:.75em; text-align:center; margin-top:12px; }
+  .phasehdr b { color:#fbbf24; }
+  .phase.top { border-color:#fbbf24; box-shadow:0 0 12px rgba(251,191,36,.25); }
+  .phase .pavg { color:#64748b; font-size:.68em; margin-top:1px; }
+  .topbadge { display:inline-block; background:#fbbf24; color:#0f172a; font-size:.6em; font-weight:800;
+              border-radius:5px; padding:1px 5px; margin-left:4px; vertical-align:middle; letter-spacing:.5px; }
   @supports (padding:max(0px)) {
     body { padding-left:max(12px,env(safe-area-inset-left)); padding-right:max(12px,env(safe-area-inset-right));
            padding-top:max(12px,env(safe-area-inset-top)); padding-bottom:max(12px,env(safe-area-inset-bottom)); }
@@ -1143,7 +1181,7 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
 <body>
 <div class="card">
   <div class="topline">
-    <h1>⚡ Shelly effekt</h1>
+    <h1>⚡ Husets effekt</h1>
     <div class="nav"><a href="/update">OTA</a><a href="/logout">Logga ut</a></div>
   </div>
 
@@ -1171,6 +1209,22 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
     </div>
   </div>
 
+  <div class="voltbox">
+    <div class="livelbl">Spänning · snitt över faserna</div>
+    <div class="voltnow" id="voltNow">–</div>
+    <svg class="voltgraph" viewBox="0 0 360 50" preserveAspectRatio="none">
+      <polyline id="voltLine" fill="none" stroke="#34d399" stroke-width="2"
+                vector-effect="non-scaling-stroke"></polyline>
+    </svg>
+    <div class="liverow">
+      <span>senaste 5 min</span>
+      <span id="voltMin">–</span>
+      <span id="voltAvg">–</span>
+      <span id="voltMax">–</span>
+    </div>
+  </div>
+
+  <div class="phasehdr" id="phaseHdr"></div>
   <div class="phaserow" id="phases"></div>
 
   <div class="grid">
@@ -1260,6 +1314,8 @@ function fmtKwh(wh) {
 }
 function $(id) { return document.getElementById(id); }
 
+var phAvg = [0, 0, 0];   // snitteffekt per fas, senaste 5 min (från /api/live)
+
 function poll() {
   fetch('/api/power', { cache: 'no-store' })
     .then(function (r) {
@@ -1289,10 +1345,16 @@ function poll() {
       // Per fas (Shelly 3EM): visa bara om mätaren rapporterar flera faser
       var ph = d.ph || [];
       if (d.phases >= 2) {
+        var topIdx = 0, topVal = -1;
+        for (var i = 0; i < 3; i++) if (phAvg[i] > topVal) { topVal = phAvg[i]; topIdx = i; }
         var phHtml = '';
         for (var i = 0; i < ph.length && i < d.phases; i++) {
-          phHtml += '<div class="phase"><div class="pname">L' + (i + 1) + '</div>' +
+          phHtml += '<div class="phase' + (i === topIdx && topVal > 0 ? ' top' : '') + '">' +
+                    '<div class="pname">L' + (i + 1) +
+                    (i === topIdx && topVal > 0 ? '<span class="topbadge">MEST</span>' : '') + '</div>' +
                     '<div class="pw">' + ph[i].w.toFixed(0) + ' W</div>' +
+                    '<div class="pavg">snitt ' +
+                    (phAvg[i] > 0 ? phAvg[i].toFixed(0) + ' W' : '–') + '</div>' +
                     '<div class="pmeta">' +
                     (ph[i].v > 1 ? ph[i].v.toFixed(0) + ' V' : '–') + ' · ' +
                     (ph[i].a > 0.005 ? ph[i].a.toFixed(1) + ' A' : '–') +
@@ -1302,6 +1364,7 @@ function poll() {
         $('phases').style.display = 'grid';
       } else {
         $('phases').style.display = 'none';
+        var hdr = $('phaseHdr'); if (hdr) hdr.textContent = '';
       }
 
       var bits = [];
@@ -1369,6 +1432,49 @@ function live() {
       $('liveMin').textContent = 'min ' + mn.toFixed(0) + ' W';
       $('liveAvg').textContent = 'snitt ' + (sum / n).toFixed(0) + ' W';
       $('liveMax').textContent = 'max ' + mx.toFixed(0) + ' W';
+
+      // Snittspänning över faserna – egen liten graf
+      var v = d.v || [];
+      if (v.length >= 2) {
+        var vmx = v[0], vmn = v[0], vsum = 0;
+        for (var i = 0; i < v.length; i++) {
+          if (v[i] > vmx) vmx = v[i];
+          if (v[i] < vmn) vmn = v[i];
+          vsum += v[i];
+        }
+        var vavg = vsum / v.length;
+        // Lite luft runt kurvan så den inte ligger platt mot kanten
+        var vpad = Math.max((vmx - vmn) * 0.15, 0.8);
+        var vtop = vmx + vpad, vbot = vmn - vpad;
+        var vrange = Math.max(vtop - vbot, 0.1);
+        var vpts = [];
+        for (var i = 0; i < v.length; i++) {
+          var vx = (i / (v.length - 1)) * 360;
+          var vy = 44 - ((v[i] - vbot) / vrange) * 38;
+          vpts.push(vx.toFixed(1) + ',' + vy.toFixed(1));
+        }
+        $('voltLine').setAttribute('points', vpts.join(' '));
+        $('voltNow').textContent = v[v.length - 1].toFixed(1) + ' V';
+        $('voltMin').textContent = 'min ' + vmn.toFixed(1) + ' V';
+        $('voltAvg').textContent = 'snitt ' + vavg.toFixed(1) + ' V';
+        $('voltMax').textContent = 'max ' + vmx.toFixed(1) + ' V';
+      }
+
+      // Snitt per fas (5 min) – visa vilken fas som drar mest
+      var pa = d.phAvg || [0, 0, 0];
+      phAvg = pa;
+      if (pa.length >= 2) {
+        var hi = 0;
+        for (var i = 1; i < pa.length; i++) if (pa[i] > pa[hi]) hi = i;
+        var tot = pa[0] + pa[1] + (pa[2] || 0);
+        var hdr = $('phaseHdr');
+        if (hdr) {
+          hdr.innerHTML = (tot > 0)
+            ? 'Snitt 5 min · <b>L' + (hi + 1) + ' drar mest</b> (' +
+              pa[hi].toFixed(0) + ' W · ' + Math.round(pa[hi] / tot * 100) + ' % av lasten)'
+            : 'Snitt 5 min';
+        }
+      }
     });
 }
 
@@ -1571,7 +1677,7 @@ static void connectWiFi() {
 void setup() {
   Serial.begin(115200);
   delay(200);
-  Serial.println("\n=== ShellyEffekt (ESP32-S3) ===");
+  Serial.println("\n=== Husets effekt (ESP32-S3) ===");
 
   prefs.begin("shellyeffekt", false);
 
