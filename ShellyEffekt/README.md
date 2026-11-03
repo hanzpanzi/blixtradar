@@ -32,19 +32,21 @@ Fungerar även med Shelly Plug S / Shelly EM (då visas bara en fas).
 4. Logga in: **hanzpanzi / SixtenCozmo2026!** – byt vid behov under
    *Konto & säkerhet*.
 
-Shelly-adressen är förifylld med `192.168.0.154`. Ändra under
-*Shelly-inställningar* och tryck **Testa anslutning** innan du sparar.
-Har du satt lösenord på Shelly:n (Gen1 → *Internet & Security → Restrict login*)
-fyller du i samma användarnamn/lösenord där; annars lämnar du fälten tomma.
+Shelly-adressen är förifylld med `192.168.0.154`. Vill du byta mätare ändrar du
+`DEFAULT_SHELLY_HOST` / `DEFAULT_SHELLY_USER` / `DEFAULT_SHELLY_PASS` högst upp i
+koden och laddar upp igen (OTA). Sidan visar bara mätvärden – inga
+inställningspaneler.
 
 ## Fjärråtkomst ("online")
 
-Sidan kräver inloggning, men trafiken är HTTP. Enklaste vägen:
+DuckDNS-inställningarna finns kvar i firmwaren men inte längre i webbsidan.
+Enklaste vägen:
 
 1. Skaffa ett gratisnamn på [duckdns.org](https://www.duckdns.org) och kopiera
    din token.
-2. Fyll i namn + token under *Fjärråtkomst (DuckDNS)* och spara. Kortet
-   uppdaterar DNS:en var 5:e minut och visar din publika IP.
+2. Lägg in namn + token med API:et när du är inloggad:
+   `POST /api/remote` med fälten `sub` och `token`. Kortet uppdaterar DNS:en
+   var 5:e minut.
 3. Öppna port **80/TCP** i routern mot kortets LAN-IP.
 4. Surfa till `http://<namn>.duckdns.org`.
 

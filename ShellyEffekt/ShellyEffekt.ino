@@ -1242,63 +1242,6 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
     <div class="ticks" id="ticks"></div>
   </div>
 
-  <details>
-    <summary>Shelly-inställningar</summary>
-    <form id="cfg">
-      <label>IP / hostnamn
-        <input name="host" id="host" placeholder="192.168.1.50" autocomplete="off">
-      </label>
-      <label>Användare (valfritt)
-        <input name="user" id="user" placeholder="admin" autocomplete="username">
-      </label>
-      <label>Lösenord (valfritt – lämna tomt för att behålla)
-        <input name="pass" id="pass" type="password" autocomplete="current-password">
-      </label>
-      <button type="submit">Spara adress</button>
-      <button type="button" class="ghost" id="testBtn">Testa anslutning</button>
-      <div class="hint" id="cfgMsg"></div>
-    </form>
-    <div class="hint">Gen1-API: http://&lt;ip&gt;/status · sparas i flash</div>
-  </details>
-
-  <details>
-    <summary>Fjärråtkomst (DuckDNS)</summary>
-    <div class="kv"><span>Lokalt</span><span id="lanUrl">–</span></div>
-    <div class="kv"><span>Publik IP</span><span id="wanIp">–</span></div>
-    <div class="kv"><span>DuckDNS</span><span id="ddnsUrl">–</span></div>
-    <div class="kv"><span>Status</span><span id="ddnsStatus">–</span></div>
-    <form id="remote">
-      <label>DuckDNS-namn (utan .duckdns.org)
-        <input name="sub" id="sub" placeholder="mitthem" autocomplete="off">
-      </label>
-      <label>DuckDNS-token
-        <input name="token" id="token" type="password" placeholder="lämna tomt för att behålla" autocomplete="off">
-      </label>
-      <button type="submit">Spara och uppdatera</button>
-      <div class="hint" id="remoteMsg"></div>
-    </form>
-    <div class="hint">Öppna port 80 (TCP) i routern mot kortets IP. Sidan nås då på
-      http://&lt;namn&gt;.duckdns.org – alltid med inloggning.</div>
-  </details>
-
-  <details>
-    <summary>Konto &amp; säkerhet</summary>
-    <div class="kv"><span>Inloggad som</span><span>__USER__</span></div>
-    <form id="acct">
-      <label>Nytt användarnamn
-        <input name="user" id="newUser" placeholder="__USER__" autocomplete="username">
-      </label>
-      <label>Nytt lösenord (minst 6 tecken)
-        <input name="pass" id="newPass" type="password" autocomplete="new-password">
-      </label>
-      <button type="submit">Byt inloggning</button>
-      <div class="hint" id="acctMsg"></div>
-    </form>
-    <button class="ghost" style="width:100%;margin-top:10px" onclick="restart()">Starta om kortet</button>
-    <div class="hint">Använd ett långt lösenord. Trafiken är vanlig HTTP – lägg gärna
-      en HTTPS-tunnel (t.ex. Cloudflare Tunnel) framför om du exponerar porten mot internet.</div>
-  </details>
-
   <div class="foot" id="foot">–</div>
 </div>
 
@@ -1478,105 +1421,12 @@ function live() {
     });
 }
 
-var remoteLoaded = false;
-function remote() {
-  fetch('/api/remote', { cache: 'no-store' })
-    .then(function (r) { return r.json(); })
-    .then(function (d) {
-      $('lanUrl').textContent = 'http://' + d.lan + '/';
-      $('wanIp').textContent = d.wanIp || '–';
-      $('ddnsUrl').textContent = d.configured ? ('http://' + d.sub + '.duckdns.org') : '–';
-      $('ddnsStatus').innerHTML = d.configured
-        ? (d.ok ? '<span class="ok">OK</span>' : '<span class="no">' + d.msg + '</span>')
-        : '<span class="no">ej konfigurerad</span>';
-      if (!remoteLoaded) { $('sub').value = d.sub || ''; remoteLoaded = true; }
-    });
-}
-
-$('cfg').addEventListener('submit', function (e) {
-  e.preventDefault();
-  var body = new URLSearchParams(new FormData(e.target));
-  fetch('/api/config', { method: 'POST', body: body })
-    .then(function (r) { return r.json(); })
-    .then(function (d) {
-      $('cfgMsg').innerHTML = d.ok
-        ? '<span class="ok">Sparat – kortet börjar fråga ' + $('host').value + '</span>'
-        : '<span class="no">Fel: ' + (d.err || 'okänt') + '</span>';
-      $('pass').value = '';
-      if (d.ok) { setTimeout(poll, 800); setTimeout(graph, 1200); }
-    })
-    .catch(function () { $('cfgMsg').innerHTML = '<span class="no">Kunde inte spara</span>'; });
-});
-
-$('testBtn').addEventListener('click', function () {
-  var body = new URLSearchParams({
-    host: $('host').value, user: $('user').value, pass: $('pass').value
-  });
-  $('cfgMsg').innerHTML = '<span style="color:#94a3b8">Testar…</span>';
-  fetch('/api/test', { method: 'POST', body: body })
-    .then(function (r) { return r.json(); })
-    .then(function (d) {
-      $('cfgMsg').innerHTML = d.ok
-        ? '<span class="ok">Shelly svarar: ' + d.power.toFixed(0) + ' W · total ' +
-          fmtKwh(d.total) + ' · ' + d.phases + ' fas(er) · ' + d.rtt + ' ms</span>'
-        : '<span class="no">' + (d.err || 'inget svar') + '</span>';
-    })
-    .catch(function () { $('cfgMsg').innerHTML = '<span class="no">Inget svar</span>'; });
-});
-
-$('remote').addEventListener('submit', function (e) {  e.preventDefault();
-  var body = new URLSearchParams(new FormData(e.target));
-  fetch('/api/remote', { method: 'POST', body: body })
-    .then(function (r) { return r.json(); })
-    .then(function (d) {
-      $('remoteMsg').innerHTML = d.ok
-        ? '<span class="ok">Sparat – kontrollerar adressen…</span>'
-        : '<span class="no">Fel</span>';
-      $('token').value = '';
-      remoteLoaded = false;
-      setTimeout(remote, 3000);
-      setTimeout(remote, 12000);
-    })
-    .catch(function () { $('remoteMsg').innerHTML = '<span class="no">Kunde inte spara</span>'; });
-});
-
-$('acct').addEventListener('submit', function (e) {
-  e.preventDefault();
-  var body = new URLSearchParams(new FormData(e.target));
-  fetch('/api/account', { method: 'POST', body: body })
-    .then(function (r) { return r.json(); })
-    .then(function (d) {
-      if (d.ok) {
-        $('acctMsg').innerHTML = '<span class="ok">Klart – logga in igen…</span>';
-        setTimeout(function () { location.href = '/login'; }, 1500);
-      } else {
-        $('acctMsg').innerHTML = '<span class="no">' + (d.err || 'fel') + '</span>';
-      }
-    })
-    .catch(function () { $('acctMsg').innerHTML = '<span class="no">Kunde inte spara</span>'; });
-});
-
-function restart() {
-  if (!confirm('Starta om kortet?')) return;
-  fetch('/api/restart', { method: 'POST' }).then(function () {
-    document.body.innerHTML = '<p style="color:#94a3b8;text-align:center;margin-top:60px">' +
-      'Startar om… ladda sidan igen om några sekunder.</p>';
-  });
-}
-
-fetch('/api/config').then(function (r) { return r.json(); }).then(function (d) {
-  $('host').value = d.host || '';
-  $('user').value = d.user || '';
-});
-
 poll();
 live();
 graph();
-remote();
 setInterval(poll, 2000);
 setInterval(live, 2000);
 setInterval(graph, 60000);
-setInterval(remote, 15000);
 </script>
 </body>
 </html>
