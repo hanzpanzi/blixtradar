@@ -160,7 +160,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
           <div class="small" style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <span>Elöverföring</span>
             <input id="feeInput" type="number" min="0" step="0.1" inputmode="decimal"
-                   style="width:64px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:3px 6px;font-size:1em;">
+                   style="width:64px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:3px 6px;font-size:16px;">
             <span>öre/kWh · kostnaden nedan är spot + överföring</span>
           </div>
           <div class="hourlist">
