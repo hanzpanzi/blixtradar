@@ -5,7 +5,7 @@ egen webbsida – med inloggning, 3-fasvy, live-graf och OTA-uppdatering.
 
 Hittad mätare på nätet `getingbo`: **Shelly 3EM** på `192.168.0.154`
 (`type: SHEM-3`, 3 mätare). Inloggningen är påslagen och förifylld
-(`hanzpanzi` / `SixtenCozmo2026!`).
+(`shelly` / `1234567`).
 
 ## Vad sidan visar
 
