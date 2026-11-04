@@ -793,7 +793,7 @@ void handlePower() {
     if (i) json += ",";
     json += String(pn ? pr[i] : 0, 2);
   }
-  json += "}";
+  json += "]}";
 
   web.sendHeader("Cache-Control", "no-store");
   web.send(200, "application/json", json);
@@ -1880,7 +1880,7 @@ static void mqttPublishLive() {
     if (i) json += ",";
     json += String(pn ? pr[i] : 0, 2);
   }
-  json += "}";
+  json += "]}";
 
   // Retained: en webbsida som ansluter sent får ändå senaste värdet direkt
   mqttClient.publish(MQTT_TOPIC, json.c_str(), true);
