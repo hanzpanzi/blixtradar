@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
   <title>⚡ Husets effekt – live</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 12px; margin: 0; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
@@ -54,6 +55,33 @@
     .nav { display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
     .nav a { color: #94a3b8; text-decoration: none; font-size: 0.8em; border: 1px solid #334155; padding: 6px 10px; border-radius: 9px; }
     .nav a:hover { color: #f8fafc; border-color: #475569; }
+    /* ---- Dator: bred panel med flera spalter ---- */
+    @media (min-width: 760px) {
+      .card { max-width: 960px; padding: 24px; }
+      .topbar { flex-direction: row; align-items: center; gap: 16px; }
+      .topbar .status { flex: 1; margin: 0; }
+      .dash-left { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+      .dash-left > .block:nth-child(1), .dash-left > .block:nth-child(6) { grid-column: 1 / -1; }
+      .tiles { grid-template-columns: repeat(4, 1fr); }
+      canvas { height: 150px; }
+      canvas.lite { height: 70px; }
+    }
+    @media (min-width: 1180px) {
+      .card { max-width: 1200px; }
+      .dash-left { grid-template-columns: 1fr 1fr 1fr; }
+      .dash-left > .block:nth-child(1) { grid-column: span 2; }
+      .dash-left > .block:nth-child(6) { grid-column: 1 / -1; }
+    }
+    /* ---- Telefon: fingervanliga ytor, ingen iOS-zoom i falt ---- */
+    @media (max-width: 480px) {
+      .hrow { font-size: 0.8em; gap: 6px; }
+      .hrow .ht { width: 56px; }
+      .hrow .hp { width: 52px; }
+      .hrow .hc { width: 64px; }
+      .nav a { padding: 10px 12px; }
+      .hourlist { max-height: none; }
+    }
+    #feeInput { font-size: 16px; }
     @supports (padding: max(0px)) {
       body { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
     }
