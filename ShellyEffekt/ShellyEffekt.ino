@@ -94,6 +94,7 @@ const uint32_t SESSION_IDLE_MS  = 12UL * 60UL * 60UL * 1000UL;  // 12 h
 #define MIN_SLOTS  60    // en minut per slot -> rullande 1 h
 #define HOUR_SLOTS 24    // en timme per slot -> 24 h-graf
 #define LIVE_SLOTS 150   // 150 x 2 s = 5 min live-effekt
+#define LOG_SLOTS  1440  // en minut per slot -> 24 h logg for CSV
 
 struct State {
   // konfiguration
@@ -191,6 +192,41 @@ static String wifiSsid;
 static String wifiPass;
 static bool   apWanted = false;   // anvandaren har begart eget nat via /wifi
 
+// Minneslogg for CSV-nedladdning: ett prov per minut, 24 timmar.
+// Skrivs och las alltid med stateMux taget.
+struct LogSample {
+  uint32_t t;    // epoch, hel minut
+  float    w;
+  float    v;
+  float    a;
+  float    wh;   // energi under minuten
+};
+static LogSample logBuf[LOG_SLOTS];
+static uint16_t  logIdx   = 0;
+static uint16_t  logCount = 0;
+
+static void pushLogSample(uint32_t t, float w, float v, float a, float wh) {
+  // Startprovet skrivs direkt nar minuten borjar; nar samma minut sedan
+  // avslutas uppdateras den raden i stallet for att dubbleras.
+  if (logCount > 0) {
+    uint16_t last = (logIdx + LOG_SLOTS - 1) % LOG_SLOTS;
+    if (logBuf[last].t == t) {
+      logBuf[last].w  = w;
+      logBuf[last].v  = v;
+      logBuf[last].a  = a;
+      logBuf[last].wh = wh;
+      return;
+    }
+  }
+  logBuf[logIdx].t  = t;
+  logBuf[logIdx].w  = w;
+  logBuf[logIdx].v  = v;
+  logBuf[logIdx].a  = a;
+  logBuf[logIdx].wh = wh;
+  logIdx = (logIdx + 1) % LOG_SLOTS;
+  if (logCount < LOG_SLOTS) logCount++;
+}
+
 // ==========================================
 // 3. HJÄLPFUNKTIONER
 // ==========================================
@@ -215,6 +251,9 @@ static void resetArrays() {
   }
   liveIdx = 0;
   liveCount = 0;
+
+  logIdx = 0;
+  logCount = 0;
 }
 
 // Bara tecken som får förekomma i en host (skyddar JSON/HTML mot skräp)
@@ -625,6 +664,12 @@ static void shellyTask(void* param) {
   (void)param;
   uint32_t lastGoodMs = 0;
 
+  // Ackumulator for loggens minutprov
+  int32_t  logMinuteKey = -1;
+  double   logMinWh = 0;
+  float    logWsum = 0, logVsum = 0, logAsum = 0;
+  uint16_t logN = 0;
+
   for (;;) {
     String host, user, pass;
     xSemaphoreTake(stateMux, portMAX_DELAY);
@@ -661,11 +706,12 @@ static void shellyTask(void* param) {
     if (ok) {
       updateClockBuckets();
 
+      double dWh = 0;
       if (st.valid && lastGoodMs != 0) {
         uint32_t dt = now - lastGoodMs;
         // Integrera bara rimliga intervall – vid längre avbrott är datan okänd
         if (dt > 0 && dt <= 15000) {
-          double dWh = (double)(st.powerW + pW) * 0.5 * ((double)dt / 3600000.0);
+          dWh = (double)(st.powerW + pW) * 0.5 * ((double)dt / 3600000.0);
           addEnergy(dWh);
         }
       }
@@ -698,6 +744,28 @@ static void shellyTask(void* param) {
       for (int i = 0; i < 3; i++) livePh[i][liveIdx] = phW[i];
       liveIdx = (liveIdx + 1) % LIVE_SLOTS;
       if (liveCount < LIVE_SLOTS) liveCount++;
+
+      // Loggprov: ett per minut. Forsta provet skrivs direkt sa att en
+      // nyflas had kort andå har en rad att ladda ner.
+      time_t nowT = time(nullptr);
+      if (nowT > 1700000000UL) {
+        struct tm lt;
+        localtime_r(&nowT, &lt);
+        int32_t mkey = (int32_t)(lt.tm_year * 1000 + lt.tm_yday) * 1440
+                     + (int32_t)lt.tm_hour * 60 + lt.tm_min;
+        if (logMinuteKey < 0) {
+          logMinuteKey = mkey;
+          pushLogSample((uint32_t)((nowT / 60) * 60), pW, vV, aA, (float)dWh);
+          logMinWh = 0; logWsum = logVsum = logAsum = 0; logN = 0;
+        } else if (mkey != logMinuteKey) {
+          uint16_t navg = logN ? logN : 1;
+          pushLogSample((uint32_t)((nowT / 60) * 60 - 60),
+                        logWsum / navg, logVsum / navg, logAsum / navg, (float)logMinWh);
+          logMinuteKey = mkey;
+          logMinWh = 0; logWsum = logVsum = logAsum = 0; logN = 0;
+        }
+        logMinWh += dWh; logWsum += pW; logVsum += vV; logAsum += aA; logN++;
+      }
     } else {
       if (st.fails < 65000) st.fails++;
       if (st.fails >= 2) st.online = false;
@@ -1215,6 +1283,120 @@ void handleLogout() {
   web.sendHeader("Set-Cookie", "sesid=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
   web.sendHeader("Location", "/login");
   web.send(302, "text/plain", "");
+}
+
+// ==========================================
+// 9b. LOGG – ladda ner matlogg som CSV for en vald period
+// ==========================================
+const char HTML_LOGG[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="sv"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Husets effekt – logg</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#0f172a;color:#f8fafc;text-align:center;padding:16px;margin:0}
+.card{background:#1e293b;border-radius:16px;padding:20px;max-width:460px;margin:20px auto;border:1px solid #334155;box-shadow:0 10px 25px rgba(0,0,0,.5)}
+h1{color:#38bdf8;font-size:1.4em;margin:0 0 6px}
+p{color:#94a3b8;font-size:.85em;line-height:1.5}
+label{display:block;text-align:left;color:#94a3b8;font-size:.8em;margin:12px 0 4px;text-transform:uppercase;letter-spacing:.6px}
+input,button{width:100%;box-sizing:border-box;padding:11px;border-radius:10px;border:1px solid #334155;background:#0f172a;color:#f8fafc;font-size:16px}
+button{background:#38bdf8;color:#0f172a;font-weight:700;border:0;margin-top:14px;cursor:pointer}
+button.alt{background:#0f172a;color:#94a3b8;border:1px solid #334155;font-weight:600;font-size:.8em;margin-top:0;padding:9px 6px;flex:1;min-width:96px}
+.quick{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+a{color:#38bdf8;font-size:.9em;text-decoration:none;display:inline-block;margin-top:16px}
+</style></head>
+<body><div class="card">
+<h1>Logg</h1>
+<p>Välj period och ladda ner kortets mätlogg som CSV. Filen använder semikolon och decimalkomma, så den öppnas direkt i Excel. Ett värde per minut, de senaste 24 timmarna.</p>
+<label>Från</label><input type="datetime-local" id="from">
+<label>Till</label><input type="datetime-local" id="to">
+<div class="quick">
+  <button type="button" class="alt" onclick="quick(60)">Timmen</button>
+  <button type="button" class="alt" onclick="quick(720)">12 h</button>
+  <button type="button" class="alt" onclick="quick(1440)">Dygnet</button>
+  <button type="button" class="alt" onclick="today()">Idag</button>
+</div>
+<button id="dl">Ladda ner CSV</button>
+<p id="info"></p>
+<a href="/">← Tillbaka till panelen</a>
+</div>
+<script>
+function padtwo(n){return (n<10?'0':'')+n;}
+function toLocal(d){return d.getFullYear()+'-'+padtwo(d.getMonth()+1)+'-'+padtwo(d.getDate())+'T'+padtwo(d.getHours())+':'+padtwo(d.getMinutes());}
+function setRange(fromMs,toMs){document.getElementById('from').value=toLocal(new Date(fromMs));document.getElementById('to').value=toLocal(new Date(toMs));}
+function quick(minutes){var t=Date.now();setRange(t-minutes*60000,t);}
+function today(){var d=new Date();d.setHours(0,0,0,0);setRange(d.getTime(),Date.now());}
+quick(60);
+document.getElementById('dl').onclick=function(){
+  var f=document.getElementById('from').value, t=document.getElementById('to').value;
+  var fs=new Date(f).getTime(), ts=new Date(t).getTime();
+  var info=document.getElementById('info');
+  if(!isFinite(fs)||!isFinite(ts)){info.textContent='Ange både från och till.';return;}
+  if(ts<=fs){info.textContent='Till måste vara efter från.';return;}
+  info.textContent='Hämtar '+f.replace('T',' ')+' – '+t.replace('T',' ')+' …';
+  location.href='/api/log.csv?from='+Math.floor(fs/1000)+'&to='+Math.floor(ts/1000);
+};
+</script>
+</body></html>
+)rawliteral";
+
+void handleLogPage() {
+  if (!requireAuth()) return;
+  web.sendHeader("Cache-Control", "no-store");
+  web.send(200, "text/html", FPSTR(HTML_LOGG));
+}
+
+void handleLogCsv() {
+  if (!requireAuth()) return;
+
+  time_t nowT = time(nullptr);
+  if (nowT < 1700000000UL) {
+    web.send(503, "text/plain", "Klockan är inte synkad än");
+    return;
+  }
+
+  long from = (long)nowT - 3600;
+  long to   = (long)nowT;
+  if (web.hasArg("from")) from = atol(web.arg("from").c_str());
+  if (web.hasArg("to"))   to   = atol(web.arg("to").c_str());
+  if (to <= from) to = from + 60;
+
+  String csv;
+  csv.reserve(8192);
+  csv += "datum;klockslag;epoch;effekt_W;spanning_V;strom_A;energi_Wh\r\n";
+
+  xSemaphoreTake(stateMux, portMAX_DELAY);
+  for (uint16_t i = 0; i < logCount; i++) {
+    int idx = ((int)logIdx - (int)logCount + (int)i + LOG_SLOTS) % LOG_SLOTS;
+    LogSample s = logBuf[idx];
+    if ((long)s.t < from || (long)s.t > to) continue;
+    struct tm lt;
+    time_t tt = (time_t)s.t;
+    localtime_r(&tt, &lt);
+    char line[128];
+    snprintf(line, sizeof(line), "%04d-%02d-%02d;%02d:%02d;%lu;%.1f;%.1f;%.2f;%.1f\r\n",
+             lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday, lt.tm_hour, lt.tm_min,
+             (unsigned long)s.t, s.w, s.v, s.a, s.wh);
+    for (char* p = line; *p; p++) if (*p == '.') *p = ',';   // svenska decimaler
+    csv += line;
+  }
+  xSemaphoreGive(stateMux);
+
+  time_t tf = (time_t)from, tt2 = (time_t)to;
+  struct tm a, b;
+  localtime_r(&tf, &a);
+  localtime_r(&tt2, &b);
+  char fn[96];
+  snprintf(fn, sizeof(fn), "husetseffekt_%04d%02d%02d-%02d%02d_till_%04d%02d%02d-%02d%02d.csv",
+           a.tm_year + 1900, a.tm_mon + 1, a.tm_mday, a.tm_hour, a.tm_min,
+           b.tm_year + 1900, b.tm_mon + 1, b.tm_mday, b.tm_hour, b.tm_min);
+  String disp = "attachment; filename=\"";
+  disp += fn;
+  disp += "\"";
+
+  web.sendHeader("Cache-Control", "no-store");
+  web.sendHeader("Content-Disposition", disp);
+  web.send(200, "text/csv; charset=utf-8", csv);
 }
 
 // ==========================================
@@ -2249,6 +2431,8 @@ void setup() {
   web.on("/installningar", handleRoot);
   web.on("/login", HTTP_GET, handleLoginPage);  web.on("/login", HTTP_POST, handleLoginPost);
   web.on("/logout", handleLogout);
+  web.on("/logg", handleLogPage);
+  web.on("/api/log.csv", handleLogCsv);
   web.on("/api/power", handlePower);
   web.on("/api/live", handleLive);
   web.on("/api/history", handleHistory);

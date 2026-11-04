@@ -176,6 +176,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
 
     <div class="nav">
       <a href="/installningar">Inställningar</a>
+      <a href="/logg">Logg</a>
       <a href="/update">Uppdatera</a>
       <a href="/logout">Logga ut</a>
     </div>
