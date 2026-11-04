@@ -39,6 +39,17 @@
     .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
     .tile { background: #0f172a; border: 1px solid #263449; border-radius: 12px; padding: 10px 6px; text-align: center; }
     .tile .v { font-size: 1.05em; font-weight: 700; margin-top: 5px; color: #e2e8f0; }
+    .hourlist { margin-top: 8px; max-height: 300px; overflow-y: auto; }
+    .hrow { display: flex; gap: 8px; align-items: baseline; padding: 5px 2px; border-bottom: 1px solid #1e293b; font-size: 0.85em; }
+    .hrow:last-child { border-bottom: none; }
+    .hrow .ht { width: 64px; text-align: left; color: #94a3b8; }
+    .hrow .hk { flex: 1; text-align: right; color: #e2e8f0; }
+    .hrow .hp { width: 58px; text-align: right; color: #64748b; }
+    .hrow .hc { width: 72px; text-align: right; color: #fbbf24; font-weight: 600; }
+    .hrow.head { border-bottom: 1px solid #334155; padding-bottom: 4px; }
+    .hrow.head .ht, .hrow.head .hk, .hrow.head .hp, .hrow.head .hc { color: #64748b; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+    .hrow.now { background: rgba(56,189,248,0.10); border-radius: 6px; }
+    .hrow.sum { border-top: 1px solid #334155; border-bottom: none; font-weight: 700; margin-top: 2px; }
     .foot { color: #64748b; font-size: 0.78em; text-align: center; margin-top: 14px; line-height: 1.6; }
     .nav { display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
     .nav a { color: #94a3b8; text-decoration: none; font-size: 0.8em; border: 1px solid #334155; padding: 6px 10px; border-radius: 9px; }
@@ -110,6 +121,15 @@
             </div>
           </div>
           <canvas id="priceChart" style="height:90px;"></canvas>
+        </div>
+
+        <div class="block">
+          <div class="label">Förbrukning per timme · SE3</div>
+          <div class="small" style="margin-top:4px;">Hela mätaren, alla faser · kWh och kostnad per klockslag</div>
+          <div class="hourlist">
+            <div class="hrow head"><span class="ht">timme</span><span class="hk">förbrukning</span><span class="hp">kr/kWh</span><span class="hc">kostnad</span></div>
+            <div id="hourList"></div>
+          </div>
         </div>
 
 
@@ -308,18 +328,36 @@
       drawPriceBars(byId('priceChart'), arr, cur);
 
       var mw = num(d.maxW), mh = (typeof d.maxH === 'number' ? d.maxH : -1);
-      var hr = d.hr || [], kwhDay = 0, costDay = 0;
-      for (i = 0; i < hr.length && i < 24; i++) {
-        if (!(hr[i] > 0)) continue;
-        kwhDay += hr[i] / 1000;
-        costDay += (hr[i] / 1000) * (arr[i] || 0);
+      // En rad per klockslag: förbrukning (kWh), spotpris (SE3) och kostnad.
+      // Timmar utan räkning hoppas över, utom den pågående timmen.
+      var hr = d.hr || [], rows = '', kwhDay = 0, costDay = 0;
+      for (i = 0; i < 24; i++) {
+        var wh = num(hr[i]);
+        if (!(wh > 0) && i !== cur) continue;
+        var kwh = wh / 1000, p = num(arr[i]), kr = kwh * p;
+        kwhDay += kwh;
+        costDay += kr;
+        rows += '<div class="hrow' + (i === cur ? ' now' : '') + '">' +
+                '<span class="ht">' + ('0' + i).slice(-2) + '–' + ('0' + ((i + 1) % 24)).slice(-2) + '</span>' +
+                '<span class="hk">' + kwh.toFixed(2) + ' kWh</span>' +
+                '<span class="hp">' + (p > 0 ? p.toFixed(2) : '–') + '</span>' +
+                '<span class="hc">' + (p > 0 ? kr.toFixed(2) + ' kr' : '–') + '</span></div>';
       }
-      byId('costToday').innerText = kwhDay > 0
+      var hl = byId('hourList');
+      if (hl) {
+        hl.innerHTML = rows
+          ? rows + '<div class="hrow sum"><span class="ht">idag</span><span class="hk">' + kwhDay.toFixed(2) +
+            ' kWh</span><span class="hp"></span><span class="hc">' + costDay.toFixed(2) + ' kr</span></div>'
+          : '<div class="small">ingen förbrukning räknad än</div>';
+      }
+      var ct = byId('costToday');
+      if (ct) ct.innerText = kwhDay > 0
         ? ('idag ' + kwhDay.toFixed(2) + ' kWh · ' + costDay.toFixed(2) + ' kr')
         : 'idag 0 kWh';
 
-      byId('maxHour').innerText = mw > 0 ? Math.round(mw) + ' W' : '–';
-      byId('maxHourWhen').innerText = (mw > 0 && mh >= 0) ? ('kl ' + (mh < 10 ? '0' : '') + mh + ':00') : '';
+      var me = byId('maxHour'), mwe = byId('maxHourWhen');
+      if (me) me.innerText = mw > 0 ? Math.round(mw) + ' W' : '–';
+      if (mwe) mwe.innerText = (mw > 0 && mh >= 0) ? ('kl ' + (mh < 10 ? '0' : '') + mh + ':00') : '';
     }
 
     var lastCalcAt = 0;

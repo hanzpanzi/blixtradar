@@ -308,7 +308,18 @@ static void updateClockBuckets() {
   int32_t hourKey = (int32_t)lt.tm_yday * 24 + lt.tm_hour;
 
   if (st.dayKey < 0 || st.dayKey != dayKey) {
-    if (st.dayKey >= 0) st.whToday = 0;        // nytt dygn
+    if (st.dayKey >= 0) {
+      st.whToday = 0;                          // nytt dygn
+      // Nollstall aven timslotarna, annars blandas gardagens timmar in i
+      // "forbrukning per timme" och dagens kostnad raknas pa fel priser.
+      for (int i = 0; i < HOUR_SLOTS; i++) {
+        st.hourKey[i]   = -1;
+        st.hourLabel[i] = -1;
+        st.whHour[i]    = 0;
+      }
+      st.lastHourKey = -1;
+      st.curSlot     = -1;
+    }
     st.dayKey = dayKey;
   }
 
