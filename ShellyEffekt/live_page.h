@@ -501,7 +501,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       var mm = Math.floor((meas.secs || 0) / 60), ss = Math.floor((meas.secs || 0) % 60);
       var p = function (n) { return (n < 10 ? '0' : '') + n; };
       byId('measKwh').innerText = meas.kwh.toFixed(3) + ' kWh';
-      byId('measKr').innerText = meas.price > 0 ? meas.kr.toFixed(2) + ' kr' : '–';
+      byId('measKr').innerText = meas.price > 0 ? (meas.kr < 1 ? meas.kr.toFixed(3) : meas.kr.toFixed(2)) + ' kr' : '–';
       byId('measTime').innerText = p(mm) + ':' + p(ss) + ' / 60:00';
       var st = byId('measState');
       if (st) st.innerText = meas.active ? 'mäter… tryck för att börja om'
