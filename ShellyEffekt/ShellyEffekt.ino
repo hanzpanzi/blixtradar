@@ -54,7 +54,7 @@ const char* MDNS_NAME   = "husetseffekt";      // http://husetseffekt.local
 const char* OTA_PASSWORD = "perkele";
 #include "live_page.h"   // live-sidan som kortet serverar pa / (genererad fran husetseffekt.html)
 
-const char* FW_VERSION  = "1.4";
+const char* FW_VERSION  = "1.5";
 
 // MQTT till molnsidan (samma publika broker som Blixtradar använder).
 // Den publika sidan hanzpanzi.github.io/blixtradar/husetseffekt.html lyssnar här.
