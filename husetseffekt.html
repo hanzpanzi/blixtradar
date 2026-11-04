@@ -14,6 +14,8 @@
     .status { background: #0f172a; padding: 12px; border-radius: 12px; font-weight: 600; color: #4ade80; margin: 14px 0; border: 1px solid #1e293b; word-break: break-word; }
     .status.bad { color: #f87171; }
     .metric { font-size: 2.6em; font-weight: bold; color: #fbbf24; margin: 8px 0; }
+    .metric.high { color: #f87171; text-shadow: 0 0 18px rgba(248,113,113,0.5); }
+    .block.over { border-color: #f87171; box-shadow: 0 0 18px rgba(248,113,113,0.35); }
     .grid { display: flex; justify-content: space-around; gap: 8px; }
     .row { display: flex; justify-content: space-around; gap: 10px; }
     .small { color: #94a3b8; font-size: 0.8em; margin-top: 8px; }
@@ -426,11 +428,23 @@
     }
     setInterval(tickClock, 1000);
 
+    // Hög last: över 2000 W lyser "Just nu" rött så det syns direkt.
+    var HIGH_W = 2000;
+    function markHigh(w) {
+      var el = byId('nowW');
+      if (!el) return;
+      var hot = w > HIGH_W;
+      el.className = hot ? 'metric high' : 'metric';
+      var b = el.closest ? el.closest('.block') : null;
+      if (b) b.className = hot ? 'block over' : 'block';
+    }
+
     function render(d) {
       d = d || {};
       latest = d;
       lastCalcAt = (typeof d.at === 'number' && d.at > 0) ? d.at * 1000 : Date.now();
       byId('nowW').innerText = d.w.toFixed(0) + ' W';
+      markHigh(num(d.w));
       byId('meterTotal').innerText = fmtKwh(d.tot);
       byId('sinceBoot').innerText = fmtWh(d.boot);
       byId('hour1').innerText = fmtWh(d.h1);
