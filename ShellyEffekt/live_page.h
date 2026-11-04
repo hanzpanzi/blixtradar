@@ -306,7 +306,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
 
     function renderPrice(d) {
       loadPrices();
-      var arr = (d.pr && d.pr.length >= 12) ? d.pr : priceCache.arr;
+      var arr = (d.pr && d.pr.length >= 12 && d.pr.some(function (v) { return v > 0; })) ? d.pr : priceCache.arr;
       var cur = new Date().getHours();
       var pn = num(d.pn) > 0 ? num(d.pn) : num(arr[cur]);
       var mn = 1e9, mx = -1e9, i, have = false;
@@ -428,7 +428,8 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
         tot: num(d.totalWh), boot: num(d.bootWh), h1: num(d.h1Wh), today: num(d.todayWh),
         n: num(d.phases), ok: d.valid ? 1 : 0, up: num(d.uptime), rssi: num(d.rssi),
         ph: (d.ph || []).map(function (p) { return [num(p.w), num(p.v), num(p.a), num(p.wh)]; }),
-        maxW: num(d.maxW), maxH: num(d.maxH), pn: num(d.priceNow), pr: (d.price || []).map(num), at: num(d.at)
+        maxW: num(d.maxW), maxH: num(d.maxH), pn: num(d.priceNow), pr: (d.price || []).map(num), at: num(d.at),
+        hr: (d.hr || []).map(num)
       };
     }
 

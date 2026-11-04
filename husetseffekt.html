@@ -313,7 +313,7 @@
 
     function renderPrice(d) {
       loadPrices();
-      var arr = (d.pr && d.pr.length >= 12) ? d.pr : priceCache.arr;
+      var arr = (d.pr && d.pr.length >= 12 && d.pr.some(function (v) { return v > 0; })) ? d.pr : priceCache.arr;
       var cur = new Date().getHours();
       var pn = num(d.pn) > 0 ? num(d.pn) : num(arr[cur]);
       var mn = 1e9, mx = -1e9, i, have = false;
