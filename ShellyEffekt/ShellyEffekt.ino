@@ -54,7 +54,7 @@ const char* MDNS_NAME   = "husetseffekt";      // http://husetseffekt.local
 const char* OTA_PASSWORD = "perkele";
 #include "live_page.h"   // live-sidan som kortet serverar pa / (genererad fran husetseffekt.html)
 
-const char* FW_VERSION  = "1.5";
+const char* FW_VERSION  = "1.6";
 
 // MQTT till molnsidan (samma publika broker som Blixtradar använder).
 // Den publika sidan hanzpanzi.github.io/blixtradar/husetseffekt.html lyssnar här.
@@ -82,7 +82,7 @@ const char* TZ_INFO = "CET-1CEST,M3.5.0,M10.5.0/3";
 const uint32_t POLL_MS         = 2000;   // fråga Shelly var 2:a sekund
 const uint32_t WIFI_RETRY_MS   = 15000;  // nytt anslutningsförsök medan kortet är offline
 const int      WIFI_WEAK_RSSI  = -78;    // under detta: leta efter starkare accesspunkt
-const uint32_t WIFI_REBOOT_MS  = 10UL * 60UL * 1000UL;  // så länge offline innan kortet startas om
+const uint32_t WIFI_REBOOT_MS  = 30UL * 60UL * 1000UL;  // så länge offline innan kortet startas om (ej med klient på AP:t)
 const uint32_t POLL_FAIL_MS    = 5000;   // väntetid efter misslyckad läsning
 const uint32_t HTTP_TIMEOUT_MS = 1500;
 const uint32_t DDNS_INTERVAL_MS = 5UL * 60UL * 1000UL;   // DuckDNS var 5:e min
@@ -176,6 +176,12 @@ static uint32_t     lastMqttPub = 0;
 static String webUser;
 static String webSalt;
 static String webHash;
+
+// Wi-Fi-uppgifterna sparas i flash sa att kortet kan flyttas till ett annat
+// nat utan USB. WIFI_SSID/WIFI_PASSWORD ar bara forval vid forsta starten.
+static String wifiSsid;
+static String wifiPass;
+static bool   apWanted = false;   // anvandaren har begart eget nat via /wifi
 
 // ==========================================
 // 3. HJÄLPFUNKTIONER
@@ -1627,10 +1633,16 @@ static void prepareRadio() {
 static void beginSTA() {
   prepareRadio();
 
+  if (wifiSsid.length() == 0) {
+    Serial.println("Wi-Fi: inget nät sparat – öppnar eget nät.");
+    startAP();
+    return;
+  }
+
   int n = WiFi.scanNetworks(false, true);
   int best = -1, bestRssi = -1000;
   for (int i = 0; i < n; i++) {
-    if (WiFi.SSID(i) != WIFI_SSID) continue;
+    if (WiFi.SSID(i) != wifiSsid) continue;
     int r = WiFi.RSSI(i);
     if (r > bestRssi) { bestRssi = r; best = i; }
   }
@@ -1640,12 +1652,12 @@ static void beginSTA() {
     memcpy(b, WiFi.BSSID(best), 6);
     int ch = WiFi.channel(best);
     WiFi.scanDelete();
-    Serial.printf("Wi-Fi: starkaste %s  RSSI %d dBm  kanal %d\n", WIFI_SSID, bestRssi, ch);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD, ch, b);
+    Serial.printf("Wi-Fi: starkaste %s  RSSI %d dBm  kanal %d\n", wifiSsid.c_str(), bestRssi, ch);
+    WiFi.begin(wifiSsid.c_str(), wifiPass.c_str(), ch, b);
   } else {
     WiFi.scanDelete();
-    Serial.printf("Wi-Fi: %s syns inte i scanningen – provar ändå\n", WIFI_SSID);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    Serial.printf("Wi-Fi: %s syns inte i scanningen – provar ändå\n", wifiSsid.c_str());
+    WiFi.begin(wifiSsid.c_str(), wifiPass.c_str());
   }
 }
 
@@ -1658,7 +1670,7 @@ static void connectWiFi() {
   return;
 #else
   WiFi.mode(WIFI_STA);
-  Serial.printf("Ansluter till %s", WIFI_SSID);
+  Serial.printf("Ansluter till %s", wifiSsid.c_str());
   beginSTA();
   uint32_t t0 = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - t0 < 20000) {
@@ -1688,10 +1700,11 @@ static void wifiTask(void* param) {
   uint32_t lastRssiLog = 0;
 
   for (;;) {
+    if (apWanted && !apRunning) startAP();
     if (WiFi.status() == WL_CONNECTED) {
       downSince = 0;
       if (!lanServicesStarted) startLanServices();
-      if (apRunning) {
+      if (apRunning && !apWanted) {
         WiFi.softAPdisconnect(true);
         WiFi.mode(WIFI_STA);
         apRunning = false;
@@ -1714,14 +1727,15 @@ static void wifiTask(void* param) {
       }
     } else {
       if (!downSince) downSince = millis();
-      if (millis() - downSince > WIFI_REBOOT_MS) {
+      bool apInUse = apRunning && WiFi.softAPgetStationNum() > 0;
+      if (!apInUse && millis() - downSince > WIFI_REBOOT_MS) {
         Serial.println("Wi-Fi: offline för länge – startar om kortet.");
         vTaskDelay(pdMS_TO_TICKS(300));
         ESP.restart();
       }
       if (millis() - lastWifiTry >= WIFI_RETRY_MS) {
         lastWifiTry = millis();
-        Serial.printf("Wi-Fi: nytt försök mot %s...\n", WIFI_SSID);
+        Serial.printf("Wi-Fi: nytt försök mot %s...\n", wifiSsid.c_str());
         beginSTA();
       }
     }
@@ -1795,6 +1809,133 @@ static void mqttTask(void*) {
 }
 
 // ==========================================
+// 11d. WI-FI-INSTÄLLNINGAR (utan USB)
+// ==========================================
+// Kortet ska kunna flyttas till ett annat nät utan att kompileras om: här byts
+// SSID/lösenord, och här öppnas det egna nätet på begäran när man står bredvid
+// kortet utan router.
+const char HTML_WIFI[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="sv"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wi-Fi – Husets effekt</title>
+<style>
+  body{font-family:system-ui,sans-serif;background:#0f172a;color:#f8fafc;padding:16px;margin:0}
+  .card{background:#1e293b;border:1px solid #334155;border-radius:18px;padding:20px;max-width:420px;margin:0 auto}
+  h1{color:#38bdf8;font-size:1.25em;margin:0 0 6px}
+  label{display:block;color:#94a3b8;font-size:.75em;text-transform:uppercase;letter-spacing:.8px;margin-top:14px}
+  input{width:100%;box-sizing:border-box;margin-top:6px;padding:11px;border-radius:10px;
+        border:1px solid #334155;background:#0f172a;color:#f8fafc;font-size:1em}
+  button{width:100%;margin-top:12px;padding:12px;border:0;border-radius:10px;
+         background:#38bdf8;color:#0f172a;font-weight:700;font-size:1em}
+  button.ghost{background:transparent;color:#38bdf8;border:1px solid #38bdf8}
+  #msg{color:#94a3b8;font-size:.85em;min-height:1.2em;margin-top:10px}
+  .foot{color:#64748b;font-size:.78em;margin-top:14px;line-height:1.5}
+  a{color:#38bdf8;font-size:.9em;text-decoration:none}
+</style></head>
+<body><div class="card">
+<h1>Wi-Fi</h1>
+<div id="msg">läser…</div>
+<label>Nätverk (SSID)</label>
+<input id="ssid" autocapitalize="none" autocorrect="off" spellcheck="false">
+<label>Lösenord</label>
+<input id="pass" type="password" placeholder="lämna tomt för att behålla nuvarande">
+<button onclick="save()">Spara och starta om</button>
+<button class="ghost" onclick="openAp()">Öppna eget nät</button>
+<p class="foot">Eget nät: <b>Husets effekt</b> / 12345678<br>Anslut och öppna <b>http://192.168.4.1/</b></p>
+<a href="/installningar">← Inställningar</a>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+function say(t){ $('msg').textContent = t; }
+async function load(){
+  const r = await fetch('/api/wifi', {cache:'no-store'});
+  const d = await r.json();
+  $('ssid').value = d.ssid || '';
+  say(d.ip ? ('Ansluten till ' + d.ip + (d.rssi ? ' (' + d.rssi + ' dBm)' : '')) : 'Inte ansluten till något nät');
+}
+async function post(body){
+  const r = await fetch('/api/wifi', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams(body)});
+  return r.json();
+}
+async function save(){
+  say('Sparar…');
+  const d = await post({ssid:$('ssid').value, pass:$('pass').value});
+  say(d.ok ? 'Sparat – kortet startar om och ansluter till det nya nätet.' : (d.err || 'Fel'));
+}
+async function openAp(){
+  const d = await post({ap:'1'});
+  say(d.ok ? 'Eget nät öppnat: Husets effekt / 12345678' : (d.err || 'Fel'));
+}
+load();
+</script></body></html>
+)rawliteral";
+
+void handleWifiPage() {
+  if (!requireAuth()) return;
+  web.send_P(200, "text/html", HTML_WIFI);
+}
+
+void handleWifiGet() {
+  if (!requireAuth()) return;
+
+  String json = "{";
+  json += "\"ssid\":\"" + wifiSsid + "\"";
+  json += ",\"ip\":\"";
+  json += (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : String("");
+  json += "\"";
+  json += ",\"rssi\":";
+  json += String(WiFi.status() == WL_CONNECTED ? WiFi.RSSI() : 0);
+  json += ",\"ap\":";
+  json += apRunning ? "true" : "false";
+  json += ",\"clients\":";
+  json += String(WiFi.softAPgetStationNum());
+  json += "}";
+  web.send(200, "application/json", json);
+}
+
+void handleWifiSave() {
+  if (!requireAuth()) return;
+
+  // Begäran om att öppna eller stänga det egna nätet
+  if (web.hasArg("ap")) {
+    bool on = web.arg("ap") == "1";
+    apWanted = on;
+    if (!on && apRunning) {
+      WiFi.softAPdisconnect(true);
+      apRunning = false;
+      if (WiFi.status() == WL_CONNECTED) WiFi.mode(WIFI_STA);
+    }
+    web.send(200, "application/json", "{\"ok\":true}");
+    return;
+  }
+
+  String ssid = web.arg("ssid");
+  String pass = web.arg("pass");
+  ssid.trim();
+
+  if (ssid.length() < 1 || ssid.length() > 32) {
+    web.send(400, "application/json", "{\"ok\":false,\"err\":\"SSID måste vara 1-32 tecken\"}");
+    return;
+  }
+  if (pass.length() > 0 && pass.length() < 8) {
+    web.send(400, "application/json", "{\"ok\":false,\"err\":\"Lösenordet måste vara minst 8 tecken\"}");
+    return;
+  }
+
+  prefs.putString("ssid", ssid);
+  if (pass.length() > 0) prefs.putString("wpass", pass);
+  wifiSsid = ssid;
+  if (pass.length() > 0) wifiPass = pass;
+  apWanted = false;
+  Serial.printf("Wi-Fi: nytt nät sparat (%s) – startar om.\n", ssid.c_str());
+
+  web.send(200, "application/json", "{\"ok\":true}");
+  delay(800);
+  ESP.restart();
+}
+
+// ==========================================
 // 12. SETUP / LOOP
 // ==========================================
 void setup() {
@@ -1803,6 +1944,9 @@ void setup() {
   Serial.println("\n=== Husets effekt (ESP32-S3) ===");
 
   prefs.begin("shellyeffekt", false);
+
+  wifiSsid = prefs.getString("ssid", WIFI_SSID);
+  wifiPass = prefs.getString("wpass", WIFI_PASSWORD);
 
   resetArrays();
   st.host = prefs.getString("host", DEFAULT_SHELLY_HOST);
@@ -1855,6 +1999,9 @@ void setup() {
   web.on("/update", HTTP_GET, handleOTA);
   web.on("/update", HTTP_POST, handleOTAUpload, handleOTAProgress);
   web.on("/api/ota", HTTP_POST, handleOtaFromUrl);
+  web.on("/wifi", HTTP_GET, handleWifiPage);
+  web.on("/api/wifi", HTTP_GET, handleWifiGet);
+  web.on("/api/wifi", HTTP_POST, handleWifiSave);
   web.on("/favicon.ico", HTTP_GET, handleFavicon);
   web.onNotFound(handleNotFound);
   web.begin();
