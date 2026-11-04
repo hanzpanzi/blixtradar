@@ -62,6 +62,7 @@
           <div class="label"><span class="dot" id="espDot"></span>Just nu</div>
           <div class="metric" id="nowW" style="text-align:center">--</div>
           <div class="row3"><span id="espInfo">Watt · spänning · ström</span></div>
+          <div class="small" id="lastCalc" style="text-align:center">senast räknat –</div>
           <canvas id="liveChart"></canvas>
           <div class="row3"><span>senaste 30 min</span><span id="liveAvg">snitt --</span><span id="liveMax">max --</span></div>
         </div>
@@ -321,9 +322,22 @@
       byId('maxHourWhen').innerText = (mw > 0 && mh >= 0) ? ('kl ' + (mh < 10 ? '0' : '') + mh + ':00') : '';
     }
 
+    var lastCalcAt = 0;
+    function tickClock() {
+      var el = byId('lastCalc');
+      if (!el || !lastCalcAt) return;
+      var t = new Date(lastCalcAt);
+      var p = function (n) { return (n < 10 ? '0' : '') + n; };
+      var age = Math.max(0, Math.round((Date.now() - lastCalcAt) / 1000));
+      el.innerText = 'senast räknat ' + p(t.getHours()) + ':' + p(t.getMinutes()) + ':' + p(t.getSeconds()) +
+                     ' · för ' + age + ' s sedan';
+    }
+    setInterval(tickClock, 1000);
+
     function render(d) {
       d = d || {};
       latest = d;
+      lastCalcAt = (typeof d.at === 'number' && d.at > 0) ? d.at * 1000 : Date.now();
       byId('nowW').innerText = d.w.toFixed(0) + ' W';
       byId('meterTotal').innerText = fmtKwh(d.tot);
       byId('sinceBoot').innerText = fmtWh(d.boot);

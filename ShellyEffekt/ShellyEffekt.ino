@@ -785,6 +785,13 @@ void handlePower() {
             ",\"wh\":" + String(s.phWh[i], 1) + "}";
   }
   json += "]";
+  time_t atT = time(nullptr);
+  long atEpoch = 0;
+  if (atT > 1700000000UL) {
+    unsigned long ageSec = s.valid ? ((millis() - s.lastOkMs) / 1000UL) : 0UL;
+    atEpoch = (long)atT - (long)ageSec;
+  }
+  json += ",\"at\":" + String(atEpoch);
   json += ",\"maxW\":" + String(peakW, 0);
   json += ",\"maxH\":" + String(peakH);
   json += ",\"priceNow\":" + String(priceNow, 2);
@@ -1898,6 +1905,13 @@ static void mqttPublishLive() {
             String(s.phA[i], 2) + "," + String(s.phWh[i], 0) + "]";
   }
   json += "]";
+  time_t atT = time(nullptr);
+  long atEpoch = 0;
+  if (atT > 1700000000UL) {
+    unsigned long ageSec = s.valid ? ((millis() - s.lastOkMs) / 1000UL) : 0UL;
+    atEpoch = (long)atT - (long)ageSec;
+  }
+  json += ",\"at\":" + String(atEpoch);
   json += ",\"maxW\":" + String(peakW, 0);
   json += ",\"maxH\":" + String(peakH);
   json += ",\"priceNow\":" + String(priceNow, 2);

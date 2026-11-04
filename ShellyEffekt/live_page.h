@@ -65,6 +65,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
           <div class="label"><span class="dot" id="espDot"></span>Just nu</div>
           <div class="metric" id="nowW" style="text-align:center">--</div>
           <div class="row3"><span id="espInfo">Watt · spänning · ström</span></div>
+          <div class="small" id="lastCalc" style="text-align:center">senast räknat –</div>
           <canvas id="liveChart"></canvas>
           <div class="row3"><span>senaste 30 min</span><span id="liveAvg">snitt --</span><span id="liveMax">max --</span></div>
         </div>
@@ -308,9 +309,22 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       byId('maxHourWhen').innerText = (mw > 0 && mh >= 0) ? ('kl ' + (mh < 10 ? '0' : '') + mh + ':00') : '';
     }
 
+    var lastCalcAt = 0;
+    function tickClock() {
+      var el = byId('lastCalc');
+      if (!el || !lastCalcAt) return;
+      var t = new Date(lastCalcAt);
+      var p = function (n) { return (n < 10 ? '0' : '') + n; };
+      var age = Math.max(0, Math.round((Date.now() - lastCalcAt) / 1000));
+      el.innerText = 'senast räknat ' + p(t.getHours()) + ':' + p(t.getMinutes()) + ':' + p(t.getSeconds()) +
+                     ' · för ' + age + ' s sedan';
+    }
+    setInterval(tickClock, 1000);
+
     function render(d) {
       d = d || {};
       latest = d;
+      lastCalcAt = (typeof d.at === 'number' && d.at > 0) ? d.at * 1000 : Date.now();
       byId('nowW').innerText = d.w.toFixed(0) + ' W';
       byId('meterTotal').innerText = fmtKwh(d.tot);
       byId('sinceBoot').innerText = fmtWh(d.boot);
@@ -370,7 +384,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
         tot: num(d.totalWh), boot: num(d.bootWh), h1: num(d.h1Wh), today: num(d.todayWh),
         n: num(d.phases), ok: d.valid ? 1 : 0, up: num(d.uptime), rssi: num(d.rssi),
         ph: (d.ph || []).map(function (p) { return [num(p.w), num(p.v), num(p.a), num(p.wh)]; }),
-        maxW: num(d.maxW), maxH: num(d.maxH), pn: num(d.priceNow), pr: (d.price || []).map(num)
+        maxW: num(d.maxW), maxH: num(d.maxH), pn: num(d.priceNow), pr: (d.price || []).map(num), at: num(d.at)
       };
     }
 
