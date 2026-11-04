@@ -32,6 +32,7 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>
+#include <PubSubClient.h>
 #include <time.h>
 #include <esp_system.h>
 #include <mbedtls/sha256.h>
@@ -51,7 +52,15 @@ const char* AP_PASS = "12345678";
 
 const char* MDNS_NAME   = "husetseffekt";      // http://husetseffekt.local
 const char* OTA_PASSWORD = "perkele";
-const char* FW_VERSION  = "1.2";
+const char* FW_VERSION  = "1.4";
+
+// MQTT till molnsidan (samma publika broker som Blixtradar använder).
+// Den publika sidan hanzpanzi.github.io/blixtradar/husetseffekt.html lyssnar här.
+const char*    MQTT_HOST  = "broker.emqx.io";
+const uint16_t MQTT_PORT  = 1883;
+const char*    MQTT_TOPIC = "husetseffekt/hanzpanzi/7d41c9/live";
+const char*    MQTT_CLIENT_ID = "husetseffekt-esp32";
+const uint32_t MQTT_PUB_MS  = 2000;
 
 // Standardkonto för webbsidan (ändras i webbsidan, sparas i flash)
 const char* DEFAULT_WEB_USER = "hanzpanzi";
@@ -69,6 +78,7 @@ const char* DEFAULT_SHELLY_PASS = "SixtenCozmo2026!";
 const char* TZ_INFO = "CET-1CEST,M3.5.0,M10.5.0/3";
 
 const uint32_t POLL_MS         = 2000;   // fråga Shelly var 2:a sekund
+const uint32_t WIFI_RETRY_MS   = 30000;  // nytt anslutningsförsök medan kortet är offline
 const uint32_t POLL_FAIL_MS    = 5000;   // väntetid efter misslyckad läsning
 const uint32_t HTTP_TIMEOUT_MS = 1500;
 const uint32_t DDNS_INTERVAL_MS = 5UL * 60UL * 1000UL;   // DuckDNS var 5:e min
@@ -151,6 +161,12 @@ static SemaphoreHandle_t stateMux  = nullptr;
 static SemaphoreHandle_t remoteMux = nullptr;
 static Preferences prefs;
 static WebServer web(80);
+
+// MQTT-klient som skickar livedata till molnsidan
+static WiFiClient   mqttNet;
+static PubSubClient mqttClient;
+static uint32_t     lastMqttTry = 0;
+static uint32_t     lastMqttPub = 0;
 
 // Inloggning (lagras som salt + SHA-256, aldrig klartext)
 static String webUser;
@@ -1492,15 +1508,54 @@ void handleNotFound() {
 // ==========================================
 // 11. WI-FI
 // ==========================================
+// AP-läget är bara en reservväg in: kortet fortsätter försöka nå hemnätet och
+// stänger AP:t så fort STA-anslutningen fungerar (se wifiTask längre ner).
+static bool     apRunning          = false;
+static bool     lanServicesStarted = false;
+static uint32_t lastWifiTry        = 0;
+
+static void startAP() {
+  // AP_STA i stället för AP: STA kan fortsätta försöka medan AP:t är uppe
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAP(AP_SSID, AP_PASS);
+  apRunning = true;
+  Serial.printf("AP: %s  ->  http://%s/\n", AP_SSID, WiFi.softAPIP().toString().c_str());
+}
+
+// mDNS, OTA och NTP kräver en fungerande STA-anslutning. Anropas både vid
+// uppstart och när kortet kommer tillbaka efter ett avbrott.
+static void startLanServices() {
+  if (lanServicesStarted) return;
+  lanServicesStarted = true;
+
+  configTzTime(TZ_INFO, "pool.ntp.org", "time.google.com");
+  if (MDNS.begin(MDNS_NAME)) {
+    MDNS.addService("http", "tcp", 80);
+    Serial.printf("mDNS: http://%s.local\n", MDNS_NAME);
+  }
+  ArduinoOTA.setHostname(MDNS_NAME);
+  ArduinoOTA.setPassword(OTA_PASSWORD);
+  ArduinoOTA.onStart([]() { Serial.println("OTA: start"); });
+  ArduinoOTA.onEnd([]()   { Serial.println("\nOTA: klar"); });
+  ArduinoOTA.onProgress([](unsigned int p, unsigned int t) {
+    Serial.printf("OTA: %u%%\r", t ? p * 100 / t : 0);
+  });
+  ArduinoOTA.begin();
+
+  Serial.printf("Wi-Fi OK: %s\n", WiFi.localIP().toString().c_str());
+}
+
 static void connectWiFi() {
 #if FORCE_AP_MODE
   WiFi.mode(WIFI_AP);
   WiFi.softAP(AP_SSID, AP_PASS);
+  apRunning = true;
   Serial.printf("AP: %s  ->  http://%s/\n", AP_SSID, WiFi.softAPIP().toString().c_str());
   return;
 #else
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);                 // stabilare polling
+  WiFi.setAutoReconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.printf("Ansluter till %s", WIFI_SSID);
   uint32_t t0 = millis();
@@ -1511,14 +1566,103 @@ static void connectWiFi() {
   Serial.println();
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.printf("Wi-Fi OK: %s\n", WiFi.localIP().toString().c_str());
+    startLanServices();
   } else {
-    Serial.println("Ingen Wi-Fi – startar eget nätverk.");
-    WiFi.mode(WIFI_AP);
-    WiFi.softAP(AP_SSID, AP_PASS);
-    Serial.printf("AP: %s  ->  http://%s/\n", AP_SSID, WiFi.softAPIP().toString().c_str());
+    Serial.println("Ingen Wi-Fi – startar eget nätverk och försöker igen i bakgrunden.");
+    startAP();
   }
 #endif
+}
+
+// ==========================================
+// 11c. SJÄLVLÄKNING: håller Wi-Fi vid liv
+// ==========================================
+// Tidigare försökte kortet bara en gång i setup() och blev kvar i AP-läget om
+// routern inte hann svara (t.ex. efter ett strömavbrott). Här försöker vi igen
+// var 30:e sekund och stänger AP:t så fort vi är online.
+static void wifiTask(void* param) {
+  (void)param;
+  for (;;) {
+    if (WiFi.status() == WL_CONNECTED) {
+      if (!lanServicesStarted) startLanServices();
+      if (apRunning) {
+        WiFi.softAPdisconnect(true);
+        WiFi.mode(WIFI_STA);
+        apRunning = false;
+        Serial.println("Wi-Fi tillbaka – AP-läget stängt.");
+      }
+    } else if (millis() - lastWifiTry >= WIFI_RETRY_MS) {
+      lastWifiTry = millis();
+      Serial.printf("Wi-Fi: nytt försök mot %s...\n", WIFI_SSID);
+      WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    }
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+}
+
+// ==========================================
+// 11b. MOLNSIDAN (MQTT)
+// ==========================================
+// Skickar ett kompakt JSON-objekt till den publika MQTT-brokern.
+// Sidan hanzpanzi.github.io/blixtradar/husetseffekt.html lyssnar på samma topic.
+static void mqttPublishLive() {
+  State s;
+  xSemaphoreTake(stateMux, portMAX_DELAY);
+  s = st;
+  xSemaphoreGive(stateMux);
+
+  if (!s.valid) return;
+
+  String json;
+  json.reserve(320);
+  json += "{\"w\":"   + String(s.powerW, 1);
+  json += ",\"v\":"   + String(s.voltageV, 1);
+  json += ",\"a\":"   + String(s.currentA, 2);
+  json += ",\"tot\":" + String(s.totalWh, 1);
+  json += ",\"boot\":" + String(s.whBoot, 0);
+  json += ",\"h1\":"  + String(s.whHour1, 0);
+  json += ",\"today\":" + String(s.whToday, 0);
+  json += ",\"n\":"   + String(s.phases);
+  json += ",\"ok\":1";
+  json += ",\"up\":"  + String(millis() / 1000UL);
+  json += ",\"ph\":[";
+  for (int i = 0; i < 3; i++) {
+    if (i) json += ",";
+    json += "[" + String(s.phW[i], 1) + "," + String(s.phV[i], 1) + "," +
+            String(s.phA[i], 2) + "," + String(s.phWh[i], 0) + "]";
+  }
+  json += "]}";
+
+  // Retained: en webbsida som ansluter sent får ändå senaste värdet direkt
+  mqttClient.publish(MQTT_TOPIC, json.c_str(), true);
+}
+
+static void mqttTask(void*) {
+  mqttClient.setServer(MQTT_HOST, MQTT_PORT);
+  mqttClient.setBufferSize(640);
+  mqttClient.setKeepAlive(30);
+
+  for (;;) {
+    if (WiFi.status() == WL_CONNECTED) {
+      if (!mqttClient.connected()) {
+        if (millis() - lastMqttTry > 5000) {
+          lastMqttTry = millis();
+          if (mqttClient.connect(MQTT_CLIENT_ID)) {
+            Serial.println("MQTT: ansluten till broker.emqx.io");
+          } else {
+            Serial.printf("MQTT: misslyckades (%d)\n", mqttClient.state());
+          }
+        }
+      } else {
+        mqttClient.loop();
+        if (millis() - lastMqttPub >= MQTT_PUB_MS) {
+          lastMqttPub = millis();
+          mqttPublishLive();
+        }
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(250));
+  }
 }
 
 // ==========================================
@@ -1561,22 +1705,6 @@ void setup() {
 
   connectWiFi();
 
-  if (WiFi.status() == WL_CONNECTED) {
-    configTzTime(TZ_INFO, "pool.ntp.org", "time.google.com");
-    if (MDNS.begin(MDNS_NAME)) {
-      MDNS.addService("http", "tcp", 80);
-      Serial.printf("mDNS: http://%s.local\n", MDNS_NAME);
-    }
-    ArduinoOTA.setHostname(MDNS_NAME);
-    ArduinoOTA.setPassword(OTA_PASSWORD);
-    ArduinoOTA.onStart([]() { Serial.println("OTA: start"); });
-    ArduinoOTA.onEnd([]()   { Serial.println("\nOTA: klar"); });
-    ArduinoOTA.onProgress([](unsigned int p, unsigned int t) {
-      Serial.printf("OTA: %u%%\r", t ? p * 100 / t : 0);
-    });
-    ArduinoOTA.begin();
-  }
-
   // WebServer måste explicit samla in Cookie-headern för att web.header("Cookie") ska fungera
   static const char* AUTH_HEADERS[] = { "Cookie" };
   web.collectHeaders(AUTH_HEADERS, 1);
@@ -1604,6 +1732,11 @@ void setup() {
 
   xTaskCreatePinnedToCore(shellyTask, "shelly", 8192, nullptr, 1, nullptr, 0);
   xTaskCreatePinnedToCore(remoteTask, "remote", 12288, nullptr, 1, nullptr, 0);
+  xTaskCreatePinnedToCore(mqttTask, "mqtt", 8192, nullptr, 1, nullptr, 0);
+#if !FORCE_AP_MODE
+  // Håller Wi-Fi vid liv och tar kortet ur AP-läget när routern svarar igen
+  xTaskCreatePinnedToCore(wifiTask, "wifi", 4096, nullptr, 1, nullptr, 0);
+#endif
 }
 
 void loop() {
