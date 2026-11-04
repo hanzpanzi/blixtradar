@@ -721,10 +721,16 @@ void handlePower() {
     localtime_r(&tt0, &l0);
     minNow = l0.tm_min;
   }
+  int uptimeMin = (int)(millis() / 60000UL);
   for (int i = 0; i < HOUR_SLOTS; i++) {
     if (st.hourLabel[i] < 0) continue;
     float w = st.whHour[i];
-    if (i == st.curSlot) w = w * 60.0f / (float)(minNow < 1 ? 1 : minNow);
+    if (i == st.curSlot) {
+      // Dela pa den tid kortet faktiskt matt den har timmen, inte hela timmen.
+      int span = minNow < 1 ? 1 : minNow;
+      if (uptimeMin < span) span = uptimeMin < 1 ? 1 : uptimeMin;
+      w = w * 60.0f / (float)span;
+    }
     if (w > peakW) { peakW = w; peakH = st.hourLabel[i]; }
   }
   xSemaphoreGive(stateMux);
@@ -1815,10 +1821,16 @@ static void mqttPublishLive() {
     localtime_r(&tt0, &l0);
     minNow = l0.tm_min;
   }
+  int uptimeMin = (int)(millis() / 60000UL);
   for (int i = 0; i < HOUR_SLOTS; i++) {
     if (st.hourLabel[i] < 0) continue;
     float w = st.whHour[i];
-    if (i == st.curSlot) w = w * 60.0f / (float)(minNow < 1 ? 1 : minNow);
+    if (i == st.curSlot) {
+      // Dela pa den tid kortet faktiskt matt den har timmen, inte hela timmen.
+      int span = minNow < 1 ? 1 : minNow;
+      if (uptimeMin < span) span = uptimeMin < 1 ? 1 : uptimeMin;
+      w = w * 60.0f / (float)span;
+    }
     if (w > peakW) { peakW = w; peakH = st.hourLabel[i]; }
   }
   xSemaphoreGive(stateMux);
