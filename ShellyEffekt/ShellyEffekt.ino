@@ -793,6 +793,14 @@ void handlePower() {
     if (i) json += ",";
     json += String(pn ? pr[i] : 0, 2);
   }
+  json += ",\"hr\":[";
+  for (int h = 0; h < 24; h++) {
+    float hv = 0;
+    for (int k = 0; k < HOUR_SLOTS; k++) if (s.hourLabel[k] == h) { hv = s.whHour[k]; break; }
+    if (h) json += ",";
+    json += String(hv, 0);
+  }
+  json += "]";
   json += "]}";
 
   web.sendHeader("Cache-Control", "no-store");
@@ -1027,6 +1035,23 @@ void handleAccountSave() {
   Serial.println("Webbkonto uppdaterat.");
 
   web.sendHeader("Set-Cookie", "sesid=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax");
+  web.send(200, "application/json", "{\"ok\":true}");
+}
+
+void handleReset() {
+  if (!requireAuth()) return;
+
+  xSemaphoreTake(stateMux, portMAX_DELAY);
+  st.whBoot = 0;
+  st.whToday = 0;
+  st.whHour1 = 0;
+  for (int i = 0; i < MIN_SLOTS; i++) st.whMinute[i] = 0;
+  for (int i = 0; i < HOUR_SLOTS; i++) st.whHour[i] = 0;
+  st.minuteIdx = 0;
+  st.minuteStartMs = millis();
+  xSemaphoreGive(stateMux);
+
+  Serial.println("Historiken nollad - raknar fran nu.");
   web.send(200, "application/json", "{\"ok\":true}");
 }
 
@@ -1880,6 +1905,14 @@ static void mqttPublishLive() {
     if (i) json += ",";
     json += String(pn ? pr[i] : 0, 2);
   }
+  json += ",\"hr\":[";
+  for (int h = 0; h < 24; h++) {
+    float hv = 0;
+    for (int k = 0; k < HOUR_SLOTS; k++) if (s.hourLabel[k] == h) { hv = s.whHour[k]; break; }
+    if (h) json += ",";
+    json += String(hv, 0);
+  }
+  json += "]";
   json += "]}";
 
   // Retained: en webbsida som ansluter sent får ändå senaste värdet direkt
@@ -2199,6 +2232,7 @@ void setup() {
   web.on("/api/remote", HTTP_POST, handleRemoteSave);
   web.on("/api/account", HTTP_POST, handleAccountSave);
   web.on("/api/restart", HTTP_POST, handleRestart);
+  web.on("/api/reset", HTTP_POST, handleReset);
   web.on("/update", HTTP_GET, handleOTA);
   web.on("/update", HTTP_POST, handleOTAUpload, handleOTAProgress);
   web.on("/api/ota", HTTP_POST, handleOtaFromUrl);

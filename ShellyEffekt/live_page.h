@@ -104,6 +104,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
             <div style="flex:1; text-align:left;">
               <div id="priceNow" style="font-size:1.6em; font-weight:bold; color:#fbbf24;">--</div>
               <div class="small" id="priceRange">pris saknas</div>
+              <div class="small" id="costToday">idag –</div>
             </div>
 
 
@@ -293,6 +294,16 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       drawPriceBars(byId('priceChart'), arr, cur);
 
       var mw = num(d.maxW), mh = (typeof d.maxH === 'number' ? d.maxH : -1);
+      var hr = d.hr || [], kwhDay = 0, costDay = 0;
+      for (i = 0; i < hr.length && i < 24; i++) {
+        if (!(hr[i] > 0)) continue;
+        kwhDay += hr[i] / 1000;
+        costDay += (hr[i] / 1000) * (arr[i] || 0);
+      }
+      byId('costToday').innerText = kwhDay > 0
+        ? ('idag ' + kwhDay.toFixed(2) + ' kWh · ' + costDay.toFixed(2) + ' kr')
+        : 'idag 0 kWh';
+
       byId('maxHour').innerText = mw > 0 ? Math.round(mw) + ' W' : '–';
       byId('maxHourWhen').innerText = (mw > 0 && mh >= 0) ? ('kl ' + (mh < 10 ? '0' : '') + mh + ':00') : '';
     }
