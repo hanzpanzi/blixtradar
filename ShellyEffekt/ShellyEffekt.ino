@@ -1781,6 +1781,7 @@ static void mqttPublishLive() {
 }
 
 static void mqttTask(void*) {
+  mqttClient.setClient(mqttNet);   // utan klient kraschar connect() pa nollpekare
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
   mqttClient.setBufferSize(640);
   mqttClient.setKeepAlive(30);
