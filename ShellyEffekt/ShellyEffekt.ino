@@ -52,6 +52,8 @@ const char* AP_PASS = "12345678";
 
 const char* MDNS_NAME   = "husetseffekt";      // http://husetseffekt.local
 const char* OTA_PASSWORD = "perkele";
+#include "live_page.h"   // live-sidan som kortet serverar pa / (genererad fran husetseffekt.html)
+
 const char* FW_VERSION  = "1.4";
 
 // MQTT till molnsidan (samma publika broker som Blixtradar använder).
@@ -1448,6 +1450,14 @@ setInterval(graph, 60000);
 </html>
 )rawliteral";
 
+// Kortets egen live-sida: hamtar /api/power och ritar samma vy som den publika sidan.
+void handleLivePage() {
+  if (!requireAuth()) return;
+  String page = FPSTR(HTML_LIVE);
+  web.sendHeader("Cache-Control", "no-store");
+  web.send(200, "text/html", page);
+}
+
 void handleRoot() {
   if (!requireAuth()) return;
   String page = FPSTR(HTML_INDEX);
@@ -1709,7 +1719,8 @@ void setup() {
   static const char* AUTH_HEADERS[] = { "Cookie" };
   web.collectHeaders(AUTH_HEADERS, 1);
 
-  web.on("/", handleRoot);
+  web.on("/", handleLivePage);
+  web.on("/installningar", handleRoot);
   web.on("/login", HTTP_GET, handleLoginPage);  web.on("/login", HTTP_POST, handleLoginPost);
   web.on("/logout", handleLogout);
   web.on("/api/power", handlePower);
