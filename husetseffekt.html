@@ -77,6 +77,14 @@
     .install[hidden] { display: none; }
     .install button { font: inherit; border-radius: 8px; border: 1px solid #38bdf8; background: #0ea5e9; color: #041018; font-weight: 700; padding: 7px 12px; cursor: pointer; }
     .install button.x { background: transparent; border-color: #334155; color: #94a3b8; padding: 3px 9px; font-size: 1.1em; line-height: 1; }
+    /* ---- Rullande notis: lägsta priset nästa 24 h ---- */
+    .ticker { max-width: 1200px; margin: 0 auto 8px; overflow: hidden; border: 1px solid #263449; background: #0b1220; border-radius: 12px; }
+    .ticker[hidden] { display: none; }
+    .ticker-inner { display: inline-flex; white-space: nowrap; will-change: transform; animation: ticker 26s linear infinite; }
+    .ticker-inner span { padding: 8px 24px; color: #fbbf24; font-size: 0.84em; font-weight: 600; }
+    @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+    @media (hover: hover) { .ticker:hover .ticker-inner { animation-play-state: paused; } }
+    @media (prefers-reduced-motion: reduce) { .ticker-inner { animation: none; } .ticker-inner span + span { display: none; } }
     @media (pointer: fine) {
       .hourlist { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
       .hourlist::-webkit-scrollbar { width: 8px; }
@@ -119,6 +127,9 @@
     <span id="installText"></span>
     <button type="button" id="installGo" hidden>Installera</button>
     <button type="button" class="x" id="installClose" aria-label="Stäng">×</button>
+  </div>
+  <div class="ticker" id="ticker" hidden aria-live="polite">
+    <div class="ticker-inner" id="tickerText"><span></span><span aria-hidden="true"></span></div>
   </div>
   <div class="card">
     <div class="topbar">
@@ -364,40 +375,100 @@
 
     // Spotpriset hämtas direkt från elprisetjustnu.se (CORS öppen). Kortets
     // priser används om de finns, annars den här kopian.
-    var priceCache = { day: '', q: [], arr: [], at: 0 };
+    var priceCache = { day: '', q: [], q2: [], arr: [], at: 0 };
     var priceLoading = false;
 
     // Elprisetjustnu ger 96 kvartspriser per dag. Kvartspriset är det som
     // gäller just nu, så både visning och kostnad räknas på kvartar.
+    function quarterList(list) {
+      var q = [], i;
+      for (i = 0; i < 96; i++) q.push(0);
+      for (i = 0; i < list.length; i++) {
+        var m = String(list[i].time_start || '').match(/T(\d\d):(\d\d)/);
+        if (!m) continue;
+        var qi = parseInt(m[1], 10) * 4 + Math.floor(parseInt(m[2], 10) / 15);
+        if (qi >= 0 && qi < 96) q[qi] = Number(list[i].SEK_per_kWh) || 0;
+      }
+      return q;
+    }
+
     function loadPrices() {
       var now = new Date();
-      var day = now.getFullYear() + '/' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' +
-                ('0' + now.getDate()).slice(-2) + '_SE3';
+      var mk = function (d) {
+        return d.getFullYear() + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' +
+               ('0' + d.getDate()).slice(-2) + '_SE3';
+      };
+      var day = mk(now);
+      var day2 = mk(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
       if (priceLoading) return;
       if (priceCache.day === day && priceCache.q.length && Date.now() - priceCache.at < 900000) return;
       priceLoading = true;
-      fetch('https://www.elprisetjustnu.se/api/v1/prices/' + day + '.json')
-        .then(function (r) { return r.json(); })
-        .then(function (list) {
-          var q = [], sum = [], cnt = [], i;
-          for (i = 0; i < 96; i++) q.push(0);
-          for (i = 0; i < 24; i++) { sum[i] = 0; cnt[i] = 0; }
-          for (i = 0; i < list.length; i++) {
-            var m = String(list[i].time_start || '').match(/T(\d\d):(\d\d)/);
-            if (!m) continue;
-            var hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
-            var qi = hh * 4 + Math.floor(mm / 15);
-            var pp = Number(list[i].SEK_per_kWh) || 0;
-            if (qi >= 0 && qi < 96) q[qi] = pp;
-            sum[hh] += pp; cnt[hh]++;
-          }
-          var arr = [];
-          for (i = 0; i < 24; i++) arr.push(cnt[i] ? sum[i] / cnt[i] : 0);
-          priceCache = { day: day, q: q, arr: arr, at: Date.now() };
-          priceLoading = false;
-          if (latest) render(latest);
-        })
-        .catch(function () { priceLoading = false; });
+      var get = function (d) {
+        return fetch('https://www.elprisetjustnu.se/api/v1/prices/' + d + '.json')
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .catch(function () { return []; });
+      };
+      Promise.all([get(day), get(day2)]).then(function (both) {
+        var q = quarterList(both[0]), q2 = quarterList(both[1]);
+        var arr = [], sum, cnt, h, i, v;
+        for (h = 0; h < 24; h++) {
+          sum = 0; cnt = 0;
+          for (i = 0; i < 4; i++) { v = q[h * 4 + i]; if (v > 0) { sum += v; cnt++; } }
+          arr.push(cnt ? sum / cnt : 0);
+        }
+        priceCache = { day: day, q: q, q2: q2, arr: arr, at: Date.now() };
+        priceLoading = false;
+        if (latest) render(latest);
+      }).catch(function () { priceLoading = false; });
+    }
+
+    // Lägsta priset under de kommande 24 timmarna: dagens återstående kvartar
+    // plus morgondagens publicerade kvartar (de kommer vid 13-tiden).
+    // Algoritmen väljer den billigaste kvarten och, vid lika pris, den första.
+    function nextLowest() {
+      var now = new Date();
+      var q0 = now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
+      var q = priceCache.q || [], q2 = priceCache.q2 || [];
+      var best = null, i, p;
+      for (i = q0; i < 96; i++) {
+        p = num(q[i]);
+        if (p > 0 && (!best || p < best.p)) best = { p: p, qi: i, dayOff: 0 };
+      }
+      if (q2.length >= 96) {
+        for (i = 0; i < q0; i++) {
+          p = num(q2[i]);
+          if (p > 0 && (!best || p < best.p)) best = { p: p, qi: i, dayOff: 1 };
+        }
+      }
+      return best;
+    }
+
+    function tickerText() {
+      var b = nextLowest();
+      if (!b) return '';
+      var now = new Date();
+      var hh = Math.floor(b.qi / 4), mm = (b.qi % 4) * 15;
+      var t = new Date(now.getFullYear(), now.getMonth(), now.getDate() + b.dayOff, hh, mm, 0, 0);
+      var mins = Math.max(0, Math.round((t - now) / 60000));
+      var när = mins < 1 ? 'just nu' :
+                (mins < 60 ? 'om ' + mins + ' min' :
+                 'om ' + Math.floor(mins / 60) + ' h' + (mins % 60 ? ' ' + (mins % 60) + ' min' : ''));
+      var scope = (priceCache.q2 && priceCache.q2.length >= 96) ? 'nästa 24 h' : 'resten av dagen';
+      return 'Lägst pris ' + scope + ': ' + b.p.toFixed(2) + ' kr/kWh · ' +
+             (b.dayOff ? 'imorgon ' : '') + ('0' + hh).slice(-2) + ':' + ('0' + mm).slice(-2) +
+             ' (' + när + ') · SE3';
+    }
+
+    function tickerUpdate() {
+      var box = byId('ticker'), inner = byId('tickerText');
+      if (!box || !inner) return;
+      var txt = tickerText();
+      if (!txt) { box.hidden = true; return; }
+      box.hidden = false;
+      if (inner.getAttribute('data-t') === txt) return;
+      inner.setAttribute('data-t', txt);
+      var spans = inner.getElementsByTagName('span');
+      for (var i = 0; i < spans.length; i++) spans[i].textContent = txt;
     }
 
     function renderPrice(d) {
@@ -482,6 +553,8 @@
       var me = byId('maxHour'), mwe = byId('maxHourWhen');
       if (me) me.innerText = mw > 0 ? Math.round(mw) + ' W' : '–';
       if (mwe) mwe.innerText = (mw > 0 && mh >= 0) ? ('kl ' + (mh < 10 ? '0' : '') + mh + ':00') : '';
+
+      tickerUpdate();
     }
 
     // Elöverföring i öre/kWh är nätägarens avgift. Värdet sparas i webbläsaren
