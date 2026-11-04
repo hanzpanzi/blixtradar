@@ -116,6 +116,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
             <div style="flex:1; text-align:left;">
               <div id="priceNow" style="font-size:1.6em; font-weight:bold; color:#fbbf24;">--</div>
               <div class="small" id="priceRange">pris saknas</div>
+              <div class="small" id="priceTotal"></div>
               <div class="small" id="costToday">idag –</div>
             </div>
             <div style="text-align:right; color:#94a3b8; font-size:0.85em;">
@@ -127,8 +128,13 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
         </div>
 
         <div class="block">
-          <div class="label">Förbrukning per timme · SE3</div>
-          <div class="small" style="margin-top:4px;">Hela mätaren, alla faser · kWh och kostnad per klockslag</div>
+          <div class="label">Förbrukning per timme · SE3 + elöverföring</div>
+          <div class="small" style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span>Elöverföring</span>
+            <input id="feeInput" type="number" min="0" step="0.1" inputmode="decimal"
+                   style="width:64px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:3px 6px;font-size:1em;">
+            <span>öre/kWh · kostnaden nedan är spot + överföring</span>
+          </div>
           <div class="hourlist">
             <div class="hrow head"><span class="ht">timme</span><span class="hk">förbrukning</span><span class="hp">kr/kWh</span><span class="hc">kostnad</span></div>
             <div id="hourList"></div>
@@ -318,23 +324,28 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       }
       byId('priceNow').innerText = pn > 0 ? pn.toFixed(2) + ' kr/kWh' : '–';
       byId('priceRange').innerText = have ? ('min ' + mn.toFixed(2) + ' · max ' + mx.toFixed(2) + ' kr') : 'pris saknas';
+      var feeKr = feeOre() / 100;
+      var pt = byId('priceTotal');
+      if (pt) pt.innerText = pn > 0 ? ((pn + feeKr).toFixed(2) + ' kr/kWh inkl elöverföring') : '';
       drawPriceBars(byId('priceChart'), arr, cur);
 
       var mw = num(d.maxW), mh = (typeof d.maxH === 'number' ? d.maxH : -1);
-      // En rad per klockslag: förbrukning (kWh), spotpris (SE3) och kostnad.
-      // Timmar utan räkning hoppas över, utom den pågående timmen.
+      // En rad per klockslag: förbrukning (kWh), spotpris + elöverföring
+      // (kr/kWh) och vad timmen kostat. Timmar utan räkning hoppas över,
+      // utom den pågående timmen.
+      var feeKr = feeOre() / 100;
       var hr = d.hr || [], rows = '', kwhDay = 0, costDay = 0;
       for (i = 0; i < 24; i++) {
         var wh = num(hr[i]);
         if (!(wh > 0) && i !== cur) continue;
-        var kwh = wh / 1000, p = num(arr[i]), kr = kwh * p;
+        var kwh = wh / 1000, spot = num(arr[i]), p = spot + feeKr, kr = kwh * p;
         kwhDay += kwh;
         costDay += kr;
         rows += '<div class="hrow' + (i === cur ? ' now' : '') + '">' +
                 '<span class="ht">' + ('0' + i).slice(-2) + '–' + ('0' + ((i + 1) % 24)).slice(-2) + '</span>' +
                 '<span class="hk">' + kwh.toFixed(2) + ' kWh</span>' +
-                '<span class="hp">' + (p > 0 ? p.toFixed(2) : '–') + '</span>' +
-                '<span class="hc">' + (p > 0 ? kr.toFixed(2) + ' kr' : '–') + '</span></div>';
+                '<span class="hp">' + (spot > 0 ? p.toFixed(2) : '–') + '</span>' +
+                '<span class="hc">' + (spot > 0 ? kr.toFixed(2) + ' kr' : '–') + '</span></div>';
       }
       var hl = byId('hourList');
       if (hl) {
@@ -345,12 +356,32 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       }
       var ct = byId('costToday');
       if (ct) ct.innerText = kwhDay > 0
-        ? ('idag ' + kwhDay.toFixed(2) + ' kWh · ' + costDay.toFixed(2) + ' kr')
+        ? ('idag ' + kwhDay.toFixed(2) + ' kWh · ' + costDay.toFixed(2) + ' kr inkl elöverföring')
         : 'idag 0 kWh';
 
       var me = byId('maxHour'), mwe = byId('maxHourWhen');
       if (me) me.innerText = mw > 0 ? Math.round(mw) + ' W' : '–';
       if (mwe) mwe.innerText = (mw > 0 && mh >= 0) ? ('kl ' + (mh < 10 ? '0' : '') + mh + ':00') : '';
+    }
+
+    // Elöverföring i öre/kWh är nätägarens avgift. Värdet sparas i webbläsaren
+    // (localStorage); standardvärdet är bara en rimlig utgångspunkt.
+    function feeOre() {
+      try {
+        var v = parseFloat(localStorage.getItem('husetseffekt.fee'));
+        if (isFinite(v) && v >= 0) return v;
+      } catch (e) {}
+      return 24.5;
+    }
+    var feeInput = byId('feeInput');
+    if (feeInput) {
+      feeInput.value = feeOre();
+      feeInput.addEventListener('input', function () {
+        var v = parseFloat(feeInput.value);
+        if (!isFinite(v) || v < 0) v = 0;
+        try { localStorage.setItem('husetseffekt.fee', String(v)); } catch (e) {}
+        if (latest) render(latest);
+      });
     }
 
     var lastCalcAt = 0;
