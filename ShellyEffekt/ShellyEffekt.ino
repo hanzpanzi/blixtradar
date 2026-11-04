@@ -793,6 +793,7 @@ void handlePower() {
     if (i) json += ",";
     json += String(pn ? pr[i] : 0, 2);
   }
+  json += "]";
   json += ",\"hr\":[";
   for (int h = 0; h < 24; h++) {
     float hv = 0;
@@ -801,7 +802,7 @@ void handlePower() {
     json += String(hv, 0);
   }
   json += "]";
-  json += "]}";
+  json += "}";
 
   web.sendHeader("Cache-Control", "no-store");
   web.send(200, "application/json", json);
@@ -1905,6 +1906,7 @@ static void mqttPublishLive() {
     if (i) json += ",";
     json += String(pn ? pr[i] : 0, 2);
   }
+  json += "]";
   json += ",\"hr\":[";
   for (int h = 0; h < 24; h++) {
     float hv = 0;
@@ -1913,7 +1915,7 @@ static void mqttPublishLive() {
     json += String(hv, 0);
   }
   json += "]";
-  json += "]}";
+  json += "}";
 
   // Retained: en webbsida som ansluter sent får ändå senaste värdet direkt
   mqttClient.publish(MQTT_TOPIC, json.c_str(), true);
