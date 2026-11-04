@@ -172,6 +172,14 @@ static PubSubClient mqttClient;
 static uint32_t     lastMqttTry = 0;
 static uint32_t     lastMqttPub = 0;
 
+// Elpris SE3 (elprisetjustnu.se) - 24 timmedelvarden i kr/kWh
+static float     priceSek[24];
+static uint8_t   priceCount = 0;
+static uint32_t  priceDayKey = 0;
+static uint32_t  priceFetchedMs = 0;
+static uint32_t  lastPriceTry = 0;
+static SemaphoreHandle_t priceMux = nullptr;
+
 // Inloggning (lagras som salt + SHA-256, aldrig klartext)
 static String webUser;
 static String webSalt;
@@ -699,15 +707,49 @@ void handlePower() {
   if (!requireAuth()) return;
 
   State s;
+  float peakW = 0;
+  int   peakH = -1;
+
   xSemaphoreTake(stateMux, portMAX_DELAY);
   s = st;
+  // Pågående timme är ofullständig: räkna om dess Wh till snitt-W så att
+  // maxtimmen syns direkt i stället för först efter klockslaget.
+  time_t tt0 = time(nullptr);
+  int minNow = 0;
+  if (tt0 > 1700000000UL) {
+    struct tm l0;
+    localtime_r(&tt0, &l0);
+    minNow = l0.tm_min;
+  }
+  for (int i = 0; i < HOUR_SLOTS; i++) {
+    if (st.hourLabel[i] < 0) continue;
+    float w = st.whHour[i];
+    if (i == st.curSlot) w = w * 60.0f / (float)(minNow < 1 ? 1 : minNow);
+    if (w > peakW) { peakW = w; peakH = st.hourLabel[i]; }
+  }
   xSemaphoreGive(stateMux);
+
+  float   pr[24];
+  uint8_t pn = 0;
+  xSemaphoreTake(priceMux, portMAX_DELAY);
+  memcpy(pr, priceSek, sizeof(pr));
+  pn = priceCount;
+  xSemaphoreGive(priceMux);
+
+  time_t tt = time(nullptr);
+  int hourNow = -1;
+  if (tt > 1700000000UL) {
+    struct tm lt;
+    localtime_r(&tt, &lt);
+    hourNow = lt.tm_hour;
+  }
+  float priceNow = (pn > 0 && hourNow >= 0) ? pr[hourNow] : 0;
 
   uint32_t now = millis();
   long age = s.valid ? (long)((now - s.lastOkMs) / 1000) : -1;
 
   String json;
-  json.reserve(512);
+  json.reserve(1024);
   json += "{\"online\":";      json += s.online ? "true" : "false";
   json += ",\"valid\":";       json += s.valid ? "true" : "false";
   json += ",\"host\":\"";      json += s.host;
@@ -736,7 +778,16 @@ void handlePower() {
             ",\"a\":"  + String(s.phA[i], 2) +
             ",\"wh\":" + String(s.phWh[i], 1) + "}";
   }
-  json += "]}";
+  json += "]";
+  json += ",\"maxW\":" + String(peakW, 0);
+  json += ",\"maxH\":" + String(peakH);
+  json += ",\"priceNow\":" + String(priceNow, 2);
+  json += ",\"price\":[";
+  for (int i = 0; i < 24; i++) {
+    if (i) json += ",";
+    json += String(pn ? pr[i] : 0, 2);
+  }
+  json += "}";
 
   web.sendHeader("Cache-Control", "no-store");
   web.send(200, "application/json", json);
@@ -1750,14 +1801,48 @@ static void wifiTask(void* param) {
 // Sidan hanzpanzi.github.io/blixtradar/husetseffekt.html lyssnar på samma topic.
 static void mqttPublishLive() {
   State s;
+  float peakW = 0;
+  int   peakH = -1;
+
   xSemaphoreTake(stateMux, portMAX_DELAY);
   s = st;
+  // Pågående timme är ofullständig: räkna om dess Wh till snitt-W så att
+  // maxtimmen syns direkt i stället för först efter klockslaget.
+  time_t tt0 = time(nullptr);
+  int minNow = 0;
+  if (tt0 > 1700000000UL) {
+    struct tm l0;
+    localtime_r(&tt0, &l0);
+    minNow = l0.tm_min;
+  }
+  for (int i = 0; i < HOUR_SLOTS; i++) {
+    if (st.hourLabel[i] < 0) continue;
+    float w = st.whHour[i];
+    if (i == st.curSlot) w = w * 60.0f / (float)(minNow < 1 ? 1 : minNow);
+    if (w > peakW) { peakW = w; peakH = st.hourLabel[i]; }
+  }
   xSemaphoreGive(stateMux);
+
+  float   pr[24];
+  uint8_t pn = 0;
+  xSemaphoreTake(priceMux, portMAX_DELAY);
+  memcpy(pr, priceSek, sizeof(pr));
+  pn = priceCount;
+  xSemaphoreGive(priceMux);
+
+  time_t tt = time(nullptr);
+  int hourNow = -1;
+  if (tt > 1700000000UL) {
+    struct tm lt;
+    localtime_r(&tt, &lt);
+    hourNow = lt.tm_hour;
+  }
+  float priceNow = (pn > 0 && hourNow >= 0) ? pr[hourNow] : 0;
 
   if (!s.valid) return;
 
   String json;
-  json.reserve(320);
+  json.reserve(768);
   json += "{\"w\":"   + String(s.powerW, 1);
   json += ",\"v\":"   + String(s.voltageV, 1);
   json += ",\"a\":"   + String(s.currentA, 2);
@@ -1774,7 +1859,16 @@ static void mqttPublishLive() {
     json += "[" + String(s.phW[i], 1) + "," + String(s.phV[i], 1) + "," +
             String(s.phA[i], 2) + "," + String(s.phWh[i], 0) + "]";
   }
-  json += "]}";
+  json += "]";
+  json += ",\"maxW\":" + String(peakW, 0);
+  json += ",\"maxH\":" + String(peakH);
+  json += ",\"priceNow\":" + String(priceNow, 2);
+  json += ",\"price\":[";
+  for (int i = 0; i < 24; i++) {
+    if (i) json += ",";
+    json += String(pn ? pr[i] : 0, 2);
+  }
+  json += "}";
 
   // Retained: en webbsida som ansluter sent får ändå senaste värdet direkt
   mqttClient.publish(MQTT_TOPIC, json.c_str(), true);
@@ -1783,7 +1877,7 @@ static void mqttPublishLive() {
 static void mqttTask(void*) {
   mqttClient.setClient(mqttNet);   // utan klient kraschar connect() pa nollpekare
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
-  mqttClient.setBufferSize(640);
+  mqttClient.setBufferSize(1024);
   mqttClient.setKeepAlive(30);
 
   for (;;) {
@@ -1939,6 +2033,101 @@ void handleWifiSave() {
 // ==========================================
 // 12. SETUP / LOOP
 // ==========================================
+
+// ==========================================
+// 11e. ELPRIS (SE3) OCH MAXTIMME
+// ==========================================
+// Hamtar dagens spotpriser for elomrade 3 (SE3) fran elprisetjustnu.se.
+// API:et ger 96 kvartar; de slas ihop till 24 timmedelvarden i kr/kWh.
+static bool fetchPrices() {
+  time_t t = time(nullptr);
+  if (t < 1700000000UL) return false;
+
+  struct tm lt;
+  localtime_r(&t, &lt);
+  char path[48];
+  strftime(path, sizeof(path), "/api/v1/prices/%Y/%m-%d_SE3.json", &lt);
+
+  WiFiClientSecure tls;
+  tls.setInsecure();
+  HTTPClient http;
+  http.setTimeout(25000);
+  http.setConnectTimeout(10000);
+  if (!http.begin(tls, String("https://www.elprisetjustnu.se") + path)) return false;
+
+  int code = http.GET();
+  if (code != 200) {
+    Serial.printf("Pris: HTTP %d", code);
+    Serial.println();
+    http.end();
+    return false;
+  }
+
+  JsonDocument filter;
+  filter[0]["SEK_per_kWh"] = true;
+  filter[0]["time_start"] = true;
+
+  JsonDocument doc;
+  DeserializationError err = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
+  http.end();
+  if (err) {
+    Serial.println("Pris: kunde inte tolka svaret");
+    return false;
+  }
+
+  float   sum[24] = { 0 };
+  uint8_t cnt[24] = { 0 };
+  for (JsonObject o : doc.as<JsonArray>()) {
+    const char* ts = o["time_start"] | "";
+    if (strlen(ts) < 13) continue;
+    int hh = (ts[11] - '0') * 10 + (ts[12] - '0');
+    if (hh < 0 || hh > 23) continue;
+    sum[hh] += o["SEK_per_kWh"].as<float>();
+    cnt[hh]++;
+  }
+
+  uint8_t got = 0;
+  for (int i = 0; i < 24; i++) if (cnt[i]) got++;
+  if (got < 20) return false;
+
+  xSemaphoreTake(priceMux, portMAX_DELAY);
+  for (int i = 0; i < 24; i++) priceSek[i] = cnt[i] ? (sum[i] / (float)cnt[i]) : 0;
+  priceCount     = got;
+  priceDayKey    = (uint32_t)((lt.tm_year + 1900) * 400 + lt.tm_yday);
+  priceFetchedMs = millis();
+  xSemaphoreGive(priceMux);
+
+  Serial.printf("Pris SE3: %u timmar, nu %.2f kr/kWh", got, priceSek[lt.tm_hour]);
+  Serial.println();
+  return true;
+}
+
+static void priceTask(void* param) {
+  (void)param;
+  vTaskDelay(pdMS_TO_TICKS(5000));
+
+  for (;;) {
+    time_t t = time(nullptr);
+    if (t > 1700000000UL) {
+      struct tm lt;
+      localtime_r(&t, &lt);
+      uint32_t key = (uint32_t)((lt.tm_year + 1900) * 400 + lt.tm_yday);
+
+      bool stale;
+      xSemaphoreTake(priceMux, portMAX_DELAY);
+      stale = (priceCount == 0) || (priceDayKey != key) ||
+              (millis() - priceFetchedMs > 2UL * 3600UL * 1000UL);
+      xSemaphoreGive(priceMux);
+
+      if (stale && millis() - lastPriceTry > 5UL * 60UL * 1000UL) {
+        lastPriceTry = millis();
+        fetchPrices();
+      }
+    }
+    vTaskDelay(pdMS_TO_TICKS(60000));
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   delay(200);
@@ -1972,7 +2161,8 @@ void setup() {
 
   stateMux  = xSemaphoreCreateMutex();
   remoteMux = xSemaphoreCreateMutex();
-  if (!stateMux || !remoteMux) {
+  priceMux  = xSemaphoreCreateMutex();
+  if (!stateMux || !remoteMux || !priceMux) {
     Serial.println("Kunde inte skapa mutex – startar om.");
     ESP.restart();
   }
@@ -2012,6 +2202,7 @@ void setup() {
   xTaskCreatePinnedToCore(shellyTask, "shelly", 8192, nullptr, 1, nullptr, 0);
   xTaskCreatePinnedToCore(remoteTask, "remote", 12288, nullptr, 1, nullptr, 0);
   xTaskCreatePinnedToCore(mqttTask, "mqtt", 8192, nullptr, 1, nullptr, 0);
+  xTaskCreatePinnedToCore(priceTask, "price", 16384, nullptr, 1, nullptr, 0);
 #if !FORCE_AP_MODE
   // Håller Wi-Fi vid liv och tar kortet ur AP-läget när routern svarar igen
   xTaskCreatePinnedToCore(wifiTask, "wifi", 4096, nullptr, 1, nullptr, 0);

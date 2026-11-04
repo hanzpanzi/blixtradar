@@ -95,6 +95,21 @@
           </div>
           <div class="small" id="sampleInfo">Senaste 30 minuterna ritas ut när sidan är öppen</div>
         </div>
+        <div class="block">
+          <div class="label">Elpris SE3 · idag</div>
+          <div class="row" style="margin-top:6px;">
+            <div style="flex:1; text-align:left;">
+              <div id="priceNow" style="font-size:1.6em; font-weight:bold; color:#fbbf24;">--</div>
+              <div class="small" id="priceRange">pris saknas</div>
+            </div>
+            <div style="text-align:right; color:#94a3b8; font-size:0.85em;">
+              <div>Max/timme <b id="maxHour" style="color:#e2e8f0;">--</b></div>
+              <div class="small" id="maxHourWhen">--</div>
+            </div>
+          </div>
+          <canvas id="priceChart" style="height:90px;"></canvas>
+        </div>
+
 
       </div>
     </div>
@@ -219,6 +234,82 @@
     }
 
     // ---------- uppdaterar vyn ----------
+
+    // ---------- elpris (SE3) och maxtimme ----------
+    function drawPriceBars(cv, arr, cur) {
+      var p = prepCanvas(cv, 90), ctx = p.ctx, w = p.w, h = p.h;
+      if (!arr || arr.length < 12) return;
+      var mx = 0, i;
+      for (i = 0; i < arr.length; i++) if (arr[i] > mx) mx = arr[i];
+      if (mx <= 0) return;
+      var bw = w / arr.length;
+      for (i = 0; i < arr.length; i++) {
+        if (!(arr[i] > 0)) continue;
+        var bh = (arr[i] / mx) * (h - 18);
+        ctx.fillStyle = (i === cur) ? '#38bdf8' : 'rgba(251,191,36,0.55)';
+        ctx.fillRect(i * bw + 0.5, h - 14 - bh, Math.max(bw - 1.5, 1), bh);
+      }
+      ctx.fillStyle = '#64748b';
+      ctx.font = '9px system-ui, sans-serif';
+      ctx.fillText('00', 1, h - 3);
+      ctx.fillText('12', w / 2 - 5, h - 3);
+      ctx.fillText('23', w - 12, h - 3);
+    }
+
+    // Spotpriset hämtas direkt från elprisetjustnu.se (CORS öppen). Kortets
+    // priser används om de finns, annars den här kopian.
+    var priceCache = { day: '', arr: [], at: 0 };
+    var priceLoading = false;
+
+    function loadPrices() {
+      var now = new Date();
+      var day = now.getFullYear() + '/' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' +
+                ('0' + now.getDate()).slice(-2) + '_SE3';
+      if (priceLoading) return;
+      if (priceCache.day === day && priceCache.arr.length && Date.now() - priceCache.at < 1800000) return;
+      priceLoading = true;
+      fetch('https://www.elprisetjustnu.se/api/v1/prices/' + day + '.json')
+        .then(function (r) { return r.json(); })
+        .then(function (list) {
+          var sum = [], cnt = [], i;
+          for (i = 0; i < 24; i++) { sum[i] = 0; cnt[i] = 0; }
+          for (i = 0; i < list.length; i++) {
+            var m = String(list[i].time_start || '').match(/T(\d\d):/);
+            if (!m) continue;
+            var hh = parseInt(m[1], 10);
+            sum[hh] += Number(list[i].SEK_per_kWh) || 0;
+            cnt[hh]++;
+          }
+          var arr = [];
+          for (i = 0; i < 24; i++) arr.push(cnt[i] ? sum[i] / cnt[i] : 0);
+          priceCache = { day: day, arr: arr, at: Date.now() };
+          priceLoading = false;
+          if (latest) render(latest);
+        })
+        .catch(function () { priceLoading = false; });
+    }
+
+    function renderPrice(d) {
+      loadPrices();
+      var arr = (d.pr && d.pr.length >= 12) ? d.pr : priceCache.arr;
+      var cur = new Date().getHours();
+      var pn = num(d.pn) > 0 ? num(d.pn) : num(arr[cur]);
+      var mn = 1e9, mx = -1e9, i, have = false;
+      for (i = 0; i < arr.length; i++) {
+        if (!(arr[i] > 0)) continue;
+        have = true;
+        if (arr[i] < mn) mn = arr[i];
+        if (arr[i] > mx) mx = arr[i];
+      }
+      byId('priceNow').innerText = pn > 0 ? pn.toFixed(2) + ' kr/kWh' : '–';
+      byId('priceRange').innerText = have ? ('min ' + mn.toFixed(2) + ' · max ' + mx.toFixed(2) + ' kr') : 'pris saknas';
+      drawPriceBars(byId('priceChart'), arr, cur);
+
+      var mw = num(d.maxW), mh = (typeof d.maxH === 'number' ? d.maxH : -1);
+      byId('maxHour').innerText = mw > 0 ? Math.round(mw) + ' W' : '–';
+      byId('maxHourWhen').innerText = (mw > 0 && mh >= 0) ? ('kl ' + (mh < 10 ? '0' : '') + mh + ':00') : '';
+    }
+
     function render(d) {
       d = d || {};
       latest = d;
@@ -227,6 +318,7 @@
       byId('sinceBoot').innerText = fmtWh(d.boot);
       byId('hour1').innerText = fmtWh(d.h1);
       byId('today').innerText = fmtWh(d.today);
+      renderPrice(d);
 
       // Faser L1-L3: [W, V, A, Wh] per fas. Värdena normaliseras så att ett
       // ofullständigt meddelande inte kraschar hela renderingen.
