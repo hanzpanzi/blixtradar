@@ -19,6 +19,11 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
     .metric { font-size: 2.6em; font-weight: bold; color: #fbbf24; margin: 8px 0; }
     .metric.high { color: #f87171; text-shadow: 0 0 18px rgba(248,113,113,0.5); }
     .block.over { border-color: #f87171; box-shadow: 0 0 18px rgba(248,113,113,0.35); }
+    .meas { cursor: pointer; transition: border-color .2s, box-shadow .2s; }
+    .meas.active { border-color: #38bdf8; box-shadow: 0 0 16px rgba(56,189,248,0.25); }
+    .meas.done { border-color: #4ade80; box-shadow: 0 0 16px rgba(74,222,128,0.22); }
+    .meas-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin-top: 10px; }
+    .meas-v { font-size: 1.35em; font-weight: 800; color: #e2e8f0; }
     .grid { display: flex; justify-content: space-around; gap: 8px; }
     .row { display: flex; justify-content: space-around; gap: 10px; }
     .small { color: #94a3b8; font-size: 0.8em; margin-top: 8px; }
@@ -66,7 +71,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       .topbar { flex-direction: row; align-items: center; gap: 16px; }
       .topbar .status { flex: 1; margin: 0; }
       .dash-left { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
-      .dash-left > .block:nth-child(1), .dash-left > .block:nth-child(6) { grid-column: 1 / -1; }
+      .dash-left > .block:nth-child(1), .dash-left > .block:nth-child(7) { grid-column: 1 / -1; }
       .tiles { grid-template-columns: repeat(4, 1fr); }
       canvas { height: 150px; }
       canvas.lite { height: 70px; }
@@ -75,7 +80,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       .card { max-width: 1200px; }
       .dash-left { grid-template-columns: 1fr 1fr 1fr; }
       .dash-left > .block:nth-child(1) { grid-column: span 2; }
-      .dash-left > .block:nth-child(6) { grid-column: 1 / -1; }
+      .dash-left > .block:nth-child(7) { grid-column: 1 / -1; }
     }
     /* ---- Telefon: fingervanliga ytor, ingen iOS-zoom i falt ---- */
     @media (max-width: 480px) {
@@ -109,6 +114,15 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
           <div class="small" id="lastCalc" style="text-align:center">senast räknat –</div>
           <canvas id="liveChart"></canvas>
           <div class="row3"><span>senaste 30 min</span><span id="liveAvg">snitt --</span><span id="liveMax">max --</span></div>
+        </div>
+
+        <div class="block meas" id="measCard" role="button" tabindex="0">
+          <div class="label">Mätning · nollställ och mät</div>
+          <div class="meas-row">
+            <div><div class="meas-v" id="measKwh">0.000 kWh</div><div class="small" style="margin-top:2px;">förbrukning</div></div>
+            <div style="text-align:right;"><div class="meas-v" id="measKr" style="color:#fbbf24;">–</div><div class="small" style="margin-top:2px;">kostnad inkl överföring</div></div>
+          </div>
+          <div class="row3"><span id="measTime">00:00 / 60:00</span><span id="measState">tryck för att nollställa</span></div>
         </div>
 
         <div class="block">
@@ -356,6 +370,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       byId('priceNow').innerText = pn > 0 ? pn.toFixed(2) + ' kr/kWh' : '–';
       byId('priceRange').innerText = have ? ('min ' + mn.toFixed(2) + ' · max ' + mx.toFixed(2) + ' kr') : 'pris saknas';
       var feeKr = feeOre() / 100;
+      curPriceTotal = pn > 0 ? pn + feeKr : 0;
       var pt = byId('priceTotal');
       if (pt) pt.innerText = pn > 0 ? ((pn + feeKr).toFixed(2) + ' kr/kWh inkl elöverföring') : '';
       drawPriceBars(byId('priceChart'), arr, cur);
@@ -438,17 +453,85 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       if (b) b.className = hot ? 'block over' : 'block';
     }
 
+    // ---- Mätning: nollställ, mät i upp till en timme, visa kWh och kr ----
+    var MEAS_MAX = 3600;                    // sekunder
+    var curPriceTotal = 0;                  // kr/kWh inkl överföring, sätts i renderPrice
+    var meas = { active: false, done: false, t0: 0, secs: 0, kwh: 0, kr: 0, price: 0, lastWh: 0 };
+
+    function measStart() {
+      var d = latest || {};
+      meas.active = true;
+      meas.done = false;
+      meas.t0 = Date.now();
+      meas.secs = 0;
+      meas.kwh = 0;
+      meas.kr = 0;
+      meas.price = curPriceTotal;
+      meas.lastWh = num(d.boot);
+      measTick();
+    }
+
+    function measAccum(d) {
+      if (!meas.active) return;
+      var wh = num(d.boot);
+      if (meas.lastWh <= 0) { meas.lastWh = wh; return; }
+      if (wh + 1 < meas.lastWh) {           // kortet startade om – avbryt
+        meas.secs = (Date.now() - meas.t0) / 1000;
+        meas.active = false;
+        meas.done = true;
+        measTick();
+        return;
+      }
+      meas.price = curPriceTotal > 0 ? curPriceTotal : meas.price;
+      var dWh = wh - meas.lastWh;
+      meas.lastWh = wh;
+      if (dWh > 0) {
+        meas.kwh += dWh / 1000;
+        if (meas.price > 0) meas.kr += (dWh / 1000) * meas.price;
+      }
+    }
+
+    function measTick() {
+      var el = byId('measCard');
+      if (!el) return;
+      if (meas.active) {
+        meas.secs = (Date.now() - meas.t0) / 1000;
+        if (meas.secs >= MEAS_MAX) { meas.secs = MEAS_MAX; meas.active = false; meas.done = true; }
+      }
+      var mm = Math.floor((meas.secs || 0) / 60), ss = Math.floor((meas.secs || 0) % 60);
+      var p = function (n) { return (n < 10 ? '0' : '') + n; };
+      byId('measKwh').innerText = meas.kwh.toFixed(3) + ' kWh';
+      byId('measKr').innerText = meas.price > 0 ? meas.kr.toFixed(2) + ' kr' : '–';
+      byId('measTime').innerText = p(mm) + ':' + p(ss) + ' / 60:00';
+      var st = byId('measState');
+      if (st) st.innerText = meas.active ? 'mäter… tryck för att börja om'
+                                       : (meas.done ? 'klar – tryck för nästa' : 'tryck för att nollställa');
+      el.className = 'block meas' + (meas.active ? ' active' : '') + (meas.done ? ' done' : '');
+    }
+
+    (function () {
+      var c = byId('measCard');
+      if (!c) return;
+      c.addEventListener('click', measStart);
+      c.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); measStart(); }
+      });
+    })();
+    setInterval(measTick, 1000);
+
     function render(d) {
       d = d || {};
       latest = d;
       lastCalcAt = (typeof d.at === 'number' && d.at > 0) ? d.at * 1000 : Date.now();
       byId('nowW').innerText = d.w.toFixed(0) + ' W';
       markHigh(num(d.w));
+      measAccum(d);
       byId('meterTotal').innerText = fmtKwh(d.tot);
       byId('sinceBoot').innerText = fmtWh(d.boot);
       byId('hour1').innerText = fmtWh(d.h1);
       byId('today').innerText = fmtWh(d.today);
       renderPrice(d);
+      measTick();
 
       // Faser L1-L3: [W, V, A, Wh] per fas. Värdena normaliseras så att ett
       // ofullständigt meddelande inte kraschar hela renderingen.
