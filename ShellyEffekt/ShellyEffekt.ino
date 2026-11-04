@@ -1510,6 +1510,61 @@ void handleOTAProgress() {
   }
 }
 
+// OTA dar kortet sjalvt hamtar .bin-filen. Webbserverns uppladdning har en
+// hardkodad tidsgrans pa 5 sekunder och faller pa en svag Wi-Fi-lank; har ar
+// kortet i stallet TCP-klient och kan vanta hur lange som helst.
+void handleOtaFromUrl() {
+  if (!requireAuth()) return;
+  String url  = web.arg("url");
+  String pass = web.arg("pass");
+  if (pass != OTA_PASSWORD) { web.send(403, "text/plain", "Fel OTA-losenord."); return; }
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+    web.send(400, "text/plain", "Ange en http(s)-URL till .bin-filen.");
+    return;
+  }
+
+  web.sendHeader("Connection", "close");
+  web.send(200, "text/plain", "Hamtar firmware - kortet startar om nar det ar klart.");
+
+  WiFiClient plain;
+  WiFiClientSecure tls;
+  tls.setInsecure();
+  HTTPClient http;
+  http.setTimeout(60000);
+  http.setConnectTimeout(15000);
+  bool begun = url.startsWith("https://") ? http.begin(tls, url) : http.begin(plain, url);
+  if (!begun) { Serial.println("OTA-URL: kunde inte starta HTTP"); return; }
+
+  int code = http.GET();
+  if (code != 200) { Serial.printf("OTA-URL: HTTP %d", code); Serial.println(); http.end(); return; }
+
+  int len = http.getSize();
+  Serial.printf("OTA-URL: %d byte", len); Serial.println();
+  if (!Update.begin(len > 0 ? len : UPDATE_SIZE_UNKNOWN)) { Update.printError(Serial); http.end(); return; }
+
+  WiFiClient* stream = http.getStreamPtr();
+  uint8_t buf[1024];
+  size_t written = 0;
+  int remaining = len;
+  while (http.connected() && (remaining > 0 || len <= 0)) {
+    size_t avail = stream->available();
+    if (avail) {
+      int c = stream->readBytes(buf, avail > sizeof(buf) ? sizeof(buf) : avail);
+      if (c > 0) {
+        if (Update.write(buf, c) != (size_t)c) { Update.printError(Serial); break; }
+        written += c;
+        if (remaining > 0) remaining -= c;
+      }
+    } else {
+      delay(1);
+    }
+  }
+  bool ok = Update.end(true);
+  http.end();
+  Serial.printf("OTA-URL: %u byte skrivna, %s", (unsigned)written, ok ? "OK" : "FEL"); Serial.println();
+  if (ok) { delay(500); ESP.restart(); }
+}
+
 void handleFavicon() {
   web.send(204, "text/plain", "");
 }
@@ -1799,6 +1854,7 @@ void setup() {
   web.on("/api/restart", HTTP_POST, handleRestart);
   web.on("/update", HTTP_GET, handleOTA);
   web.on("/update", HTTP_POST, handleOTAUpload, handleOTAProgress);
+  web.on("/api/ota", HTTP_POST, handleOtaFromUrl);
   web.on("/favicon.ico", HTTP_GET, handleFavicon);
   web.onNotFound(handleNotFound);
   web.begin();
