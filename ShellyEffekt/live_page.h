@@ -244,7 +244,8 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
 
       var up = d.up || 0, nFas = d.n || ph.length || 0;
       byId('foot').innerText = 'Uppringd tid hos kortet: ' + Math.floor(up / 3600) + ' h ' +
-        Math.floor((up % 3600) / 60) + ' min · ' + nFas + ' fas' + (nFas === 1 ? '' : 'er');
+        Math.floor((up % 3600) / 60) + ' min · ' + nFas + ' fas' + (nFas === 1 ? '' : 'er') +
+        (d.rssi ? ' · Wi-Fi ' + d.rssi + ' dBm' : '');
 
       if (Date.now() - lastSeenTm > 30000) {
         setStatus('Kortet svarar inte – väntar på data…', false);
@@ -272,7 +273,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       return {
         w: num(d.power), v: num(d.volt), a: num(d.amp),
         tot: num(d.totalWh), boot: num(d.bootWh), h1: num(d.h1Wh), today: num(d.todayWh),
-        n: num(d.phases), ok: d.valid ? 1 : 0, up: num(d.uptime),
+        n: num(d.phases), ok: d.valid ? 1 : 0, up: num(d.uptime), rssi: num(d.rssi),
         ph: (d.ph || []).map(function (p) { return [num(p.w), num(p.v), num(p.a), num(p.wh)]; })
       };
     }

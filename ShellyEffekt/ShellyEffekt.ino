@@ -80,7 +80,9 @@ const char* DEFAULT_SHELLY_PASS = "SixtenCozmo2026!";
 const char* TZ_INFO = "CET-1CEST,M3.5.0,M10.5.0/3";
 
 const uint32_t POLL_MS         = 2000;   // fråga Shelly var 2:a sekund
-const uint32_t WIFI_RETRY_MS   = 30000;  // nytt anslutningsförsök medan kortet är offline
+const uint32_t WIFI_RETRY_MS   = 15000;  // nytt anslutningsförsök medan kortet är offline
+const int      WIFI_WEAK_RSSI  = -78;    // under detta: leta efter starkare accesspunkt
+const uint32_t WIFI_REBOOT_MS  = 10UL * 60UL * 1000UL;  // så länge offline innan kortet startas om
 const uint32_t POLL_FAIL_MS    = 5000;   // väntetid efter misslyckad läsning
 const uint32_t HTTP_TIMEOUT_MS = 1500;
 const uint32_t DDNS_INTERVAL_MS = 5UL * 60UL * 1000UL;   // DuckDNS var 5:e min
@@ -718,6 +720,7 @@ void handlePower() {
   json += ",\"fails\":";       json += String(s.fails);
   json += ",\"age\":";         json += String(age);
   json += ",\"uptime\":";      json += String(now / 1000UL);
+  json += ",\"rssi\":";        json += String(WiFi.RSSI());
   json += ",\"phases\":";      json += String(s.phases);
   json += ",\"ph\":[";
   for (int i = 0; i < 3; i++) {
@@ -1555,6 +1558,42 @@ static void startLanServices() {
   Serial.printf("Wi-Fi OK: %s\n", WiFi.localIP().toString().c_str());
 }
 
+// Stabilt och starkt: ingen strömsparning, full sändningseffekt och ett aktivt
+// val av den starkaste accesspunkten (routern eller meshen kan ha flera noder
+// med samma SSID, och kortet ska inte fastna på den svagaste).
+static void prepareRadio() {
+  WiFi.persistent(false);
+  WiFi.setSleep(false);                  // annars stallar polling, OTA och webben
+  WiFi.setAutoReconnect(true);
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);   // max sändningseffekt
+}
+
+// Skannar och ansluter till den nod som hörs starkast för vårt SSID.
+static void beginSTA() {
+  prepareRadio();
+
+  int n = WiFi.scanNetworks(false, true);
+  int best = -1, bestRssi = -1000;
+  for (int i = 0; i < n; i++) {
+    if (WiFi.SSID(i) != WIFI_SSID) continue;
+    int r = WiFi.RSSI(i);
+    if (r > bestRssi) { bestRssi = r; best = i; }
+  }
+
+  if (best >= 0) {
+    uint8_t b[6];
+    memcpy(b, WiFi.BSSID(best), 6);
+    int ch = WiFi.channel(best);
+    WiFi.scanDelete();
+    Serial.printf("Wi-Fi: starkaste %s  RSSI %d dBm  kanal %d\n", WIFI_SSID, bestRssi, ch);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD, ch, b);
+  } else {
+    WiFi.scanDelete();
+    Serial.printf("Wi-Fi: %s syns inte i scanningen – provar ändå\n", WIFI_SSID);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  }
+}
+
 static void connectWiFi() {
 #if FORCE_AP_MODE
   WiFi.mode(WIFI_AP);
@@ -1564,10 +1603,8 @@ static void connectWiFi() {
   return;
 #else
   WiFi.mode(WIFI_STA);
-  WiFi.setSleep(false);                 // stabilare polling
-  WiFi.setAutoReconnect(true);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.printf("Ansluter till %s", WIFI_SSID);
+  beginSTA();
   uint32_t t0 = millis();
   while (WiFi.status() != WL_CONNECTED && millis() - t0 < 20000) {
     delay(250);
@@ -1592,8 +1629,12 @@ static void connectWiFi() {
 // var 30:e sekund och stänger AP:t så fort vi är online.
 static void wifiTask(void* param) {
   (void)param;
+  uint32_t downSince = 0;
+  uint32_t lastRssiLog = 0;
+
   for (;;) {
     if (WiFi.status() == WL_CONNECTED) {
+      downSince = 0;
       if (!lanServicesStarted) startLanServices();
       if (apRunning) {
         WiFi.softAPdisconnect(true);
@@ -1601,10 +1642,33 @@ static void wifiTask(void* param) {
         apRunning = false;
         Serial.println("Wi-Fi tillbaka – AP-läget stängt.");
       }
-    } else if (millis() - lastWifiTry >= WIFI_RETRY_MS) {
-      lastWifiTry = millis();
-      Serial.printf("Wi-Fi: nytt försök mot %s...\n", WIFI_SSID);
-      WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+      int rssi = WiFi.RSSI();
+      if (millis() - lastRssiLog >= 60000) {
+        lastRssiLog = millis();
+        Serial.printf("Wi-Fi: %d dBm\n", rssi);
+      }
+
+      // Svag länk: byt till en starkare nod i stället för att tappa paket.
+      if (rssi < WIFI_WEAK_RSSI && millis() - lastWifiTry >= 60000) {
+        lastWifiTry = millis();
+        Serial.printf("Wi-Fi: svag signal (%d dBm) – söker bättre accesspunkt\n", rssi);
+        WiFi.disconnect();
+        vTaskDelay(pdMS_TO_TICKS(500));
+        beginSTA();
+      }
+    } else {
+      if (!downSince) downSince = millis();
+      if (millis() - downSince > WIFI_REBOOT_MS) {
+        Serial.println("Wi-Fi: offline för länge – startar om kortet.");
+        vTaskDelay(pdMS_TO_TICKS(300));
+        ESP.restart();
+      }
+      if (millis() - lastWifiTry >= WIFI_RETRY_MS) {
+        lastWifiTry = millis();
+        Serial.printf("Wi-Fi: nytt försök mot %s...\n", WIFI_SSID);
+        beginSTA();
+      }
     }
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
