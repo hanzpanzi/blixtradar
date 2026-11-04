@@ -7,6 +7,11 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#0f172a">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Husets effekt">
   <title>⚡ Husets effekt – live</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 12px; margin: 0; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
@@ -64,7 +69,19 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
     .foot { color: #64748b; font-size: 0.78em; text-align: center; margin-top: 14px; line-height: 1.6; }
     .nav { display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
     .nav a { color: #94a3b8; text-decoration: none; font-size: 0.8em; border: 1px solid #334155; padding: 6px 10px; border-radius: 9px; }
-    .nav a:hover { color: #f8fafc; border-color: #475569; }
+    @media (hover: hover) {
+      .nav a:hover { color: #f8fafc; border-color: #475569; }
+    }
+    /* ---- Installationsrad: ratt steg for iPhone, Android och Windows ---- */
+    .install { display: flex; align-items: center; gap: 10px; max-width: 1200px; margin: 0 auto 8px; padding: 10px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; color: #cbd5e1; font-size: 0.82em; text-align: left; }
+    .install[hidden] { display: none; }
+    .install button { font: inherit; border-radius: 8px; border: 1px solid #38bdf8; background: #0ea5e9; color: #041018; font-weight: 700; padding: 7px 12px; cursor: pointer; }
+    .install button.x { background: transparent; border-color: #334155; color: #94a3b8; padding: 3px 9px; font-size: 1.1em; line-height: 1; }
+    @media (pointer: fine) {
+      .hourlist { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+      .hourlist::-webkit-scrollbar { width: 8px; }
+      .hourlist::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    }
     /* ---- Dator: bred panel med flera spalter ---- */
     @media (min-width: 760px) {
       .card { max-width: 960px; padding: 24px; }
@@ -98,6 +115,11 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
   </style>
 </head>
 <body>
+  <div class="install" id="installHint" hidden>
+    <span id="installText"></span>
+    <button type="button" id="installGo" hidden>Installera</button>
+    <button type="button" class="x" id="installClose" aria-label="Stäng">×</button>
+  </div>
   <div class="card">
     <div class="topbar">
       <h1>⚡ Husets effekt</h1>
@@ -626,7 +648,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
         n: num(d.phases), ok: d.valid ? 1 : 0, up: num(d.uptime), rssi: num(d.rssi),
         ph: (d.ph || []).map(function (p) { return [num(p.w), num(p.v), num(p.a), num(p.wh)]; }),
         maxW: num(d.maxW), maxH: num(d.maxH), pn: num(d.priceNow), pr: (d.price || []).map(num), at: num(d.at),
-        hr: (d.hr || []).map(num)
+        hr: (d.hr || []).map(num), q: (d.q || []).map(num)
       };
     }
 
@@ -656,6 +678,55 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
     poll();
     setInterval(poll, POLL_MS);
     setInterval(function () { if (latest) render(latest); heartbeatCheck(); }, 20000);
+
+    // ---------- installation: ratt steg for iPhone, Android och Windows ----------
+    var installBar = byId('installHint');
+    var installGo = byId('installGo');
+    var installPrompt = null;
+
+    function deviceKind() {
+      var ua = navigator.userAgent || '';
+      if (/iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return 'ios';
+      if (/Android/i.test(ua)) return 'android';
+      if (/Windows/i.test(ua)) return 'windows';
+      if (/Macintosh/i.test(ua)) return 'mac';
+      return 'other';
+    }
+
+    function setupInstallHint() {
+      if (!installBar) return;
+      var steps = {
+        ios: 'iPhone/iPad: tryck på Dela och välj "Lägg till på hemskärmen".',
+        android: 'Android: öppna menyn ⋮ och välj "Installera app" eller "Lägg till på startskärmen".',
+        windows: 'Windows: klicka på installationsikonen i adressfältet i Edge eller Chrome.',
+        mac: 'Mac: välj Arkiv → "Lägg till i Dock" i Safari eller installationsikonen i Chrome.',
+        other: 'Installera sidan som app via webbläsarens meny.'
+      };
+      var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+      try { if (localStorage.getItem('husetseffekt.install') === '1') return; } catch (e) {}
+      if (standalone) return;
+      byId('installText').innerText = steps[deviceKind()] || steps.other;
+      installBar.hidden = false;
+      byId('installClose').onclick = function () {
+        installBar.hidden = true;
+        try { localStorage.setItem('husetseffekt.install', '1'); } catch (e) {}
+      };
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        installPrompt = e;
+        if (installGo) installGo.hidden = false;
+      });
+      if (installGo) installGo.onclick = function () {
+        if (!installPrompt) return;
+        installPrompt.prompt();
+        installPrompt.userChoice.then(function () { installPrompt = null; installGo.hidden = true; });
+      };
+      window.addEventListener('appinstalled', function () {
+        installBar.hidden = true;
+        try { localStorage.setItem('husetseffekt.install', '1'); } catch (e) {}
+      });
+    }
+    setupInstallHint();
   </script>
 </body>
 </html>
