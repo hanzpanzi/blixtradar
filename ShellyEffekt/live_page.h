@@ -248,6 +248,14 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       return Math.floor(s / 3600) + ' tim sedan';
     }
 
+    // Statusraden visar elpriset som gäller just nu (SE3, pågående kvart).
+    function priceStatusText() {
+      var q = priceCache.q || [], t = new Date();
+      var p = num(q[t.getHours() * 4 + Math.floor(t.getMinutes() / 15)]);
+      if (!(p > 0)) return 'Live – ' + liveSince(lastSeenTm);
+      return 'Elpris nu ' + p.toFixed(2) + ' kr/kWh · SE3';
+    }
+
     function setEspBadge(ok) {
       var b = byId('espDot');
       if (b) { b.className = 'dot' + (ok ? '' : ' grey'); }
@@ -623,7 +631,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
         setStatus('Kortet svarar inte – väntar på data…', false);
         setEspBadge(false);
       } else {
-        setStatus('Live – ' + liveSince(lastSeenTm), true);
+        setStatus(priceStatusText(), true);
         setEspBadge(true);
       }
 
