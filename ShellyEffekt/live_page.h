@@ -368,19 +368,20 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
 
     function renderPrice(d) {
       loadPrices();
-      var qArr = (d.q && d.q.length >= 96 && d.q.some(function (v) { return v > 0; })) ? d.q : priceCache.q;
+      var qp = priceCache.q;                             // kvartspriser (kr/kWh)
+      var qe = (d.q && d.q.length >= 96) ? d.q : null;  // kvartsenergi (Wh) från kortet
       var arr = (d.pr && d.pr.length >= 12 && d.pr.some(function (v) { return v > 0; })) ? d.pr : priceCache.arr;
       var now = new Date();
       var cur = now.getHours();
       var qIdx = cur * 4 + Math.floor(now.getMinutes() / 15);
       var feeKr = feeOre() / 100;
-      var pn = num(qArr[qIdx]) > 0 ? num(qArr[qIdx]) : (num(d.pn) > 0 ? num(d.pn) : num(arr[cur]));
+      var pn = num(qp[qIdx]) > 0 ? num(qp[qIdx]) : (num(d.pn) > 0 ? num(d.pn) : num(arr[cur]));
       var mn = 1e9, mx = -1e9, i, have = false;
-      for (i = 0; i < qArr.length; i++) {
-        if (!(qArr[i] > 0)) continue;
+      for (i = 0; i < qp.length; i++) {
+        if (!(qp[i] > 0)) continue;
         have = true;
-        if (qArr[i] < mn) mn = qArr[i];
-        if (qArr[i] > mx) mx = qArr[i];
+        if (qp[i] < mn) mn = qp[i];
+        if (qp[i] > mx) mx = qp[i];
       }
       if (!have) {
         for (i = 0; i < arr.length; i++) {
@@ -398,13 +399,13 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
         ? ((pn + feeKr).toFixed(2) + ' kr/kWh inkl elöverföring · kvart ' +
            ('0' + cur).slice(-2) + ':' + ('0' + (Math.floor(now.getMinutes() / 15) * 15)).slice(-2))
         : '';
-      var chartArr = (qArr && qArr.length >= 96) ? qArr : arr;
-      drawPriceBars(byId('priceChart'), chartArr, chartArr === qArr ? qIdx : cur);
+      var chartArr = qp.length >= 12 ? qp : arr;
+      drawPriceBars(byId('priceChart'), chartArr, qp.length >= 12 ? qIdx : cur);
 
       var mw = num(d.maxW), mh = (typeof d.maxH === 'number' ? d.maxH : -1);
       // En rad per klockslag. Kvartarnas energi (q) gånger kvartarnas pris
       // ger exakt kostnad; hr/pr används bara om kortet saknar kvartsdata.
-      var hr = d.hr || [], qe = (d.q && d.q.length >= 96) ? d.q : null;
+      var hr = d.hr || [];
       var rows = '', kwhDay = 0, costDay = 0;
       for (i = 0; i < 24; i++) {
         var kwh = 0, kr = 0;
@@ -412,7 +413,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
           for (var k = 0; k < 4; k++) {
             var wh = num(qe[i * 4 + k]);
             if (!(wh > 0)) continue;
-            var p = num(qArr[i * 4 + k]);
+            var p = num(qp[i * 4 + k]);
             kwh += wh / 1000;
             if (p > 0) kr += (wh / 1000) * (p + feeKr);
           }
