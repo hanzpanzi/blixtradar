@@ -134,6 +134,9 @@ struct State {
   uint8_t  minuteIdx  = 0;
   uint32_t minuteStartMs = 0;
 
+  // kvartsbuckets (96 per dygn) for exakt kostnad med kvartspriser
+  float    whQuarter[96];
+
   // 24 h-buckets
   float    whHour[HOUR_SLOTS];
   int32_t  hourKey[HOUR_SLOTS];   // yday*24 + timme
@@ -237,6 +240,7 @@ static void resetArrays() {
     st.hourKey[i]   = -1;
     st.hourLabel[i] = -1;
   }
+  for (int i = 0; i < 96; i++) st.whQuarter[i] = 0;
   st.curSlot = -1;
   st.lastHourKey = -1;
   st.dayKey = -1;
@@ -356,6 +360,7 @@ static void updateClockBuckets() {
         st.hourLabel[i] = -1;
         st.whHour[i]    = 0;
       }
+      for (int i = 0; i < 96; i++) st.whQuarter[i] = 0;
       st.lastHourKey = -1;
       st.curSlot     = -1;
     }
@@ -388,6 +393,15 @@ static void addEnergy(double dWh) {
   st.whHour1 += dWh;
   st.whMinute[st.minuteIdx] += (float)dWh;
   if (st.curSlot >= 0) st.whHour[st.curSlot] += (float)dWh;
+
+  // Kvartsbuckets: energin hamnar i den kvart som mätningen avslutades i.
+  time_t t = time(nullptr);
+  if (t > 1700000000UL) {
+    struct tm lt;
+    localtime_r(&t, &lt);
+    int qi = lt.tm_hour * 4 + lt.tm_min / 15;
+    if (qi >= 0 && qi < 96) st.whQuarter[qi] += (float)dWh;
+  }
 }
 
 // ==========================================
@@ -886,6 +900,12 @@ void handlePower() {
     for (int k = 0; k < HOUR_SLOTS; k++) if (s.hourLabel[k] == h) { hv = s.whHour[k]; break; }
     if (h) json += ",";
     json += String(hv, 0);
+  }
+  json += "]";
+  json += ",\"q\":[";
+  for (int i = 0; i < 96; i++) {
+    if (i) json += ",";
+    json += String(s.whQuarter[i], 0);
   }
   json += "]";
   json += "}";
@@ -2122,6 +2142,12 @@ static void mqttPublishLive() {
     json += String(hv, 0);
   }
   json += "]";
+  json += ",\"q\":[";
+  for (int i = 0; i < 96; i++) {
+    if (i) json += ",";
+    json += String(s.whQuarter[i], 0);
+  }
+  json += "]";
   json += "}";
 
   // Retained: en webbsida som ansluter sent får ändå senaste värdet direkt
@@ -2131,7 +2157,7 @@ static void mqttPublishLive() {
 static void mqttTask(void*) {
   mqttClient.setClient(mqttNet);   // utan klient kraschar connect() pa nollpekare
   mqttClient.setServer(MQTT_HOST, MQTT_PORT);
-  mqttClient.setBufferSize(1024);
+  mqttClient.setBufferSize(2048);   // kvartsarrayen gor payloaden storre
   mqttClient.setKeepAlive(30);
 
   for (;;) {

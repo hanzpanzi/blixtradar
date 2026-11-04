@@ -319,37 +319,48 @@
       ctx.fillStyle = '#64748b';
       ctx.font = '9px system-ui, sans-serif';
       ctx.fillText('00', 1, h - 3);
-      ctx.fillText('12', w / 2 - 5, h - 3);
+      if (arr.length > 48) {
+        ctx.fillText('06', w * 0.25 - 6, h - 3);
+        ctx.fillText('12', w * 0.5 - 6, h - 3);
+        ctx.fillText('18', w * 0.75 - 6, h - 3);
+      } else {
+        ctx.fillText('12', w / 2 - 5, h - 3);
+      }
       ctx.fillText('23', w - 12, h - 3);
     }
 
     // Spotpriset hämtas direkt från elprisetjustnu.se (CORS öppen). Kortets
     // priser används om de finns, annars den här kopian.
-    var priceCache = { day: '', arr: [], at: 0 };
+    var priceCache = { day: '', q: [], arr: [], at: 0 };
     var priceLoading = false;
 
+    // Elprisetjustnu ger 96 kvartspriser per dag. Kvartspriset är det som
+    // gäller just nu, så både visning och kostnad räknas på kvartar.
     function loadPrices() {
       var now = new Date();
       var day = now.getFullYear() + '/' + ('0' + (now.getMonth() + 1)).slice(-2) + '-' +
                 ('0' + now.getDate()).slice(-2) + '_SE3';
       if (priceLoading) return;
-      if (priceCache.day === day && priceCache.arr.length && Date.now() - priceCache.at < 1800000) return;
+      if (priceCache.day === day && priceCache.q.length && Date.now() - priceCache.at < 900000) return;
       priceLoading = true;
       fetch('https://www.elprisetjustnu.se/api/v1/prices/' + day + '.json')
         .then(function (r) { return r.json(); })
         .then(function (list) {
-          var sum = [], cnt = [], i;
+          var q = [], sum = [], cnt = [], i;
+          for (i = 0; i < 96; i++) q.push(0);
           for (i = 0; i < 24; i++) { sum[i] = 0; cnt[i] = 0; }
           for (i = 0; i < list.length; i++) {
-            var m = String(list[i].time_start || '').match(/T(\d\d):/);
+            var m = String(list[i].time_start || '').match(/T(\d\d):(\d\d)/);
             if (!m) continue;
-            var hh = parseInt(m[1], 10);
-            sum[hh] += Number(list[i].SEK_per_kWh) || 0;
-            cnt[hh]++;
+            var hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+            var qi = hh * 4 + Math.floor(mm / 15);
+            var pp = Number(list[i].SEK_per_kWh) || 0;
+            if (qi >= 0 && qi < 96) q[qi] = pp;
+            sum[hh] += pp; cnt[hh]++;
           }
           var arr = [];
           for (i = 0; i < 24; i++) arr.push(cnt[i] ? sum[i] / cnt[i] : 0);
-          priceCache = { day: day, arr: arr, at: Date.now() };
+          priceCache = { day: day, q: q, arr: arr, at: Date.now() };
           priceLoading = false;
           if (latest) render(latest);
         })
@@ -358,41 +369,69 @@
 
     function renderPrice(d) {
       loadPrices();
+      var qArr = (d.q && d.q.length >= 96 && d.q.some(function (v) { return v > 0; })) ? d.q : priceCache.q;
       var arr = (d.pr && d.pr.length >= 12 && d.pr.some(function (v) { return v > 0; })) ? d.pr : priceCache.arr;
-      var cur = new Date().getHours();
-      var pn = num(d.pn) > 0 ? num(d.pn) : num(arr[cur]);
+      var now = new Date();
+      var cur = now.getHours();
+      var qIdx = cur * 4 + Math.floor(now.getMinutes() / 15);
+      var feeKr = feeOre() / 100;
+      var pn = num(qArr[qIdx]) > 0 ? num(qArr[qIdx]) : (num(d.pn) > 0 ? num(d.pn) : num(arr[cur]));
       var mn = 1e9, mx = -1e9, i, have = false;
-      for (i = 0; i < arr.length; i++) {
-        if (!(arr[i] > 0)) continue;
+      for (i = 0; i < qArr.length; i++) {
+        if (!(qArr[i] > 0)) continue;
         have = true;
-        if (arr[i] < mn) mn = arr[i];
-        if (arr[i] > mx) mx = arr[i];
+        if (qArr[i] < mn) mn = qArr[i];
+        if (qArr[i] > mx) mx = qArr[i];
+      }
+      if (!have) {
+        for (i = 0; i < arr.length; i++) {
+          if (!(arr[i] > 0)) continue;
+          have = true;
+          if (arr[i] < mn) mn = arr[i];
+          if (arr[i] > mx) mx = arr[i];
+        }
       }
       byId('priceNow').innerText = pn > 0 ? pn.toFixed(2) + ' kr/kWh' : '–';
       byId('priceRange').innerText = have ? ('min ' + mn.toFixed(2) + ' · max ' + mx.toFixed(2) + ' kr') : 'pris saknas';
-      var feeKr = feeOre() / 100;
       curPriceTotal = pn > 0 ? pn + feeKr : 0;
       var pt = byId('priceTotal');
-      if (pt) pt.innerText = pn > 0 ? ((pn + feeKr).toFixed(2) + ' kr/kWh inkl elöverföring') : '';
-      drawPriceBars(byId('priceChart'), arr, cur);
+      if (pt) pt.innerText = pn > 0
+        ? ((pn + feeKr).toFixed(2) + ' kr/kWh inkl elöverföring · kvart ' +
+           ('0' + cur).slice(-2) + ':' + ('0' + (Math.floor(now.getMinutes() / 15) * 15)).slice(-2))
+        : '';
+      var chartArr = (qArr && qArr.length >= 96) ? qArr : arr;
+      drawPriceBars(byId('priceChart'), chartArr, chartArr === qArr ? qIdx : cur);
 
       var mw = num(d.maxW), mh = (typeof d.maxH === 'number' ? d.maxH : -1);
-      // En rad per klockslag: förbrukning (kWh), spotpris + elöverföring
-      // (kr/kWh) och vad timmen kostat. Timmar utan räkning hoppas över,
-      // utom den pågående timmen.
-      var feeKr = feeOre() / 100;
-      var hr = d.hr || [], rows = '', kwhDay = 0, costDay = 0;
+      // En rad per klockslag. Kvartarnas energi (q) gånger kvartarnas pris
+      // ger exakt kostnad; hr/pr används bara om kortet saknar kvartsdata.
+      var hr = d.hr || [], qe = (d.q && d.q.length >= 96) ? d.q : null;
+      var rows = '', kwhDay = 0, costDay = 0;
       for (i = 0; i < 24; i++) {
-        var wh = num(hr[i]);
-        if (!(wh > 0) && i !== cur) continue;
-        var kwh = wh / 1000, spot = num(arr[i]), p = spot + feeKr, kr = kwh * p;
+        var kwh = 0, kr = 0;
+        if (qe) {
+          for (var k = 0; k < 4; k++) {
+            var wh = num(qe[i * 4 + k]);
+            if (!(wh > 0)) continue;
+            var p = num(qArr[i * 4 + k]);
+            kwh += wh / 1000;
+            if (p > 0) kr += (wh / 1000) * (p + feeKr);
+          }
+        } else if (hr.length) {
+          var whh = num(hr[i]);
+          var p = num(arr[i]);
+          kwh = whh / 1000;
+          if (p > 0) kr = kwh * (p + feeKr);
+        }
+        if (!(kwh > 0) && i !== cur) continue;
+        var hp = kwh > 0 && kr > 0 ? kr / kwh : 0;
         kwhDay += kwh;
         costDay += kr;
         rows += '<div class="hrow' + (i === cur ? ' now' : '') + '">' +
                 '<span class="ht">' + ('0' + i).slice(-2) + '–' + ('0' + ((i + 1) % 24)).slice(-2) + '</span>' +
                 '<span class="hk">' + kwh.toFixed(2) + ' kWh</span>' +
-                '<span class="hp">' + (spot > 0 ? p.toFixed(2) : '–') + '</span>' +
-                '<span class="hc">' + (spot > 0 ? kr.toFixed(2) + ' kr' : '–') + '</span></div>';
+                '<span class="hp">' + (hp > 0 ? hp.toFixed(2) : '–') + '</span>' +
+                '<span class="hc">' + (kr > 0 ? kr.toFixed(2) + ' kr' : '–') + '</span></div>';
       }
       var hl = byId('hourList');
       if (hl) {
