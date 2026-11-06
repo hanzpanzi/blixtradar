@@ -1,12 +1,13 @@
 // Service worker för Husets effekt: cachar skalet så den installerade appen
 // startar även om nätet strular. Sidan hämtas alltid från nätet först.
-const CACHE = 'husetseffekt-v4';
+const CACHE = 'husetseffekt-v5';
 const SHELL = [
   './husetseffekt.html',
   './manifest.webmanifest',
   './icons/icon-180.png',
   './icons/icon-192.png',
-  './icons/icon-512.png'
+  './icons/icon-512.png',
+  './assets/ussr-flag-bg.jpg'
 ];
 
 self.addEventListener('install', (e) => {
