@@ -1,6 +1,6 @@
 // Service worker för Husets effekt: cachar skalet så den installerade appen
 // startar även om nätet strular. Sidan hämtas alltid från nätet först.
-const CACHE = 'husetseffekt-v3';
+const CACHE = 'husetseffekt-v4';
 const SHELL = [
   './husetseffekt.html',
   './manifest.webmanifest',

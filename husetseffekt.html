@@ -88,6 +88,18 @@
         radial-gradient(80% 70% at 50% 115%, rgba(0,0,0,.8), transparent 65%),
         radial-gradient(120% 120% at 50% 45%, transparent 40%, rgba(0,0,0,.78) 100%);
     }
+    .room-alarm {
+      position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .12s linear;
+      background:
+        radial-gradient(60% 54% at 50% 38%, rgba(255,110,50,.58), rgba(180,25,8,.22) 55%, transparent 78%),
+        linear-gradient(180deg, rgba(255,80,35,.18), transparent 70%);
+      mix-blend-mode: screen;
+    }
+    .room-alarm.beat { animation: roomHeart 1.6s ease-in-out infinite; }
+    .room-alarm.bubbling { opacity: .14; }
+    .room-alarm.sos { opacity: .04; }
+    .room-alarm.sos.on { opacity: 1; }
+    @keyframes roomHeart { 0%,100% { opacity: .06; } 10% { opacity: .22; } 20% { opacity: .07; } 30% { opacity: .16; } 44% { opacity: .05; } }
     .console { position: relative; z-index: 2; max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; padding-top: clamp(24px, 10vh, 110px); padding-bottom: clamp(14px, 6vh, 64px); }
 
     /* ---- överskrift: emaljskylt ---- */
@@ -243,6 +255,77 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .bubbles i, .steam i, .liquid { animation: none !important; }
+      .limit-lamp, .limit-lamp::after, .lamp-bubbles i, .room-alarm { animation: none !important; }
+      .room-alarm.beat { opacity: .05; }
+      .room-alarm.sos { opacity: .45; }
+    }
+
+    /* ---- 2 kW-lampa: hjärtslag under gränsen, bubblor och SOS över ---- */
+    .limit-panel { overflow: hidden; }
+    .limit-body { display: flex; align-items: center; gap: clamp(16px, 4vw, 34px); }
+    .limit-lamp {
+      position: relative; flex: 0 0 auto; width: 92px; height: 92px; margin: 4px 0 4px 4px;
+      border-radius: 50%; display: grid; place-items: center;
+      background: radial-gradient(circle at 38% 32%, #2a120c, #0a0806 68%);
+      border: 3px solid #2b3123;
+      box-shadow: inset 0 0 22px #000, 0 6px 14px rgba(0,0,0,.5);
+      transition: background .35s, box-shadow .35s;
+    }
+    .limit-lamp::after {
+      content: ""; position: absolute; inset: -12px; border-radius: 50%; pointer-events: none;
+      background: radial-gradient(circle, rgba(255,90,45,.35), transparent 66%);
+      opacity: 0; transition: opacity .3s;
+    }
+    .lamp-face { position: relative; z-index: 2; text-align: center; color: #f1e3c0; text-shadow: 0 1px 2px #000; }
+    .lamp-kw { display: block; font: 700 25px/1 Consolas, "Courier New", monospace; letter-spacing: .5px; }
+    .lamp-face small { font: 8px Consolas, "Courier New", monospace; letter-spacing: 1.5px; color: #b9a985; }
+    .lamp-bubbles { position: absolute; inset: 0; border-radius: 50%; overflow: hidden; opacity: 0; transition: opacity .2s; }
+    .lamp-bubbles i {
+      position: absolute; bottom: 8px; width: 7px; height: 7px; border-radius: 50%;
+      background: rgba(255,244,215,.95); box-shadow: 0 0 8px rgba(255,220,170,.95);
+      animation: lampBubble 1.15s linear infinite;
+    }
+    .lamp-bubbles i:nth-child(1) { left: 20px; animation-delay: 0s; }
+    .lamp-bubbles i:nth-child(2) { left: 38px; animation-delay: .2s; animation-duration: 1.35s; }
+    .lamp-bubbles i:nth-child(3) { left: 30px; animation-delay: .45s; }
+    .lamp-bubbles i:nth-child(4) { left: 50px; animation-delay: .65s; animation-duration: 1.05s; }
+    .lamp-bubbles i:nth-child(5) { left: 14px; animation-delay: .85s; animation-duration: 1.3s; }
+    .lamp-bubbles i:nth-child(6) { left: 46px; animation-delay: 1s; }
+    .lamp-bubbles i:nth-child(7) { left: 24px; animation-delay: .35s; animation-duration: 1.25s; }
+    .lamp-bubbles i:nth-child(8) { left: 56px; animation-delay: .75s; animation-duration: 1.15s; }
+    @keyframes lampBubble { 0% { transform: translateY(0) scale(.45); opacity: 0; } 18% { opacity: .9; } 100% { transform: translateY(-66px) scale(1.25); opacity: 0; } }
+    .limit-panel.bubbling .limit-lamp {
+      background:
+        linear-gradient(0deg, rgba(255,166,74,.6) 0 32%, rgba(255,130,50,.16) 45%, transparent 60%),
+        radial-gradient(circle at 38% 32%, #6b3410, #170c06 72%);
+      box-shadow: 0 0 24px rgba(255,140,60,.6), inset 0 0 22px #000; animation: lampShiver .16s linear infinite;
+    }
+    .limit-panel.bubbling .lamp-bubbles { opacity: 1; }
+    .limit-panel.bubbling .lamp-face { animation: lampShiver .16s linear infinite; }
+    @keyframes lampShiver { 0%,100% { transform: translate(0, 0); } 25% { transform: translate(1px, -1px); } 75% { transform: translate(-1px, 1px); } }
+    .limit-panel.beat .limit-lamp { animation: lampBeat 1.6s ease-in-out infinite; }
+    .limit-panel.beat .limit-lamp::after { animation: haloBeat 1.6s ease-in-out infinite; }
+    @keyframes lampBeat { 0%,100% { box-shadow: inset 0 0 22px #000, 0 0 10px rgba(255,90,45,.10); } 12% { box-shadow: inset 0 0 22px #000, 0 0 26px rgba(255,90,45,.38); } 24% { box-shadow: inset 0 0 22px #000, 0 0 12px rgba(255,90,45,.12); } 34% { box-shadow: inset 0 0 22px #000, 0 0 19px rgba(255,90,45,.26); } }
+    @keyframes haloBeat { 0%,100% { opacity: .06; } 12% { opacity: .42; } 24% { opacity: .1; } 34% { opacity: .28; } }
+    .limit-panel.sos .limit-lamp { background: radial-gradient(circle at 38% 32%, #c84718, #5e1206 70%); box-shadow: 0 0 18px rgba(255,110,45,.5), inset 0 0 22px #000; }
+    .limit-panel.sos.on .limit-lamp { background: radial-gradient(circle at 38% 32%, #fffbe0, #ffb44a 35%, #ff5a1f 68%, #a51e08); box-shadow: 0 0 42px rgba(255,140,60,.95), 0 0 90px rgba(255,80,30,.55), inset 0 0 20px rgba(255,250,210,.85); }
+    .limit-panel.sos .limit-lamp::after { opacity: .18; }
+    .limit-panel.sos.on .limit-lamp::after { opacity: .95; }
+    .limit-panel.sos .lamp-face { color: #ffd9b8; }
+    .limit-panel.sos.on .lamp-face { color: #381005; text-shadow: 0 1px 0 rgba(255,255,255,.25); }
+    .limit-panel.sos.on .lamp-face small { color: #6b2a12; }
+    .limit-copy { flex: 1 1 auto; min-width: 0; }
+    .limit-now { font: 700 20px/1.2 Consolas, "Courier New", monospace; color: #efe5bd; letter-spacing: .6px; }
+    .limit-now small { font-size: 11px; color: #9aa383; }
+    .limit-text { margin-top: 4px; font: 10px/1.5 Consolas, "Courier New", monospace; letter-spacing: .8px; color: #9aa383; text-transform: uppercase; }
+    .limit-panel.sos .limit-text { color: #e0836a; }
+    .limit-panel.bubbling .limit-text { color: #d8a35a; }
+    .limit-scale { display: flex; justify-content: space-between; margin-top: 9px; padding-top: 6px; border-top: 1px dashed #1a2016; font: 8px Consolas, monospace; color: #7f886c; letter-spacing: .8px; }
+    .limit-scale .mark { color: #dd836a; }
+    @media (max-width: 560px) {
+      .limit-lamp { width: 78px; height: 78px; }
+      .lamp-kw { font-size: 21px; }
+      .limit-now { font-size: 17px; }
     }
 
     /* ---- pris ---- */
@@ -344,6 +427,7 @@
     <div class="room-wall"></div>
     <div class="room-floor"></div>
     <div class="room-glow"></div>
+    <div class="room-alarm beat" id="roomAlarm"></div>
   </div>
 
   <div class="console">
@@ -434,6 +518,25 @@
               <div class="powerbar-mark" id="reactorMark"></div>
             </div>
             <div class="powerbar-scale" aria-hidden="true"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5 kW</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel limit-panel beat" id="limitLamp">
+        <div class="panel-head">
+          <span class="tag">ЩИТ №9</span>
+          <h2>2 kW-lampa</h2>
+          <span class="tag" id="limitState">hjärtat slår</span>
+        </div>
+        <div class="limit-body">
+          <div class="limit-lamp" aria-hidden="true">
+            <div class="lamp-face"><span class="lamp-kw">2,0</span><small>kW</small></div>
+            <div class="lamp-bubbles"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="limit-copy">
+            <div class="limit-now">nu <b id="limitW">–</b> <small>W</small></div>
+            <div class="limit-text" id="limitText">under 2 kW · lätt hjärtslag i bakgrunden</div>
+            <div class="limit-scale" aria-hidden="true"><span>0</span><span class="mark">2 kW</span><span>5 kW</span></div>
           </div>
         </div>
       </section>
@@ -1098,6 +1201,71 @@
       if (el) el.className = 'digits' + (hot ? ' high' : '');
       lamp('lampHigh', hot);
       reactorUpdate(w);
+      limitLampUpdate(w);
+    }
+
+    // ---- 2 kW-lampa: hjärtslag under gränsen, bubblor och SOS över ----
+    var lampAbove = false, lampPhase = '', lampTimer = 0, morseTimer = 0, morseStep = 0;
+    var SOS_UNIT = 160;
+    var SOS_STEPS = [
+      [1,1],[0,1],[1,1],[0,1],[1,1],[0,3],
+      [1,3],[0,1],[1,3],[0,1],[1,3],[0,3],
+      [1,1],[0,1],[1,1],[0,1],[1,1],[0,7]
+    ];
+    var LAMP_TEXT = {
+      beat: 'under 2 kW · lätt hjärtslag i bakgrunden',
+      bubbling: '2 kW passerat · bubblar innan larmet',
+      sos: 'över 2 kW · SOS i bakgrunden'
+    };
+    var REDUCE_MOTION = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+    function stopMorse() {
+      if (morseTimer) clearTimeout(morseTimer);
+      morseTimer = 0;
+      morseStep = 0;
+    }
+
+    function morseTick() {
+      if (lampPhase !== 'sos' || REDUCE_MOTION) return;
+      var step = SOS_STEPS[morseStep % SOS_STEPS.length];
+      var on = step[0] === 1;
+      var panel = byId('limitLamp'), glow = byId('roomAlarm');
+      if (panel) panel.className = 'panel limit-panel sos' + (on ? ' on' : '');
+      if (glow) glow.className = 'room-alarm sos' + (on ? ' on' : '');
+      morseStep++;
+      morseTimer = setTimeout(morseTick, step[1] * SOS_UNIT);
+    }
+
+    function setLampPhase(phase) {
+      lampPhase = phase;
+      if (lampTimer) clearTimeout(lampTimer);
+      lampTimer = 0;
+      stopMorse();
+      var panel = byId('limitLamp'), glow = byId('roomAlarm');
+      if (panel) panel.className = 'panel limit-panel ' + phase;
+      if (glow) glow.className = 'room-alarm ' + phase;
+      var st = byId('limitState'), tx = byId('limitText');
+      if (st) st.textContent = phase === 'sos' ? 'SOS' : (phase === 'bubbling' ? 'bubblar' : 'hjärtat slår');
+      if (tx) tx.textContent = LAMP_TEXT[phase] || '';
+      if (phase === 'sos') morseTick();
+    }
+
+    function limitLampUpdate(w) {
+      w = num(w);
+      var v = byId('limitW');
+      if (v) v.textContent = Math.round(w);
+      var above = w >= 2000;
+      if (above === lampAbove) return;
+      lampAbove = above;
+      if (above) {
+        setLampPhase('bubbling');
+        lampTimer = setTimeout(function () {
+          lampTimer = 0;
+          if (lampAbove) setLampPhase('sos');
+        }, 2600);
+      } else {
+        setLampPhase('beat');
+      }
     }
 
     // ---- Mätning: nollställ, mät i upp till en timme, visa kWh och kr ----
