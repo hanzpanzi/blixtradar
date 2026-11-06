@@ -1,0 +1,39 @@
+name: Greenely-priser
+
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/greenely_priser.mjs'
+      - '.github/workflows/priser.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: greenely-priser
+  cancel-in-progress: true
+
+jobs:
+  uppdatera:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Hämta kvartspriser från Greenely
+        run: node tools/greenely_priser.mjs
+      - name: Committa när priserna ändrats
+        run: |
+          if git diff --quiet -- priser.json; then
+            echo "Priserna är oförändrade."
+            exit 0
+          fi
+          git config user.name "greenely-priser"
+          git config user.email "actions@users.noreply.github.com"
+          git add priser.json
+          git commit -m "Uppdatera elpriserna från Greenely"
+          git push

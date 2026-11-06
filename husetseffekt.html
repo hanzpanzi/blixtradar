@@ -192,7 +192,7 @@
       text-shadow: 0 0 10px rgba(150,240,120,.35); font-variant-numeric: tabular-nums;
     }
     .digits.high { color: #ffb49c; text-shadow: 0 0 12px rgba(255,90,60,.6); }
-    .rec { width: 100%; height: 118px; display: block; margin-top: 8px; background: #080d08; border: 1px solid #050704; border-radius: 3px; box-shadow: inset 0 0 20px #000; }
+    .rec { width: 100%; height: 118px; display: block; margin-top: 8px; background: radial-gradient(ellipse at 50% 0%, #07130a, #030803 72%); border: 1px solid #050704; border-radius: 3px; box-shadow: inset 0 0 22px #000, inset 0 0 2px rgba(120,255,150,.18); }
     .rec.lite { height: 48px; }
     .row3 { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; color: #8f987c; font: 10px Consolas, "Courier New", monospace; letter-spacing: .8px; text-transform: uppercase; }
     .volt-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #1a2016; font: 10px Consolas, "Courier New", monospace; color: #9aa383; letter-spacing: .8px; }
@@ -400,14 +400,14 @@
             <div class="gauge" id="gaugeAmp"></div>
           </div>
         </div>
-        <canvas id="liveChart" class="rec" aria-label="Effekt senaste 30 minuter"></canvas>
+        <canvas id="liveChart" class="rec" aria-label="Effekt senaste 30 minuter, LED-staplar"></canvas>
         <div class="row3"><span>senaste 30 min</span><span id="liveAvg">snitt --</span><span id="liveMax">max --</span></div>
         <div class="volt-strip">
           <span>Spänning · 30 min</span>
           <b id="voltAvg">--</b>
           <span>min <b id="voltMin">--</b></span>
           <span>max <b id="voltMax">--</b></span>
-          <canvas id="voltChart" class="rec lite" aria-label="Spänning senaste 30 minuter"></canvas>
+          <canvas id="voltChart" class="rec lite" aria-label="Spänning senaste 30 minuter, LED-staplar"></canvas>
         </div>
       </section>
 
@@ -512,7 +512,7 @@
       <section class="panel">
         <div class="panel-head">
           <span class="tag">ЩИТ №5</span>
-          <h2>Elpris SE3 · kvart</h2>
+          <h2>Elpris SE3 · Greenely</h2>
           <span class="tag" id="priceNow">--</span>
         </div>
         <div class="price-row">
@@ -526,7 +526,7 @@
             <div class="small" id="costToday">idag –</div>
           </div>
         </div>
-        <canvas id="priceChart" class="rec" aria-label="Elpris per kvart"></canvas>
+        <canvas id="priceChart" class="rec" aria-label="Elpris per kvart, LED-staplar"></canvas>
       </section>
 
       <section class="panel">
@@ -737,26 +737,102 @@
       return { ctx: ctx, w: w, h: h };
     }
 
-    function drawLine(cv, vals, colour, high, fill) {
-      var p = prepCanvas(cv, high), ctx = p.ctx, w = p.w, h = p.h;
-      if (vals.length < 2) return;
-      var mn = 1e9, mx = -1e9, i;
-      for (i = 0; i < vals.length; i++) { if (vals[i] < mn) mn = vals[i]; if (vals[i] > mx) mx = vals[i]; }
-      var top = mx + Math.max((mx - mn) * 0.15, 1);
-      var bot = mn - Math.max((mx - mn) * 0.15, 1);
-      var range = Math.max(top - bot, 1);
-      ctx.strokeStyle = colour; ctx.lineWidth = 2;
-      ctx.beginPath();
-      for (i = 0; i < vals.length; i++) {
-        var x = (i / (vals.length - 1)) * (w - 4) + 2;
-        var y = (h - 6) - ((vals[i] - bot) / range) * (h - 12);
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    // LED-staplar: varje stapel är en kolumn tända lysdioder, som på en
+    // gammal spektrumanalysator. opt.min/max låser skalan; annars anpassas
+    // den till värdena. opt.agg 'max' fångar korta effekttoppar.
+    function ledChart(cv, vals, opt) {
+      if (!cv) return;
+      opt = opt || {};
+      var height = Math.max(opt.height || 96, cv.clientHeight || 0);
+      var p = prepCanvas(cv, height), ctx = p.ctx, w = p.w, h = p.h, i, c;
+      ctx.fillStyle = '#040a04';
+      ctx.fillRect(0, 0, w, h);
+      var glass = ctx.createLinearGradient(0, 0, 0, h);
+      glass.addColorStop(0, 'rgba(140,255,170,.08)');
+      glass.addColorStop(.35, 'rgba(20,60,30,.02)');
+      glass.addColorStop(1, 'rgba(0,0,0,.35)');
+      ctx.fillStyle = glass;
+      ctx.fillRect(0, 0, w, h);
+      if (!vals || !vals.length) return;
+
+      var maxCols = opt.maxCols || Math.max(16, Math.floor(w / 9));
+      var cols = Math.min(vals.length, maxCols);
+      var data = [], mn = opt.min, mx = opt.max;
+      for (c = 0; c < cols; c++) {
+        var a = Math.floor(c * vals.length / cols), b = Math.floor((c + 1) * vals.length / cols);
+        var sum = 0, top = -Infinity, n = 0;
+        for (i = a; i < b; i++) {
+          var raw = vals[i];
+          if (typeof raw !== 'number' || !isFinite(raw)) continue;
+          sum += raw; n++;
+          if (raw > top) top = raw;
+        }
+        data.push(opt.agg === 'max' ? (top === -Infinity ? 0 : top) : (n ? sum / n : 0));
       }
-      ctx.stroke();
-      if (fill) {
-        ctx.lineTo(w - 2, h - 6); ctx.lineTo(2, h - 6);
-        ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+      if (mn === undefined || mx === undefined) {
+        mn = 1e9; mx = -1e9;
+        for (i = 0; i < data.length; i++) { if (data[i] < mn) mn = data[i]; if (data[i] > mx) mx = data[i]; }
+        var pad = Math.max((mx - mn) * .25, opt.pad || 0);
+        mn -= pad; mx += pad;
       }
+      if (!(mx > mn)) mx = mn + 1;
+
+      var labelH = opt.labels ? 13 : 6;
+      var baseY = h - labelH;
+      var step = h >= 100 ? 6 : 4.6;
+      var rows = Math.max(5, Math.floor((baseY - 3) / step));
+      var colW = (w - 2) / cols;
+      var gapX = cols > 80 ? 1 : 3;
+      var ledW = Math.max(1.4, colW - gapX);
+      var ledH = Math.max(2, step - 1.6);
+      var markCol = opt.markAt === undefined ? -1 : Math.min(cols - 1, Math.floor(opt.markAt / vals.length * cols));
+
+      for (c = 0; c < cols; c++) {
+        var frac = (data[c] - mn) / (mx - mn);
+        frac = Math.max(0, Math.min(1, frac));
+        var lit = Math.round(frac * rows);
+        var x = 1 + c * colW + gapX / 2;
+        for (i = 0; i < rows; i++) {
+          var y = baseY - (i + 1) * step + (step - ledH) / 2;
+          if (i < lit) {
+            var level = mn + ((i + .5) / rows) * (mx - mn);
+            var colour = ledColour(opt.kind, level, mn, mx);
+            ctx.fillStyle = 'rgba(120,255,150,.14)';
+            ctx.fillRect(x - 1, y - 1, ledW + 2, ledH + 2);
+            ctx.fillStyle = colour;
+            ctx.fillRect(x, y, ledW, ledH);
+            ctx.fillStyle = 'rgba(255,255,255,.22)';
+            ctx.fillRect(x, y, ledW, 1);
+          } else {
+            ctx.fillStyle = '#0a170c';
+            ctx.fillRect(x, y, ledW, ledH);
+          }
+        }
+        if (c === markCol) {
+          ctx.fillStyle = '#e6c778';
+          ctx.fillRect(x, h - 5, ledW, 2);
+        }
+      }
+      if (opt.labels) {
+        ctx.fillStyle = '#72885f';
+        ctx.font = '9px Consolas, monospace';
+        ctx.fillText('00', 1, h - 1);
+        ctx.fillText('06', w * .25 - 5, h - 1);
+        ctx.fillText('12', w * .5 - 5, h - 1);
+        ctx.fillText('18', w * .75 - 5, h - 1);
+        ctx.fillText('23', w - 12, h - 1);
+      }
+    }
+
+    // Färgen sitter på lysdiodens nivå, inte på hela stapeln: grönt i botten,
+    // gult och rött högst upp – som på en VU-mätare. Effekt över 2 kW blir röd.
+    function ledColour(kind, level, mn, mx) {
+      var f = (level - mn) / (mx - mn);
+      if (kind === 'power') return level >= 2000 ? '#ff4b2e' : '#45f27a';
+      if (kind === 'volt') return f > .93 ? '#ff7a3c' : (f > .8 ? '#ffd24a' : '#4df07c');
+      if (f > .82) return '#ff4b2e';
+      if (f > .6) return '#ffd24a';
+      return '#45f27a';
     }
 
     function drawGraphs() {
@@ -783,84 +859,49 @@
       byId('voltMin').innerText = n ? vmin.toFixed(1) : '–';
       byId('voltMax').innerText = n ? vmax.toFixed(1) : '–';
 
-      drawLine(byId('liveChart'), ws, '#9fe37a', 118, 'rgba(159,227,122,0.16)');
-      drawLine(byId('voltChart'), vs, '#e2c46c', 48, 'rgba(226,196,108,0.14)');
+      ledChart(byId('liveChart'), ws, { min: 0, max: 5000, agg: 'max', kind: 'power', maxCols: 64, markAt: ws.length - 1 });
+      ledChart(byId('voltChart'), vs, { agg: 'avg', kind: 'volt', pad: 1, height: 48, maxCols: 64, markAt: vs.length - 1 });
     }
 
     // ---------- elpris (SE3) och maxtimme ----------
     function drawPriceBars(cv, arr, cur) {
-      var p = prepCanvas(cv, 96), ctx = p.ctx, w = p.w, h = p.h;
-      if (!arr || arr.length < 12) return;
-      var mx = 0, i;
+      arr = arr || [];
+      var mx = 0.1, i;
       for (i = 0; i < arr.length; i++) if (arr[i] > mx) mx = arr[i];
-      if (mx <= 0) return;
-      var bw = w / arr.length;
-      for (i = 0; i < arr.length; i++) {
-        if (!(arr[i] > 0)) continue;
-        var bh = (arr[i] / mx) * (h - 18);
-        ctx.fillStyle = (i === cur) ? '#9fe37a' : 'rgba(226,196,108,0.5)';
-        ctx.fillRect(i * bw + 0.5, h - 14 - bh, Math.max(bw - 1.5, 1), bh);
-      }
-      ctx.fillStyle = '#7f886c';
-      ctx.font = '9px Consolas, monospace';
-      ctx.fillText('00', 1, h - 3);
-      if (arr.length > 48) {
-        ctx.fillText('06', w * 0.25 - 6, h - 3);
-        ctx.fillText('12', w * 0.5 - 6, h - 3);
-        ctx.fillText('18', w * 0.75 - 6, h - 3);
-      } else {
-        ctx.fillText('12', w / 2 - 5, h - 3);
-      }
-      ctx.fillText('23', w - 12, h - 3);
+      ledChart(cv, arr, { min: 0, max: mx * 1.06, kind: 'price', labels: true, markAt: cur });
     }
 
-    // Spotpriset hämtas direkt från elprisetjustnu.se (CORS öppen). Kortets
-    // priser används om de finns, annars den här kopian.
-    var priceCache = { day: '', q: [], q2: [], arr: [], at: 0 };
+    // Kvartspriserna kommer från Greenelys egen spotpris-endpoint och sparas i
+    // priser.json av .github/workflows/priser.yml (tools/greenely_priser.mjs).
+    // Filen ligger på samma domän, så sidan behöver ingen CORS-proxy.
+    var priceCache = { q: [], q2: [], days: null, at: 0, day: '' };
     var priceLoading = false;
 
-    // Elprisetjustnu ger 96 kvartspriser per dag. Kvartspriset är det som
-    // gäller just nu, så både visning och kostnad räknas på kvartar.
-    function quarterList(list) {
-      var q = [], i;
-      for (i = 0; i < 96; i++) q.push(0);
-      for (i = 0; i < list.length; i++) {
-        var m = String(list[i].time_start || '').match(/T(\d\d):(\d\d)/);
-        if (!m) continue;
-        var qi = parseInt(m[1], 10) * 4 + Math.floor(parseInt(m[2], 10) / 15);
-        if (qi >= 0 && qi < 96) q[qi] = Number(list[i].SEK_per_kWh) || 0;
-      }
-      return q;
+    function dayKey(d) {
+      return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
     }
 
     function loadPrices() {
-      var now = new Date();
-      var mk = function (d) {
-        return d.getFullYear() + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' +
-               ('0' + d.getDate()).slice(-2) + '_SE3';
-      };
-      var day = mk(now);
-      var day2 = mk(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
       if (priceLoading) return;
-      if (priceCache.day === day && priceCache.q.length && Date.now() - priceCache.at < 900000) return;
+      if (priceCache.at && Date.now() - priceCache.at < 600000) return;
       priceLoading = true;
-      var get = function (d) {
-        return fetch('https://www.elprisetjustnu.se/api/v1/prices/' + d + '.json')
-          .then(function (r) { return r.ok ? r.json() : []; })
-          .catch(function () { return []; });
-      };
-      Promise.all([get(day), get(day2)]).then(function (both) {
-        var q = quarterList(both[0]), q2 = quarterList(both[1]);
-        var arr = [], sum, cnt, h, i, v;
-        for (h = 0; h < 24; h++) {
-          sum = 0; cnt = 0;
-          for (i = 0; i < 4; i++) { v = q[h * 4 + i]; if (v > 0) { sum += v; cnt++; } }
-          arr.push(cnt ? sum / cnt : 0);
-        }
-        priceCache = { day: day, q: q, q2: q2, arr: arr, at: Date.now() };
-        priceLoading = false;
-        if (latest) render(latest);
-      }).catch(function () { priceLoading = false; });
+      var now = new Date();
+      var today = dayKey(now);
+      var tomorrow = dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+      var slot = Math.floor(Date.now() / 900000);        // nytt försök var 15:e minut
+      fetch('priser.json?v=' + slot, { cache: 'no-cache' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) {
+          var days = (j && j.days) || {};
+          priceCache = {
+            q: Array.isArray(days[today]) ? days[today] : [],
+            q2: Array.isArray(days[tomorrow]) ? days[tomorrow] : [],
+            days: days, at: Date.now(), day: today
+          };
+          priceLoading = false;
+          if (latest) render(latest);
+        })
+        .catch(function () { priceLoading = false; });
     }
 
     // Lägsta priset under de kommande 24 timmarna: dagens återstående kvartar
@@ -914,28 +955,19 @@
 
     function renderPrice(d) {
       loadPrices();
-      var qp = priceCache.q;                             // kvartspriser (kr/kWh)
+      var qp = priceCache.q || [];                       // Greenelys kvartspriser (kr/kWh)
       var qe = (d.q && d.q.length >= 96) ? d.q : null;  // kvartsenergi (Wh) från kortet
-      var arr = (d.pr && d.pr.length >= 12 && d.pr.some(function (v) { return v > 0; })) ? d.pr : priceCache.arr;
       var now = new Date();
       var cur = now.getHours();
       var qIdx = cur * 4 + Math.floor(now.getMinutes() / 15);
       var feeKr = feeOre() / 100;
-      var pn = num(qp[qIdx]) > 0 ? num(qp[qIdx]) : (num(d.pn) > 0 ? num(d.pn) : num(arr[cur]));
+      var pn = num(qp[qIdx]);
       var mn = 1e9, mx = -1e9, i, have = false;
       for (i = 0; i < qp.length; i++) {
         if (!(qp[i] > 0)) continue;
         have = true;
         if (qp[i] < mn) mn = qp[i];
         if (qp[i] > mx) mx = qp[i];
-      }
-      if (!have) {
-        for (i = 0; i < arr.length; i++) {
-          if (!(arr[i] > 0)) continue;
-          have = true;
-          if (arr[i] < mn) mn = arr[i];
-          if (arr[i] > mx) mx = arr[i];
-        }
       }
       byId('priceNow').innerText = pn > 0 ? pn.toFixed(2) + ' kr/kWh' : '–';
       byId('priceRange').innerText = have ? ('min ' + mn.toFixed(2) + ' · max ' + mx.toFixed(2) + ' kr') : 'pris saknas';
@@ -946,12 +978,20 @@
         ? ((pn + feeKr).toFixed(2) + ' kr/kWh inkl elöverföring · kvart ' +
            ('0' + cur).slice(-2) + ':' + ('0' + (Math.floor(now.getMinutes() / 15) * 15)).slice(-2))
         : '';
-      var chartArr = qp.length >= 12 ? qp : arr;
-      drawPriceBars(byId('priceChart'), chartArr, qp.length >= 12 ? qIdx : cur);
+      drawPriceBars(byId('priceChart'), qp, qIdx);
 
       var mw = num(d.maxW), mh = (typeof d.maxH === 'number' ? d.maxH : -1);
       // En rad per klockslag. Kvartarnas energi (q) gånger kvartarnas pris
-      // ger exakt kostnad; hr/pr används bara om kortet saknar kvartsdata.
+      // ger exakt kostnad; hr används bara om kortet saknar kvartsdata.
+      var hpArr = [];
+      for (i = 0; i < 24; i++) {
+        var qsum = 0, qn = 0;
+        for (var kk = 0; kk < 4; kk++) {
+          var qv = num(qp[i * 4 + kk]);
+          if (qv > 0) { qsum += qv; qn++; }
+        }
+        hpArr.push(qn ? qsum / qn : 0);
+      }
       var hr = d.hr || [];
       var rows = '', kwhDay = 0, costDay = 0;
       for (i = 0; i < 24; i++) {
@@ -966,7 +1006,7 @@
           }
         } else if (hr.length) {
           var whh = num(hr[i]);
-          var p = num(arr[i]);
+          var p = num(hpArr[i]);
           kwh = whh / 1000;
           if (p > 0) kr = kwh * (p + feeKr);
         }

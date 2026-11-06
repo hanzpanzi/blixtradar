@@ -1,6 +1,6 @@
 // Service worker för Husets effekt: cachar skalet så den installerade appen
 // startar även om nätet strular. Sidan hämtas alltid från nätet först.
-const CACHE = 'husetseffekt-v2';
+const CACHE = 'husetseffekt-v3';
 const SHELL = [
   './husetseffekt.html',
   './manifest.webmanifest',
@@ -30,6 +30,13 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
+
+  // Priserna uppdateras av ett GitHub-arbetsflöde – hämta dem från nätet så
+  // en gammal dag inte ligger kvar i cachen.
+  if (url.pathname.endsWith('/priser.json')) {
+    e.respondWith(fetch(req).catch(() => caches.match(req)));
+    return;
+  }
 
   if (req.mode === 'navigate') {
     const key = new Request(url.origin + url.pathname);

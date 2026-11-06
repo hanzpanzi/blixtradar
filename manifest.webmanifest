@@ -1,7 +1,7 @@
 {
   "name": "PowerPlant",
   "short_name": "PowerPlant",
-  "description": "Live effekt, förbrukning och elpris (SE3) från Shelly 3EM.",
+  "description": "Live effekt, förbrukning och elpris (SE3, Greenely) från Shelly 3EM.",
   "lang": "sv",
   "dir": "ltr",
   "start_url": "./husetseffekt.html",
