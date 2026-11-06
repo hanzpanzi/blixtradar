@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#2c3325">
   <meta name="color-scheme" content="dark">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,215 +12,398 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-  <title>⚡ Husets effekt – live</title>
+  <title>Husets effekt · PEAKTOP №4</title>
   <style>
-    body { font-family: system-ui, -apple-system, sans-serif; background-color: #0f172a; color: #f8fafc; text-align: center; padding: 12px; margin: 0; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
-    .card { background: #1e293b; border-radius: 20px; padding: 18px; max-width: 460px; margin: 12px auto; box-shadow: 0 10px 25px rgba(0,0,0,0.5); border: 1px solid #334155; }
-    h1 { color: #38bdf8; margin: 0 0 4px; font-size: 1.6em; }
-    .sub { color: #94a3b8; font-size: 0.8em; }
-    .label { color: #94a3b8; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1.1px; }
-    .status { background: #0f172a; padding: 12px; border-radius: 12px; font-weight: 600; color: #4ade80; margin: 14px 0; border: 1px solid #1e293b; word-break: break-word; }
-    .status.bad { color: #f87171; }
-    .metric { font-size: 2.6em; font-weight: bold; color: #fbbf24; margin: 8px 0; }
-    .metric.high { color: #f87171; text-shadow: 0 0 18px rgba(248,113,113,0.5); }
-    .block.over { border-color: #f87171; box-shadow: 0 0 18px rgba(248,113,113,0.35); }
-    .meas { cursor: pointer; transition: border-color .2s, box-shadow .2s; }
-    .meas.active { border-color: #38bdf8; box-shadow: 0 0 16px rgba(56,189,248,0.25); }
-    .meas.done { border-color: #4ade80; box-shadow: 0 0 16px rgba(74,222,128,0.22); }
-    .meas-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; margin-top: 10px; }
-    .meas-v { font-size: 1.35em; font-weight: 800; color: #e2e8f0; }
-    .grid { display: flex; justify-content: space-around; gap: 8px; }
-    .row { display: flex; justify-content: space-around; gap: 10px; }
-    .small { color: #94a3b8; font-size: 0.8em; margin-top: 8px; }
-    .topbar { display: flex; flex-direction: column; }
-    .dash { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; text-align: left; }
-    .dash-left { display: flex; flex-direction: column; gap: 12px; }
-    .block { background: #0f172a; border: 1px solid #263449; border-radius: 14px; padding: 14px; }
-    canvas { width: 100%; height: 120px; display: block; }
-    canvas.lite { height: 60px; }
-    .badge { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 0.78em; font-weight: 700; }
-    .on  { background: #14532d; color: #4ade80; }
-    .off { background: #7f1d1d; color: #fca5a5; }
-    .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #4ade80; margin-right: 7px; vertical-align: middle; animation: pulse 1.6s infinite; }
-    .dot.grey { background: #475569; animation: none; }
-    @keyframes pulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74,222,128,0.55); } 50% { opacity: 0.6; box-shadow: 0 0 0 7px rgba(74,222,128,0); } }
-    .row3 { display: flex; justify-content: space-between; color: #64748b; font-size: 0.72em; margin-top: 6px; }
-    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
-    .phase { background: #0f172a; border: 1px solid #263449; border-radius: 12px; padding: 10px 6px; text-align: center; }
-    .phase .pname { color: #38bdf8; font-weight: 700; font-size: 0.8em; letter-spacing: 0.5px; }
-    .phase .pw { font-size: 1.2em; font-weight: 800; color: #fbbf24; margin: 3px 0 2px; }
-    .phase .pmeta { color: #94a3b8; font-size: 0.72em; line-height: 1.5; }
-    .phase.top { border-color: #fbbf24; box-shadow: 0 0 12px rgba(251,191,36,0.25); }
-    .topbadge { display: inline-block; background: #fbbf24; color: #0f172a; font-size: 0.6em; font-weight: 800; border-radius: 5px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; letter-spacing: 0.5px; }
-    .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
-    .tile { background: #0f172a; border: 1px solid #263449; border-radius: 12px; padding: 10px 6px; text-align: center; }
-    .tile .v { font-size: 1.05em; font-weight: 700; margin-top: 5px; color: #e2e8f0; }
-    .hourlist { margin-top: 8px; max-height: 300px; overflow-y: auto; }
-    .hrow { display: flex; gap: 8px; align-items: baseline; padding: 5px 2px; border-bottom: 1px solid #1e293b; font-size: 0.85em; }
-    .hrow:last-child { border-bottom: none; }
-    .hrow .ht { width: 64px; text-align: left; color: #94a3b8; }
-    .hrow .hk { flex: 1; text-align: right; color: #e2e8f0; }
-    .hrow .hp { width: 58px; text-align: right; color: #64748b; }
-    .hrow .hc { width: 72px; text-align: right; color: #fbbf24; font-weight: 600; }
-    .hrow.head { border-bottom: 1px solid #334155; padding-bottom: 4px; }
-    .hrow.head .ht, .hrow.head .hk, .hrow.head .hp, .hrow.head .hc { color: #64748b; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
-    .hrow.now { background: rgba(56,189,248,0.10); border-radius: 6px; }
-    .hrow.sum { border-top: 1px solid #334155; border-bottom: none; font-weight: 700; margin-top: 2px; }
-    .foot { color: #64748b; font-size: 0.78em; text-align: center; margin-top: 14px; line-height: 1.6; }
-    .nav { display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
-    .nav a { color: #94a3b8; text-decoration: none; font-size: 0.8em; border: 1px solid #334155; padding: 6px 10px; border-radius: 9px; }
-    @media (hover: hover) {
-      .nav a:hover { color: #f8fafc; border-color: #475569; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 14px; background: #14170f; color: #d7dcc7;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent;
+      text-align: center;
     }
-    /* ---- Installationsrad: ratt steg for iPhone, Android och Windows ---- */
-    .install { display: flex; align-items: center; gap: 10px; max-width: 1200px; margin: 0 auto 8px; padding: 10px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 12px; color: #cbd5e1; font-size: 0.82em; text-align: left; }
+    body::before {
+      content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background:
+        radial-gradient(circle at 50% -10%, rgba(140,160,100,.12), transparent 55%),
+        repeating-linear-gradient(90deg, rgba(0,0,0,.22) 0 2px, transparent 2px 72px),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px);
+    }
+    .console { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+
+    /* ---- överskrift: emaljskylt ---- */
+    .masthead { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+    .plate {
+      flex: 1 1 320px; position: relative; text-align: left; padding: 10px 16px 10px;
+      background:
+        radial-gradient(circle at 12px 12px, #2b2a20 0 2px, #f3ecd0 2.4px 3.4px, transparent 4px),
+        radial-gradient(circle at calc(100% - 12px) 12px, #2b2a20 0 2px, #f3ecd0 2.4px 3.4px, transparent 4px),
+        radial-gradient(circle at 12px calc(100% - 12px), #2b2a20 0 2px, #f3ecd0 2.4px 3.4px, transparent 4px),
+        radial-gradient(circle at calc(100% - 12px) calc(100% - 12px), #2b2a20 0 2px, #f3ecd0 2.4px 3.4px, transparent 4px),
+        linear-gradient(180deg, #e2dbb9 0%, #d0c8a3 55%, #b6ae8a 100%);
+      border: 1px solid #6b654b; border-radius: 3px;
+      box-shadow: 0 3px 0 #1d2016, 0 8px 18px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.55);
+    }
+    .plate-top { font: 700 9px/1.2 Consolas, "Courier New", monospace; letter-spacing: 3px; color: #5b5943; text-transform: uppercase; }
+    .plate h1 {
+      margin: 2px 0 2px; font-family: "Arial Narrow", "Segoe UI", Impact, sans-serif;
+      font-size: clamp(24px, 5.4vw, 42px); line-height: .95; letter-spacing: 1.5px;
+      text-transform: uppercase; color: #20231a; text-shadow: 0 1px 0 rgba(255,255,255,.4);
+    }
+    .plate-bot { font: 700 9px/1.2 Consolas, "Courier New", monospace; letter-spacing: 2.6px; color: #5b5943; text-transform: uppercase; }
+
+    /* ---- statusfönster + signallampor ---- */
+    .statusline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .status {
+      flex: 1 1 240px; text-align: left; background: #090c07; border: 1px solid #050604;
+      border-radius: 3px; padding: 8px 10px; color: #b6e39c; font: 11px/1.45 Consolas, "Courier New", monospace;
+      letter-spacing: .6px; text-transform: uppercase; box-shadow: inset 0 0 16px #000, 0 1px 0 rgba(255,255,255,.05);
+      word-break: break-word;
+    }
+    .status.bad { color: #ff9d7a; }
+    .lamps { display: flex; gap: 12px; align-items: center; padding: 6px 10px; background: #232a1d; border: 1px solid #10140c; border-radius: 3px; box-shadow: inset 0 1px 0 rgba(255,255,255,.05); }
+    .lamp { display: inline-flex; align-items: center; gap: 5px; font: 9px Consolas, monospace; letter-spacing: 1.4px; color: #7f886c; }
+    .lamp i { width: 10px; height: 10px; border-radius: 50%; background: #1c2117; border: 1px solid #080a06; box-shadow: inset 0 1px 2px #000; }
+    .lamp.on { color: #d9e7c6; }
+    .lamp.on i { background: radial-gradient(circle at 35% 30%, #dcffd2, #55c94d 55%, #1f6d1b); box-shadow: 0 0 8px rgba(110,230,90,.8); }
+    .lamp#lampHigh.on i { background: radial-gradient(circle at 35% 30%, #ffd8c9, #e04a2f 55%, #7d1e10); box-shadow: 0 0 9px rgba(230,70,40,.85); }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #7fe07a; margin-right: 0; vertical-align: middle; box-shadow: 0 0 8px rgba(110,230,90,.7); animation: pulse 1.8s infinite; flex: 0 0 auto; }
+    .dot.grey { background: #3a4132; box-shadow: none; animation: none; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+
+    /* ---- installationsrad ---- */
+    .install {
+      display: flex; align-items: center; gap: 10px; padding: 9px 12px; text-align: left;
+      background: linear-gradient(180deg, #ded7b4, #c3bb96); color: #33362a;
+      border: 1px solid #6b654b; border-radius: 3px; font: 12px/1.4 "Segoe UI", system-ui, sans-serif;
+      box-shadow: 0 2px 0 #1d2016;
+    }
     .install[hidden] { display: none; }
-    .install button { font: inherit; border-radius: 8px; border: 1px solid #38bdf8; background: #0ea5e9; color: #041018; font-weight: 700; padding: 7px 12px; cursor: pointer; }
-    .install button.x { background: transparent; border-color: #334155; color: #94a3b8; padding: 3px 9px; font-size: 1.1em; line-height: 1; }
-    /* ---- Rullande notis: lägsta priset nästa 24 h ---- */
-    .ticker { max-width: 1200px; margin: 0 auto 8px; overflow: hidden; border: 1px solid #263449; background: #0b1220; border-radius: 12px; }
+    .install button { font: inherit; border-radius: 3px; border: 1px solid #6d2a1c; background: #a5341f; color: #f6e7d6; font-weight: 700; padding: 6px 12px; cursor: pointer; }
+    .install button.x { background: transparent; border-color: #8b8566; color: #4f4d3a; padding: 2px 8px; font-size: 1.15em; line-height: 1; }
+
+    /* ---- rullande notis ---- */
+    .ticker { overflow: hidden; background: #0a0c07; border: 1px solid #6b5a2e; border-radius: 3px; box-shadow: inset 0 0 14px #000; }
     .ticker[hidden] { display: none; }
-    .ticker-inner { display: inline-flex; white-space: nowrap; will-change: transform; animation: ticker 26s linear infinite; }
-    .ticker-inner span { padding: 8px 24px; color: #fbbf24; font-size: 0.84em; font-weight: 600; }
+    .ticker-inner { display: inline-flex; white-space: nowrap; will-change: transform; animation: ticker 28s linear infinite; }
+    .ticker-inner span { padding: 7px 24px; color: #e9c46a; font: 600 12px/1.4 Consolas, "Courier New", monospace; letter-spacing: .8px; }
     @keyframes ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
     @media (hover: hover) { .ticker:hover .ticker-inner { animation-play-state: paused; } }
     @media (prefers-reduced-motion: reduce) { .ticker-inner { animation: none; } .ticker-inner span + span { display: none; } }
+
+    /* ---- paneler ---- */
+    .board { display: flex; flex-direction: column; gap: 12px; }
+    .panel {
+      position: relative; text-align: left; padding: 16px 14px 14px;
+      background: linear-gradient(180deg, #3c4434 0%, #333a2c 45%, #293024 100%);
+      border: 1px solid #12150d; border-top-color: #5d674a; border-radius: 4px;
+      box-shadow: 0 10px 26px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06), inset 0 0 40px rgba(0,0,0,.18);
+    }
+    .panel::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 4px;
+      background-image: radial-gradient(circle, #0a0c07 0 1.6px, #8b9374 1.8px 2.6px, transparent 2.95px);
+      background-size: 12px 12px; background-repeat: no-repeat;
+      background-position: 6px 6px, calc(100% - 6px) 6px, 6px calc(100% - 6px), calc(100% - 6px) calc(100% - 6px);
+    }
+    .panel.over { border-color: #7d2a1c; box-shadow: 0 0 0 1px #a33b28, 0 10px 26px rgba(120,20,10,.35), inset 0 1px 0 rgba(255,255,255,.06); }
+    .panel-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; padding-bottom: 7px; border-bottom: 1px solid #191e15; box-shadow: 0 1px 0 rgba(255,255,255,.05); }
+    .panel-head h2 { margin: 0; font: 700 11px/1.3 Consolas, "Courier New", monospace; letter-spacing: 2.4px; text-transform: uppercase; color: #ccd4b4; text-shadow: 0 1px 0 #000; }
+    .tag {
+      font: 9px/1 Consolas, "Courier New", monospace; letter-spacing: 1.4px; color: #a3ac8a; text-transform: uppercase;
+      border: 1px solid #1a1f15; background: #242b1d; padding: 4px 6px; border-radius: 2px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.05); white-space: nowrap; max-width: 48%; overflow: hidden; text-overflow: ellipsis;
+    }
+    .panel-head .tag { margin-left: auto; }
+    .panel-head .tag:first-child { margin-left: 0; }
+
+    /* ---- analoga mätare ---- */
+    .gauge-row { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 10px; align-items: end; }
+    .gcell { min-width: 0; text-align: center; }
+    .dial-name { font: 10px/1.3 Consolas, "Courier New", monospace; letter-spacing: 2px; text-transform: uppercase; color: #abb391; margin-bottom: 5px; text-shadow: 0 1px 0 #000; }
+    .gcell .gauge { max-width: 218px; margin: 0 auto; }
+    .gcell.main .gauge { max-width: 300px; }
+    .gauge svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 6px 8px rgba(0,0,0,.45)); }
+    .gval { letter-spacing: .5px; }
+    .gsub { font: 10px/1.5 Consolas, "Courier New", monospace; color: #9aa383; letter-spacing: .6px; margin-top: 6px; min-height: 15px; }
+    .digits {
+      margin-top: 7px; padding: 8px 6px 6px; border-radius: 3px; border: 1px solid #050704;
+      background: #0a0f09; color: #c8f0a8; font: 700 clamp(22px, 4.4vw, 32px)/1 Consolas, "Courier New", monospace;
+      letter-spacing: 1px; box-shadow: inset 0 0 16px rgba(0,0,0,.95), 0 1px 0 rgba(255,255,255,.05);
+      text-shadow: 0 0 10px rgba(150,240,120,.35); font-variant-numeric: tabular-nums;
+    }
+    .digits.high { color: #ffb49c; text-shadow: 0 0 12px rgba(255,90,60,.6); }
+    .rec { width: 100%; height: 118px; display: block; margin-top: 8px; background: #080d08; border: 1px solid #050704; border-radius: 3px; box-shadow: inset 0 0 20px #000; }
+    .rec.lite { height: 48px; }
+    .row3 { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; color: #8f987c; font: 10px Consolas, "Courier New", monospace; letter-spacing: .8px; text-transform: uppercase; }
+    .volt-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #1a2016; font: 10px Consolas, "Courier New", monospace; color: #9aa383; letter-spacing: .8px; }
+    .volt-strip b { color: #d7dcc0; }
+    .volt-strip canvas { flex: 1 1 160px; min-width: 120px; }
+
+    /* ---- pris ---- */
+    .price-row { display: grid; grid-template-columns: minmax(120px, 190px) 1fr; gap: 14px; align-items: center; }
+    .price-info { text-align: left; font: 11px/1.65 Consolas, "Courier New", monospace; color: #b3bca0; }
+    .price-info .pbig { font-size: 13px; color: #e6c778; letter-spacing: .8px; }
+    .price-info .small { color: #9aa383; }
+
+    /* ---- energi, mätning, faser ---- */
+    .split { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .tile { background: #1c2317; border: 1px solid #10140c; border-radius: 3px; padding: 8px 7px; text-align: left; }
+    .tile .label { font: 9px/1.3 Consolas, monospace; letter-spacing: 1.2px; text-transform: uppercase; color: #8f987c; }
+    .drum { margin-top: 4px; background: #0b0e08; border-radius: 2px; padding: 4px 5px; color: #efe5bd; font: 700 13px/1.3 Consolas, "Courier New", monospace; letter-spacing: 1px; box-shadow: inset 0 0 10px #000; }
+    .small { color: #909a7e; font-size: .8em; margin-top: 8px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .phase { background: #1c2317; border: 1px solid #10140c; border-radius: 3px; padding: 5px 4px 7px; text-align: center; }
+    .phase.top { border-color: #8a6b26; box-shadow: 0 0 10px rgba(200,160,60,.18); }
+    .phase .pname { font: 9px Consolas, monospace; letter-spacing: 2px; color: #a9b18f; }
+    .phase .pgauge svg { width: 100%; height: auto; display: block; }
+    .phase .pw { font: 700 11px Consolas, monospace; color: #e6d9a8; letter-spacing: .5px; }
+    .phase .pmeta { font: 9px/1.5 Consolas, monospace; color: #8f987c; }
+
+    .meas { cursor: pointer; transition: border-color .2s, box-shadow .2s; }
+    .meas.active { border-color: #a33b28; }
+    .meas.done { border-color: #57813f; }
+    .meas-body { display: flex; gap: 14px; align-items: center; }
+    .bigbtn {
+      flex: 0 0 auto; width: 62px; height: 62px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at 35% 26%, #ff9173, #c0392b 46%, #6d1a10);
+      border: 3px solid #2a0f0a; color: #f8ddcd; font: 700 20px Consolas, monospace;
+      box-shadow: 0 6px 0 #3a0f08, inset 0 -5px 9px rgba(0,0,0,.5);
+      transition: transform .12s, box-shadow .2s;
+    }
+    .meas.active .bigbtn { transform: translateY(3px); box-shadow: 0 3px 0 #3a0f08, 0 0 22px rgba(220,70,40,.65); }
+    .meas.done .bigbtn { background: radial-gradient(circle at 35% 26%, #c6ffb0, #55a544 46%, #245a1a); box-shadow: 0 6px 0 #173d10, inset 0 -5px 9px rgba(0,0,0,.45); }
+    .meas .meas-v { font: 700 16px Consolas, "Courier New", monospace; color: #e8dfb8; letter-spacing: .5px; }
+    .meas .small { margin-top: 2px; }
+    .meas-cols { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 0; text-align: left; }
+    .row3.meas-foot { margin-top: 8px; }
+
+    /* ---- timlogg ---- */
+    .fee-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; font: 10px Consolas, monospace; color: #9aa383; letter-spacing: .8px; text-transform: uppercase; }
+    #feeInput { width: 64px; background: #0a0e08; color: #e9dfb8; border: 1px solid #3c4530; border-radius: 2px; padding: 4px 6px; font-size: 16px; font-family: Consolas, monospace; }
+    .hourlist { margin-top: 8px; max-height: 320px; overflow-y: auto; background: #11160e; border: 1px solid #0a0d08; padding: 4px 8px; border-radius: 2px; }
+    .hrow { display: flex; gap: 8px; align-items: baseline; padding: 4px 2px; border-bottom: 1px dotted #2a3123; font: 11px Consolas, "Courier New", monospace; color: #c9d1b4; }
+    .hrow:last-child { border-bottom: none; }
+    .hrow .ht { width: 64px; text-align: left; color: #98a184; }
+    .hrow .hk { flex: 1; text-align: right; }
+    .hrow .hp { width: 52px; text-align: right; color: #8f987c; }
+    .hrow .hc { width: 72px; text-align: right; color: #e6c778; font-weight: 700; }
+    .hrow.head { border-bottom: 1px solid #333b29; }
+    .hrow.head .ht, .hrow.head .hk, .hrow.head .hp, .hrow.head .hc { color: #747d63; font-size: .82em; text-transform: uppercase; letter-spacing: .8px; }
+    .hrow.now { background: rgba(230,199,120,.08); }
+    .hrow.sum { border-top: 1px solid #333b29; border-bottom: none; font-weight: 700; }
+
+    .foot { color: #7f886e; font: 10px/1.6 Consolas, "Courier New", monospace; text-align: center; letter-spacing: .8px; margin: 4px auto 2px; }
+
     @media (pointer: fine) {
-      .hourlist { scrollbar-width: thin; scrollbar-color: #334155 transparent; }
+      .hourlist { scrollbar-width: thin; scrollbar-color: #3c4530 transparent; }
       .hourlist::-webkit-scrollbar { width: 8px; }
-      .hourlist::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+      .hourlist::-webkit-scrollbar-thumb { background: #3c4530; border-radius: 4px; }
     }
-    /* ---- Dator: bred panel med flera spalter ---- */
-    @media (min-width: 760px) {
-      .card { max-width: 960px; padding: 24px; }
-      .topbar { flex-direction: row; align-items: center; gap: 16px; }
-      .topbar .status { flex: 1; margin: 0; }
-      .dash-left { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
-      .dash-left > .block:nth-child(1), .dash-left > .block:nth-child(7) { grid-column: 1 / -1; }
+    @media (min-width: 900px) {
+      body { padding: 18px; }
+      .split { grid-template-columns: 1.15fr 1fr; }
+      .gauge-row { grid-template-columns: 1fr 1.5fr 1fr; }
       .tiles { grid-template-columns: repeat(4, 1fr); }
-      canvas { height: 150px; }
-      canvas.lite { height: 70px; }
+      .rec { height: 140px; }
     }
-    @media (min-width: 1180px) {
-      .card { max-width: 1200px; }
-      .dash-left { grid-template-columns: 1fr 1fr 1fr; }
-      .dash-left > .block:nth-child(1) { grid-column: span 2; }
-      .dash-left > .block:nth-child(7) { grid-column: 1 / -1; }
-    }
-    /* ---- Telefon: fingervanliga ytor, ingen iOS-zoom i falt ---- */
-    @media (max-width: 480px) {
-      .hrow { font-size: 0.8em; gap: 6px; }
-      .hrow .ht { width: 56px; }
-      .hrow .hp { width: 52px; }
-      .hrow .hc { width: 64px; }
-      .nav a { padding: 10px 12px; }
+    @media (max-width: 560px) {
+      body { padding: 9px; }
+      .console { gap: 9px; }
+      .panel { padding: 13px 10px 11px; }
+      .gauge-row { grid-template-columns: 1fr 1fr; gap: 6px; }
+      .gcell.main { grid-column: 1 / -1; }
+      .panel-head { flex-wrap: wrap; gap: 6px; }
+      .panel-head h2 { font-size: 10px; letter-spacing: 1.8px; }
+      .tag { max-width: 100%; }
+      .price-row { grid-template-columns: 132px 1fr; }
+      .hrow { font-size: 10px; gap: 5px; }
+      .hrow .ht { width: 54px; }
+      .hrow .hp { width: 46px; }
+      .hrow .hc { width: 62px; }
       .hourlist { max-height: none; }
+      .lamps { gap: 8px; padding: 5px 8px; }
+      .lamp { font-size: 8px; letter-spacing: .8px; }
     }
-    #feeInput { font-size: 16px; }
     @supports (padding: max(0px)) {
-      body { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+      body { padding-left: max(9px, env(safe-area-inset-left)); padding-right: max(9px, env(safe-area-inset-right)); padding-top: max(9px, env(safe-area-inset-top)); padding-bottom: max(9px, env(safe-area-inset-bottom)); }
     }
   </style>
 </head>
 <body>
-  <div class="install" id="installHint" hidden>
-    <span id="installText"></span>
-    <button type="button" id="installGo" hidden>Installera</button>
-    <button type="button" class="x" id="installClose" aria-label="Stäng">×</button>
-  </div>
-  <div class="ticker" id="ticker" hidden aria-live="polite">
-    <div class="ticker-inner" id="tickerText"><span></span><span aria-hidden="true"></span></div>
-  </div>
-  <div class="card">
-    <div class="topbar">
-      <h1>⚡ Husets effekt</h1>
+  <div class="console">
+
+    <header class="masthead">
+      <div class="plate">
+        <div class="plate-top">ЭНЕРГОБЛОК · ЩИТ №4</div>
+        <h1>Husets effekt</h1>
+        <div class="plate-bot">PEAKTOP №4 · SE3 · LIVE</div>
+      </div>
+    </header>
+
+    <div class="statusline">
+      <span class="dot" id="espDot"></span>
       <div class="status" id="status">Laddar status…</div>
-    </div>
-
-    <div class="dash">
-      <div class="dash-left">
-
-        <div class="block">
-          <div class="label"><span class="dot" id="espDot"></span>Just nu</div>
-          <div class="metric" id="nowW" style="text-align:center">--</div>
-          <div class="row3"><span id="espInfo">Watt · spänning · ström</span></div>
-          <div class="small" id="lastCalc" style="text-align:center">senast räknat –</div>
-          <canvas id="liveChart"></canvas>
-          <div class="row3"><span>senaste 30 min</span><span id="liveAvg">snitt --</span><span id="liveMax">max --</span></div>
-        </div>
-
-        <div class="block meas" id="measCard" role="button" tabindex="0">
-          <div class="label">Mätning · nollställ och mät</div>
-          <div class="meas-row">
-            <div><div class="meas-v" id="measKwh">0.000 kWh</div><div class="small" style="margin-top:2px;">förbrukning</div></div>
-            <div style="text-align:right;"><div class="meas-v" id="measKr" style="color:#fbbf24;">–</div><div class="small" style="margin-top:2px;">kostnad inkl överföring</div></div>
-          </div>
-          <div class="row3"><span id="measTime">00:00 / 60:00</span><span id="measState">tryck för att nollställa</span></div>
-        </div>
-
-        <div class="block">
-          <div class="label">Spänning · snitt</div>
-          <div class="row" style="margin-top:6px;">
-            <div style="flex:1; text-align:left;">
-              <div id="voltAvg" style="font-size:1.6em; font-weight:bold; color:#34d399;">--</div>
-            </div>
-            <div style="text-align:right; color:#94a3b8; font-size:0.85em;">
-              <div>min <span id="voltMin">--</span></div>
-              <div>max <span id="voltMax">--</span></div>
-            </div>
-          </div>
-          <canvas class="lite" id="voltChart"></canvas>
-        </div>
-
-        <div class="block">
-          <div class="label" id="phaseHdr">Fördelning per fas</div>
-          <div class="grid3" id="phases"></div>
-        </div>
-
-        <div class="block">
-          <div class="label">Energi</div>
-          <div class="tiles">
-            <div class="tile"><div class="label">Mätarens total</div><div class="v" id="meterTotal">--</div></div>
-            <div class="tile"><div class="label">Sedan start</div><div class="v" id="sinceBoot">--</div></div>
-            <div class="tile"><div class="label">Senaste 1 timme</div><div class="v" id="hour1">--</div></div>
-            <div class="tile"><div class="label">Idag</div><div class="v" id="today">--</div></div>
-          </div>
-          <div class="small" id="sampleInfo">Senaste 30 minuterna ritas ut när sidan är öppen</div>
-        </div>
-        <div class="block">
-          <div class="label">Elpris SE3 · idag</div>
-          <div class="row" style="margin-top:6px;">
-            <div style="flex:1; text-align:left;">
-              <div id="priceNow" style="font-size:1.6em; font-weight:bold; color:#fbbf24;">--</div>
-              <div class="small" id="priceRange">pris saknas</div>
-              <div class="small" id="priceTotal"></div>
-              <div class="small" id="costToday">idag –</div>
-            </div>
-            <div style="text-align:right; color:#94a3b8; font-size:0.85em;">
-              <div>Max/timme <b id="maxHour" style="color:#e2e8f0;">--</b></div>
-              <div class="small" id="maxHourWhen">--</div>
-            </div>
-          </div>
-          <canvas id="priceChart" style="height:90px;"></canvas>
-        </div>
-
-        <div class="block">
-          <div class="label">Förbrukning per timme · SE3 + elöverföring</div>
-          <div class="small" style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <span>Elöverföring</span>
-            <input id="feeInput" type="number" min="0" step="0.1" inputmode="decimal"
-                   style="width:64px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:6px;padding:3px 6px;font-size:16px;">
-            <span>öre/kWh · kostnaden nedan är spot + överföring</span>
-          </div>
-          <div class="hourlist">
-            <div class="hrow head"><span class="ht">timme</span><span class="hk">förbrukning</span><span class="hp">kr/kWh</span><span class="hc">kostnad</span></div>
-            <div id="hourList"></div>
-          </div>
-        </div>
-
-
+      <div class="lamps" aria-hidden="true">
+        <span class="lamp" id="lampNet"><i></i>СЕТЬ</span>
+        <span class="lamp" id="lampEsp"><i></i>ЭСП</span>
+        <span class="lamp" id="lampHigh"><i></i>ПЕРЕГРУЗ</span>
       </div>
     </div>
+
+    <div class="install" id="installHint" hidden>
+      <span id="installText"></span>
+      <button type="button" id="installGo" hidden>Installera</button>
+      <button type="button" class="x" id="installClose" aria-label="Stäng">×</button>
+    </div>
+
+    <div class="ticker" id="ticker" hidden aria-live="polite">
+      <div class="ticker-inner" id="tickerText"><span></span><span aria-hidden="true"></span></div>
+    </div>
+
+    <main class="board">
+
+      <section class="panel gauge-panel" id="gaugePanel">
+        <div class="panel-head">
+          <span class="tag">ЩИТ №1</span>
+          <h2>Mätpanel · live</h2>
+          <span class="tag" id="espInfo">Watt · spänning · ström</span>
+        </div>
+        <div class="gauge-row">
+          <div class="gcell">
+            <div class="dial-name">Spänning</div>
+            <div class="gauge" id="gaugeVolt"></div>
+          </div>
+          <div class="gcell main">
+            <div class="dial-name">Effekt</div>
+            <div class="gauge" id="gaugePower"></div>
+            <div class="digits" id="nowW">--</div>
+            <div class="small" id="lastCalc">senast räknat –</div>
+          </div>
+          <div class="gcell">
+            <div class="dial-name">Ström</div>
+            <div class="gauge" id="gaugeAmp"></div>
+          </div>
+        </div>
+        <canvas id="liveChart" class="rec" aria-label="Effekt senaste 30 minuter"></canvas>
+        <div class="row3"><span>senaste 30 min</span><span id="liveAvg">snitt --</span><span id="liveMax">max --</span></div>
+        <div class="volt-strip">
+          <span>Spänning · 30 min</span>
+          <b id="voltAvg">--</b>
+          <span>min <b id="voltMin">--</b></span>
+          <span>max <b id="voltMax">--</b></span>
+          <canvas id="voltChart" class="rec lite" aria-label="Spänning senaste 30 minuter"></canvas>
+        </div>
+      </section>
+
+      <div class="split">
+        <section class="panel">
+          <div class="panel-head">
+            <span class="tag">ЩИТ №2</span>
+            <h2>Maxvärden</h2>
+            <span class="tag">sedan start</span>
+          </div>
+          <div class="gauge-row">
+            <div class="gcell">
+              <div class="dial-name">Max effekt</div>
+              <div class="gauge" id="gaugeMaxW"></div>
+              <div class="gsub"><span id="maxHour">–</span> <span id="maxHourWhen"></span></div>
+            </div>
+            <div class="gcell">
+              <div class="dial-name">Max spänning</div>
+              <div class="gauge" id="gaugeMaxV"></div>
+              <div class="gsub">denna visning</div>
+            </div>
+            <div class="gcell">
+              <div class="dial-name">Max ström</div>
+              <div class="gauge" id="gaugeMaxA"></div>
+              <div class="gsub">denna visning</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <span class="tag">ЩИТ №3</span>
+            <h2>Faser L1–L3</h2>
+            <span class="tag" id="phaseHdr">fördelning</span>
+          </div>
+          <div class="grid3" id="phases"></div>
+        </section>
+      </div>
+
+      <div class="split">
+        <section class="panel">
+          <div class="panel-head">
+            <span class="tag">ЩИТ №4</span>
+            <h2>Energi</h2>
+            <span class="tag">kWh</span>
+          </div>
+          <div class="tiles">
+            <div class="tile"><div class="label">Mätarens total</div><div class="drum" id="meterTotal">--</div></div>
+            <div class="tile"><div class="label">Sedan start</div><div class="drum" id="sinceBoot">--</div></div>
+            <div class="tile"><div class="label">Senaste 1 timme</div><div class="drum" id="hour1">--</div></div>
+            <div class="tile"><div class="label">Idag</div><div class="drum" id="today">--</div></div>
+          </div>
+          <div class="small" id="sampleInfo">Senaste 30 minuterna ritas ut när sidan är öppen</div>
+        </section>
+
+        <section class="panel meas" id="measCard" role="button" tabindex="0">
+          <div class="panel-head">
+            <span class="tag">ЩИТ №6</span>
+            <h2>Mätning</h2>
+            <span class="tag" id="measState">tryck för att nollställa</span>
+          </div>
+          <div class="meas-body">
+            <div class="bigbtn" aria-hidden="true">M</div>
+            <div class="meas-cols">
+              <div class="meas-v" id="measKwh">0.000 kWh</div>
+              <div class="small">förbrukning</div>
+              <div class="meas-v" id="measKr" style="color:#e6c778;">–</div>
+              <div class="small">kostnad inkl överföring</div>
+            </div>
+          </div>
+          <div class="row3 meas-foot"><span id="measTime">00:00 / 60:00</span><span>max 60 min</span></div>
+        </section>
+      </div>
+
+      <section class="panel">
+        <div class="panel-head">
+          <span class="tag">ЩИТ №5</span>
+          <h2>Elpris SE3 · kvart</h2>
+          <span class="tag" id="priceNow">--</span>
+        </div>
+        <div class="price-row">
+          <div class="gcell">
+            <div class="dial-name">Spotpris nu</div>
+            <div class="gauge" id="gaugePrice"></div>
+          </div>
+          <div class="price-info">
+            <div class="pbig" id="priceRange">pris saknas</div>
+            <div class="small" id="priceTotal"></div>
+            <div class="small" id="costToday">idag –</div>
+          </div>
+        </div>
+        <canvas id="priceChart" class="rec" aria-label="Elpris per kvart"></canvas>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <span class="tag">ЩИТ №7</span>
+          <h2>Förbrukning per timme</h2>
+          <span class="tag">SE3 + överföring</span>
+        </div>
+        <div class="fee-line">
+          <span>Elöverföring</span>
+          <input id="feeInput" type="number" min="0" step="0.1" inputmode="decimal">
+          <span>öre/kWh · kostnaden är spot + överföring</span>
+        </div>
+        <div class="hourlist">
+          <div class="hrow head"><span class="ht">timme</span><span class="hk">förbrukning</span><span class="hp">kr/kWh</span><span class="hc">kostnad</span></div>
+          <div id="hourList"></div>
+        </div>
+      </section>
+
+    </main>
 
     <div class="foot" id="foot">Uppgiftshämtning: – –</div>
 
@@ -238,6 +421,7 @@
     var samples = [];               // {w, v, t}
     var latest = null;
     var lastSeenTm = 0;
+    var sessMax = { v: 0, a: 0 };   // max under den här visningen
 
     function byId(id) { return document.getElementById(id); }
 
@@ -270,17 +454,133 @@
       return 'Elpris nu ' + p.toFixed(2) + ' kr/kWh · SE3';
     }
 
+    function lamp(id, on) {
+      var e = byId(id);
+      if (e) e.className = 'lamp' + (on ? ' on' : '');
+    }
+
     function setEspBadge(ok) {
       var b = byId('espDot');
       if (b) { b.className = 'dot' + (ok ? '' : ' grey'); }
       var i = byId('espInfo');
       if (i) { i.innerText = ok ? 'Watt · spänning · ström' : 'ESP32: väntar på data'; }
+      lamp('lampEsp', !!ok);
     }
 
     function setStatus(txt, ok) {
       var s = byId('status');
       s.className = 'status' + (ok ? '' : ' bad');
       s.innerText = txt;
+    }
+
+    // ---------- analoga instrument ----------
+    var GAUGES = {}, gaugeN = 0;
+
+    function polar(r, deg) {
+      var a = deg * Math.PI / 180;
+      return [100 + r * Math.sin(a), 100 - r * Math.cos(a)];
+    }
+
+    function arcPath(r, a0, a1) {
+      var p0 = polar(r, a0), p1 = polar(r, a1);
+      var big = Math.abs(a1 - a0) > 180 ? 1 : 0;
+      return 'M' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) +
+             ' A' + r + ' ' + r + ' 0 ' + big + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2);
+    }
+
+    function gaugeAngle(v, o) { return -120 + 240 * (v - o.min) / (o.max - o.min); }
+
+    function makeGauge(host, o) {
+      if (!host) return;
+      var n = ++gaugeN, i, v, a, major, t = '';
+      var count = Math.round((o.max - o.min) / o.minor);
+      var per = Math.round(o.major / o.minor);
+      for (i = 0; i <= count; i++) {
+        v = o.min + i * o.minor;
+        a = gaugeAngle(v, o);
+        major = (i % per === 0);
+        var p1 = polar(major ? 72 : 78, a), p2 = polar(84, a);
+        t += '<line x1="' + p1[0].toFixed(1) + '" y1="' + p1[1].toFixed(1) +
+             '" x2="' + p2[0].toFixed(1) + '" y2="' + p2[1].toFixed(1) + '" stroke="' +
+             (major ? '#e8e4c9' : 'rgba(226,222,192,.5)') + '" stroke-width="' + (major ? 2 : 1) + '"/>';
+        if (major && o.labels !== false) {
+          var lp = polar(59, a);
+          var lab = o.label ? o.label(v) : String(Math.round(v * 100) / 100);
+          t += '<text x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) +
+               '" fill="#d6d3b6" font-size="10" text-anchor="middle" dominant-baseline="middle" font-family="Consolas,monospace">' + lab + '</text>';
+        }
+      }
+      var red = '';
+      if (typeof o.redFrom === 'number' && o.redFrom < o.max) {
+        red = '<path d="' + arcPath(88, gaugeAngle(o.redFrom, o), 120) + '" fill="none" stroke="#a5341f" stroke-width="5"/>';
+      }
+      host.innerHTML =
+        '<svg viewBox="0 0 200 200" aria-hidden="true">' +
+          '<defs>' +
+            '<radialGradient id="gf' + n + '" cx="50%" cy="42%" r="62%">' +
+              '<stop offset="0" stop-color="#252c20"/><stop offset="1" stop-color="#0a0d08"/>' +
+            '</radialGradient>' +
+            '<linearGradient id="gb' + n + '" x1="0" y1="0" x2="1" y2="1">' +
+              '<stop offset="0" stop-color="#b9ae80"/><stop offset=".5" stop-color="#6d6547"/><stop offset="1" stop-color="#353226"/>' +
+            '</linearGradient>' +
+          '</defs>' +
+          '<circle cx="100" cy="100" r="97" fill="url(#gb' + n + ')"/>' +
+          '<circle cx="100" cy="100" r="91" fill="url(#gf' + n + ')" stroke="#040603" stroke-width="2"/>' +
+          '<path d="' + arcPath(88, -120, 120) + '" fill="none" stroke="#cfcdb0" stroke-width="1.5" opacity=".5"/>' +
+          red + t +
+          '<text x="100" y="149" class="gval" font-size="15" font-weight="700" text-anchor="middle" fill="#efe6b8" font-family="Consolas,monospace">0</text>' +
+          '<text x="100" y="165" font-size="8.5" text-anchor="middle" fill="#9fa686" font-family="Consolas,monospace" letter-spacing="1.4">' + (o.unit || '') + '</text>' +
+          '<g class="spin" transform="translate(100 100) rotate(-120)">' +
+            '<path d="M0 0 L-3.6 -68 L3.6 -68 Z" fill="#b8392a"/>' +
+            '<rect x="-1" y="-66" width="2" height="58" fill="#f3e7c4" opacity=".35"/>' +
+            '<circle r="9" fill="#22261b" stroke="#9b9166" stroke-width="1.5"/>' +
+            '<circle r="2.6" fill="#c9bd8c"/>' +
+          '</g>' +
+          '<ellipse cx="76" cy="62" rx="46" ry="26" fill="#ffffff" opacity=".07" transform="rotate(-22 76 62)"/>' +
+        '</svg>';
+      GAUGES[o.key] = { o: o, spin: host.querySelector('.spin'), val: host.querySelector('.gval') };
+      setGauge(o.key, o.min);
+    }
+
+    function setGauge(key, v) {
+      var g = GAUGES[key];
+      if (!g) return;
+      v = (typeof v === 'number' && isFinite(v)) ? v : 0;
+      var capped = Math.max(g.o.min, Math.min(g.o.max, v));
+      g.spin.setAttribute('transform', 'translate(100 100) rotate(' + gaugeAngle(capped, g.o).toFixed(2) + ')');
+      if (g.o.zeroDash && !(v > 0)) g.val.textContent = '–';
+      else g.val.textContent = (g.o.decimals ? v.toFixed(g.o.decimals) : String(Math.round(v)));
+    }
+
+    function initGauges() {
+      var kilo = function (v) { return v === 0 ? '0' : (v / 1000) + 'k'; };
+      makeGauge(byId('gaugePower'), { key: 'W', min: 0, max: 5000, minor: 200, major: 1000, unit: 'WATT', decimals: 0, redFrom: 2000, label: kilo });
+      makeGauge(byId('gaugeVolt'), { key: 'V', min: 200, max: 260, minor: 2, major: 10, unit: 'VOLT', decimals: 1, zeroDash: true });
+      makeGauge(byId('gaugeAmp'), { key: 'A', min: 0, max: 32, minor: 1, major: 4, unit: 'AMPERE', decimals: 2, zeroDash: true });
+      makeGauge(byId('gaugePrice'), { key: 'P', min: 0, max: 3, minor: .1, major: .5, unit: 'KR/KWH', decimals: 2, zeroDash: true, label: function (v) { return (Math.round(v * 10) / 10).toString().replace('.', ','); } });
+      makeGauge(byId('gaugeMaxW'), { key: 'MAXW', min: 0, max: 6000, minor: 200, major: 1000, unit: 'WATT', decimals: 0, label: kilo });
+      makeGauge(byId('gaugeMaxV'), { key: 'MAXV', min: 200, max: 260, minor: 2, major: 10, unit: 'VOLT', decimals: 1, zeroDash: true });
+      makeGauge(byId('gaugeMaxA'), { key: 'MAXA', min: 0, max: 32, minor: 1, major: 4, unit: 'AMPERE', decimals: 2, zeroDash: true });
+    }
+
+    var phasesBuilt = false;
+    function buildPhases() {
+      if (phasesBuilt) return;
+      var host = byId('phases');
+      if (!host) return;
+      var h = '', i;
+      for (i = 0; i < 3; i++) {
+        h += '<div class="phase" id="phas' + i + '">' +
+             '<div class="pname">L' + (i + 1) + '</div>' +
+             '<div class="pgauge" id="gaugeL' + i + '"></div>' +
+             '<div class="pw" id="pw' + i + '">–</div>' +
+             '<div class="pmeta" id="pm' + i + '"></div></div>';
+      }
+      host.innerHTML = h;
+      for (i = 0; i < 3; i++) {
+        makeGauge(byId('gaugeL' + i), { key: 'L' + i, min: 0, max: 20, minor: 2, major: 5, unit: 'A', decimals: 1, zeroDash: true, labels: false });
+      }
+      phasesBuilt = true;
     }
 
     // ---------- rita grafer ----------
@@ -340,15 +640,13 @@
       byId('voltMin').innerText = n ? vmin.toFixed(1) : '–';
       byId('voltMax').innerText = n ? vmax.toFixed(1) : '–';
 
-      drawLine(byId('liveChart'), ws, '#38bdf8', 120, 'rgba(56,189,248,0.25)');
-      drawLine(byId('voltChart'), vs, '#34d399', 60, 'rgba(52,211,153,0.25)');
+      drawLine(byId('liveChart'), ws, '#9fe37a', 118, 'rgba(159,227,122,0.16)');
+      drawLine(byId('voltChart'), vs, '#e2c46c', 48, 'rgba(226,196,108,0.14)');
     }
-
-    // ---------- uppdaterar vyn ----------
 
     // ---------- elpris (SE3) och maxtimme ----------
     function drawPriceBars(cv, arr, cur) {
-      var p = prepCanvas(cv, 90), ctx = p.ctx, w = p.w, h = p.h;
+      var p = prepCanvas(cv, 96), ctx = p.ctx, w = p.w, h = p.h;
       if (!arr || arr.length < 12) return;
       var mx = 0, i;
       for (i = 0; i < arr.length; i++) if (arr[i] > mx) mx = arr[i];
@@ -357,11 +655,11 @@
       for (i = 0; i < arr.length; i++) {
         if (!(arr[i] > 0)) continue;
         var bh = (arr[i] / mx) * (h - 18);
-        ctx.fillStyle = (i === cur) ? '#38bdf8' : 'rgba(251,191,36,0.55)';
+        ctx.fillStyle = (i === cur) ? '#9fe37a' : 'rgba(226,196,108,0.5)';
         ctx.fillRect(i * bw + 0.5, h - 14 - bh, Math.max(bw - 1.5, 1), bh);
       }
-      ctx.fillStyle = '#64748b';
-      ctx.font = '9px system-ui, sans-serif';
+      ctx.fillStyle = '#7f886c';
+      ctx.font = '9px Consolas, monospace';
       ctx.fillText('00', 1, h - 3);
       if (arr.length > 48) {
         ctx.fillText('06', w * 0.25 - 6, h - 3);
@@ -498,6 +796,7 @@
       }
       byId('priceNow').innerText = pn > 0 ? pn.toFixed(2) + ' kr/kWh' : '–';
       byId('priceRange').innerText = have ? ('min ' + mn.toFixed(2) + ' · max ' + mx.toFixed(2) + ' kr') : 'pris saknas';
+      setGauge('P', pn);
       curPriceTotal = pn > 0 ? pn + feeKr : 0;
       var pt = byId('priceTotal');
       if (pt) pt.innerText = pn > 0
@@ -589,15 +888,15 @@
     }
     setInterval(tickClock, 1000);
 
-    // Hög last: över 2000 W lyser "Just nu" rött så det syns direkt.
+    // Hög last: över 2000 W lyser panelen och ПЕРЕГРУЗ-lampan rött.
     var HIGH_W = 2000;
     function markHigh(w) {
-      var el = byId('nowW');
-      if (!el) return;
       var hot = w > HIGH_W;
-      el.className = hot ? 'metric high' : 'metric';
-      var b = el.closest ? el.closest('.block') : null;
-      if (b) b.className = hot ? 'block over' : 'block';
+      var p = byId('gaugePanel');
+      if (p) p.className = 'panel gauge-panel' + (hot ? ' over' : '');
+      var el = byId('nowW');
+      if (el) el.className = 'digits' + (hot ? ' high' : '');
+      lamp('lampHigh', hot);
     }
 
     // ---- Mätning: nollställ, mät i upp till en timme, visa kWh och kr ----
@@ -653,7 +952,7 @@
       var st = byId('measState');
       if (st) st.innerText = meas.active ? 'mäter… tryck för att börja om'
                                        : (meas.done ? 'klar – tryck för nästa' : 'tryck för att nollställa');
-      el.className = 'block meas' + (meas.active ? ' active' : '') + (meas.done ? ' done' : '');
+      el.className = 'panel meas' + (meas.active ? ' active' : '') + (meas.done ? ' done' : '');
     }
 
     (function () {
@@ -670,7 +969,22 @@
       d = d || {};
       latest = d;
       lastCalcAt = (typeof d.at === 'number' && d.at > 0) ? d.at * 1000 : Date.now();
-      byId('nowW').innerText = d.w.toFixed(0) + ' W';
+
+      // Analoga mätare: effekt, spänning och ström.
+      var amps = num(d.a);
+      if (!(amps > 0) && d.ph) {
+        for (var ai = 0; ai < d.ph.length; ai++) amps += num(d.ph[ai] && d.ph[ai][2]);
+      }
+      setGauge('W', num(d.w));
+      setGauge('V', num(d.v));
+      setGauge('A', amps);
+      sessMax.v = Math.max(sessMax.v, num(d.v));
+      sessMax.a = Math.max(sessMax.a, amps);
+      setGauge('MAXW', num(d.maxW));
+      setGauge('MAXV', sessMax.v);
+      setGauge('MAXA', sessMax.a);
+
+      byId('nowW').innerText = num(d.w).toFixed(0) + ' W';
       markHigh(num(d.w));
       measAccum(d);
       byId('meterTotal').innerText = fmtKwh(d.tot);
@@ -680,28 +994,30 @@
       renderPrice(d);
       measTick();
 
-      // Faser L1-L3: [W, V, A, Wh] per fas. Värdena normaliseras så att ett
-      // ofullständigt meddelande inte kraschar hela renderingen.
+      // Faser L1-L3: [W, V, A, Wh] per fas. Varje fas har en egen liten
+      // amperemeter; den mest belastade markeras.
       var ph = d.ph || [];
+      buildPhases();
       var topIdx = 0, topVal = -1e9, i;
-      for (i = 0; i < ph.length && i < 3; i++) { if (num(ph[i] && ph[i][0]) > topVal) { topVal = num(ph[i][0]); topIdx = i; } }
-      var html = '';
-      for (i = 0; i < ph.length && i < 3; i++) {
+      for (i = 0; i < 3; i++) {
+        var v0 = num(ph[i] && ph[i][0]);
+        if (v0 > topVal) { topVal = v0; topIdx = i; }
+      }
+      for (i = 0; i < 3; i++) {
         var p = ph[i] || [];
         var pw = num(p[0]), pv = num(p[1]), pa = num(p[2]);
-        var isTop = (i === topIdx && topVal > 0);
-        html += '<div class="phase' + (isTop ? ' top' : '') + '">' +
-                '<div class="pname">L' + (i + 1) + (isTop ? '<span class="topbadge">mest</span>' : '') + '</div>' +
-                '<div class="pw">' + pw.toFixed(0) + ' W</div>' +
-                '<div class="pmeta">' + (pv > 1 ? pv.toFixed(0) + ' V · ' : '') +
-                (pa > 0.005 ? pa.toFixed(2) + ' A' : '-') +
-                '<br>' + fmtWh(p[3]) + '</div></div>';
+        var pwEl = byId('pw' + i), pmEl = byId('pm' + i), cell = byId('phas' + i);
+        if (pwEl) pwEl.innerText = pw.toFixed(0) + ' W';
+        if (pmEl) pmEl.innerHTML = (pv > 1 ? pv.toFixed(0) + ' V · ' : '') +
+          (pa > 0.005 ? pa.toFixed(2) + ' A' : '–') + '<br>' + fmtWh(p[3]);
+        if (cell) cell.className = 'phase' + (i === topIdx && topVal > 0 ? ' top' : '');
+        setGauge('L' + i, pa);
       }
-      byId('phases').innerHTML = html;
 
       var up = d.up || 0, nFas = d.n || ph.length || 0;
       byId('foot').innerText = 'Uppringd tid hos kortet: ' + Math.floor(up / 3600) + ' h ' +
-        Math.floor((up % 3600) / 60) + ' min · ' + nFas + ' fas' + (nFas === 1 ? '' : 'er');
+        Math.floor((up % 3600) / 60) + ' min · ' + nFas + ' fas' + (nFas === 1 ? '' : 'er') +
+        (d.rssi ? ' · Wi-Fi ' + d.rssi + ' dBm' : '');
 
       if (Date.now() - lastSeenTm > 30000) {
         setStatus('Kortet svarar inte – väntar på data…', false);
@@ -721,16 +1037,20 @@
       }
     }
 
+    initGauges();
+
     var client = mqtt.connect(MQTT_URL, {
       clientId: 'husetseffekt-web-' + Math.random().toString(16).slice(2, 10),
       reconnectPeriod: 5000
     });
     client.on('connect', function () {
+      lamp('lampNet', true);
       client.subscribe(TOPIC, function () { setStatus('Prenumererar på ' + TOPIC, true); });
     });
-    client.on('reconnect', function () { setStatus('Återansluter till bron…', false); });
-    client.on('close', function () { setStatus('Tappade bron – försöker igen…', false); });
+    client.on('reconnect', function () { lamp('lampNet', false); setStatus('Återansluter till bron…', false); });
+    client.on('close', function () { lamp('lampNet', false); setStatus('Tappade bron – försöker igen…', false); });
     client.on('error', function (e) {
+      lamp('lampNet', false);
       setStatus('Broker-fel: ' + ((e && e.message) || e || 'okänt fel'), false);
       setEspBadge(false);
     });
