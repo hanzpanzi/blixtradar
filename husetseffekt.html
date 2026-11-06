@@ -250,35 +250,31 @@
     .desk-scene .gauge-row { position: relative; z-index: 3; margin-top: 6px; padding: 0 4px 112px; }
     .desk-scene .gcell { position: relative; }
 
-    /* ---- analoga mätare ---- */
+    /* ---- mätare ---- */
     .gauge-row.even { grid-template-columns: repeat(3, 1fr); }
     .gauge-row { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 10px; align-items: end; }
     .gcell { min-width: 0; text-align: center; }
     .dial-name { font: 10px/1.3 Consolas, "Courier New", monospace; letter-spacing: 2px; text-transform: uppercase; color: #abb391; margin-bottom: 5px; text-shadow: 0 1px 0 #000; }
-    .gcell .gauge { max-width: 218px; margin: 0 auto; }
-    .gcell.main .gauge { max-width: 300px; }
-    .gauge { position: relative; }
-    .gauge svg { position: relative; z-index: 2; display: block; width: 100%; height: auto; filter: drop-shadow(0 6px 8px rgba(0,0,0,.45)); }
-    .gauge::before {
-      content: ""; position: absolute; z-index: 1; left: 50%; bottom: -5px; width: 46%; height: 12px;
-      transform: translateX(-50%); border-radius: 4px 4px 8px 8px;
-      background: linear-gradient(180deg, #9a8a60 0%, #62583c 40%, #2b2a1d 100%);
-      box-shadow: inset 0 1px 0 rgba(255,250,220,.35), 0 4px 6px rgba(0,0,0,.55);
+    /* ---- sju-segmentsmätare ---- */
+    .seg-value {
+      display: flex; align-items: stretch; justify-content: center; gap: clamp(2px, .8vw, 5px);
+      width: 100%; max-width: 218px; margin: 0 auto; padding: 8px 7px 7px;
+      background: radial-gradient(ellipse at 50% 0%, #07130a, #030803 72%);
+      border: 1px solid #050704; border-radius: 3px;
+      box-shadow: inset 0 0 22px #000, inset 0 0 2px rgba(120,255,150,.18);
     }
-    .gauge::after {
-      content: ""; position: absolute; z-index: 0; left: 50%; bottom: -13px; width: 70%; height: 20px;
-      transform: translateX(-50%); border-radius: 50%;
-      background: radial-gradient(ellipse at 50% 30%, rgba(0,0,0,.6), rgba(0,0,0,.2) 55%, transparent 72%);
-    }
-    .gval { letter-spacing: .5px; }
+    .gcell.main .seg-value { max-width: 300px; }
+    .seg-value .seg-digit { flex: 0 1 46px; min-width: 0; max-width: 46px; width: auto; height: auto; overflow: visible; filter: drop-shadow(0 0 4px rgba(255,125,45,.28)); }
+    .gcell.main .seg-value .seg-digit { flex-basis: 62px; max-width: 62px; }
+    .seg-value .seg { fill: rgba(145,66,28,.12); }
+    .seg-value .seg.on { fill: #ff9d4b; }
+    .seg-value .seg-digit.blank .seg { fill: rgba(145,66,28,.028); }
+    .seg-value.hot .seg.on { fill: #ff4b2e; }
+    .seg-dp { opacity: 0; }
+    .seg-value .has-dp .seg-dp { opacity: 1; fill: #ff9d4b; }
+    .seg-value.hot .has-dp .seg-dp { fill: #ff4b2e; }
+    .seg-unit { margin-top: 4px; font: 8px/1.2 Consolas, "Courier New", monospace; letter-spacing: 1.4px; color: #9aa383; text-transform: uppercase; }
     .gsub { font: 10px/1.5 Consolas, "Courier New", monospace; color: #9aa383; letter-spacing: .6px; margin-top: 6px; min-height: 15px; }
-    .digits {
-      margin-top: 7px; padding: 8px 6px 6px; border-radius: 3px; border: 1px solid #050704;
-      background: #0a0f09; color: #c8f0a8; font: 700 clamp(22px, 4.4vw, 32px)/1 Consolas, "Courier New", monospace;
-      letter-spacing: 1px; box-shadow: inset 0 0 16px rgba(0,0,0,.95), 0 1px 0 rgba(255,255,255,.05);
-      text-shadow: 0 0 10px rgba(150,240,120,.35); font-variant-numeric: tabular-nums;
-    }
-    .digits.high { color: #ffb49c; text-shadow: 0 0 12px rgba(255,90,60,.6); }
     .seg-graph {
       display: flex; align-items: stretch; justify-content: center; gap: clamp(2px, .8vw, 5px);
       width: 100%; min-height: 64px; margin-top: 8px; padding: 8px 7px 7px;
@@ -423,6 +419,7 @@
 
     /* ---- pris ---- */
     .price-row { display: grid; grid-template-columns: minmax(120px, 190px) 1fr; gap: 14px; align-items: center; }
+    .price-row .seg-value { max-width: 180px; }
     .price-info { text-align: left; font: 11px/1.65 Consolas, "Courier New", monospace; color: #b3bca0; }
     .price-info .pbig { font-size: 13px; color: #e6c778; letter-spacing: .8px; }
     .price-info .small { color: #9aa383; }
@@ -500,7 +497,7 @@
       .gauge-row { grid-template-columns: 1fr 1fr; gap: 6px; }
       .gcell.main { grid-column: 1 / -1; }
       .gauge-row.even { grid-template-columns: 1fr 1fr; }
-      .gauge-row.even .gcell:last-child { grid-column: 1 / -1; max-width: 58%; margin: 0 auto; }
+      .gauge-row.even .gcell:last-child { grid-column: 1 / -1; }
       .panel-head { flex-wrap: wrap; gap: 6px; }
       .panel-head h2 { font-size: 10px; letter-spacing: 1.8px; }
       .tag { max-width: 100%; }
@@ -573,17 +570,19 @@
             <div class="gauge-row">
               <div class="gcell">
                 <div class="dial-name">Spänning</div>
-                <div class="gauge" id="gaugeVolt"></div>
+                <div class="seg-value" id="segV" role="img" aria-label="Spänning"></div>
+                <div class="seg-unit">volt</div>
               </div>
               <div class="gcell main">
                 <div class="dial-name">Effekt</div>
-                <div class="gauge" id="gaugePower"></div>
-                <div class="digits" id="nowW">--</div>
+                <div class="seg-value" id="segW" role="img" aria-label="Effekt"></div>
+                <div class="seg-unit">watt</div>
                 <div class="small" id="lastCalc">senast räknat –</div>
               </div>
               <div class="gcell">
                 <div class="dial-name">Ström</div>
-                <div class="gauge" id="gaugeAmp"></div>
+                <div class="seg-value" id="segA" role="img" aria-label="Ström"></div>
+                <div class="seg-unit">ampere</div>
               </div>
             </div>
           </div>
@@ -655,17 +654,20 @@
           <div class="gauge-row even">
             <div class="gcell">
               <div class="dial-name">Max effekt</div>
-              <div class="gauge" id="gaugeMaxW"></div>
+              <div class="seg-value" id="segMaxW" role="img" aria-label="Max effekt"></div>
+              <div class="seg-unit">watt</div>
               <div class="gsub"><span id="maxHour">–</span> <span id="maxHourWhen"></span></div>
             </div>
             <div class="gcell">
               <div class="dial-name">Max spänning</div>
-              <div class="gauge" id="gaugeMaxV"></div>
+              <div class="seg-value" id="segMaxV" role="img" aria-label="Max spänning"></div>
+              <div class="seg-unit">volt</div>
               <div class="gsub">denna visning</div>
             </div>
             <div class="gcell">
               <div class="dial-name">Max ström</div>
-              <div class="gauge" id="gaugeMaxA"></div>
+              <div class="seg-value" id="segMaxA" role="img" aria-label="Max ström"></div>
+              <div class="seg-unit">ampere</div>
               <div class="gsub">denna visning</div>
             </div>
           </div>
@@ -717,7 +719,8 @@
         <div class="price-row">
           <div class="gcell">
             <div class="dial-name">Spotpris nu</div>
-            <div class="gauge" id="gaugePrice"></div>
+            <div class="seg-value" id="segPrice" role="img" aria-label="Spotpris"></div>
+            <div class="seg-unit">kr/kWh</div>
           </div>
           <div class="price-info">
             <div class="pbig" id="priceRange">pris saknas</div>
@@ -817,85 +820,6 @@
       s.innerText = txt;
     }
 
-    // ---------- analoga instrument ----------
-    var GAUGES = {}, gaugeN = 0;
-
-    function polar(r, deg) {
-      var a = deg * Math.PI / 180;
-      return [100 + r * Math.sin(a), 100 - r * Math.cos(a)];
-    }
-
-    function arcPath(r, a0, a1) {
-      var p0 = polar(r, a0), p1 = polar(r, a1);
-      var big = Math.abs(a1 - a0) > 180 ? 1 : 0;
-      return 'M' + p0[0].toFixed(2) + ' ' + p0[1].toFixed(2) +
-             ' A' + r + ' ' + r + ' 0 ' + big + ' 1 ' + p1[0].toFixed(2) + ' ' + p1[1].toFixed(2);
-    }
-
-    function gaugeAngle(v, o) { return -120 + 240 * (v - o.min) / (o.max - o.min); }
-
-    function makeGauge(host, o) {
-      if (!host) return;
-      var n = ++gaugeN, i, v, a, major, t = '';
-      var count = Math.round((o.max - o.min) / o.minor);
-      var per = Math.round(o.major / o.minor);
-      for (i = 0; i <= count; i++) {
-        v = o.min + i * o.minor;
-        a = gaugeAngle(v, o);
-        major = (i % per === 0);
-        var p1 = polar(major ? 72 : 78, a), p2 = polar(84, a);
-        t += '<line x1="' + p1[0].toFixed(1) + '" y1="' + p1[1].toFixed(1) +
-             '" x2="' + p2[0].toFixed(1) + '" y2="' + p2[1].toFixed(1) + '" stroke="' +
-             (major ? '#e8e4c9' : 'rgba(226,222,192,.5)') + '" stroke-width="' + (major ? 2 : 1) + '"/>';
-        if (major && o.labels !== false) {
-          var lp = polar(59, a);
-          var lab = o.label ? o.label(v) : String(Math.round(v * 100) / 100);
-          t += '<text x="' + lp[0].toFixed(1) + '" y="' + lp[1].toFixed(1) +
-               '" fill="#d6d3b6" font-size="10" text-anchor="middle" dominant-baseline="middle" font-family="Consolas,monospace">' + lab + '</text>';
-        }
-      }
-      var red = '';
-      if (typeof o.redFrom === 'number' && o.redFrom < o.max) {
-        red = '<path d="' + arcPath(88, gaugeAngle(o.redFrom, o), 120) + '" fill="none" stroke="#a5341f" stroke-width="5"/>';
-      }
-      host.innerHTML =
-        '<svg viewBox="0 0 200 200" aria-hidden="true">' +
-          '<defs>' +
-            '<radialGradient id="gf' + n + '" cx="50%" cy="42%" r="62%">' +
-              '<stop offset="0" stop-color="#252c20"/><stop offset="1" stop-color="#0a0d08"/>' +
-            '</radialGradient>' +
-            '<linearGradient id="gb' + n + '" x1="0" y1="0" x2="1" y2="1">' +
-              '<stop offset="0" stop-color="#b9ae80"/><stop offset=".5" stop-color="#6d6547"/><stop offset="1" stop-color="#353226"/>' +
-            '</linearGradient>' +
-          '</defs>' +
-          '<circle cx="100" cy="100" r="97" fill="url(#gb' + n + ')"/>' +
-          '<circle cx="100" cy="100" r="91" fill="url(#gf' + n + ')" stroke="#040603" stroke-width="2"/>' +
-          '<path d="' + arcPath(88, -120, 120) + '" fill="none" stroke="#cfcdb0" stroke-width="1.5" opacity=".5"/>' +
-          red + t +
-          '<text x="100" y="149" class="gval" font-size="15" font-weight="700" text-anchor="middle" fill="#efe6b8" font-family="Consolas,monospace">0</text>' +
-          '<text x="100" y="165" font-size="8.5" text-anchor="middle" fill="#9fa686" font-family="Consolas,monospace" letter-spacing="1.4">' + (o.unit || '') + '</text>' +
-          '<g class="spin" transform="translate(100 100) rotate(-120)">' +
-            '<path d="M0 0 L-3.6 -68 L3.6 -68 Z" fill="#b8392a"/>' +
-            '<rect x="-1" y="-66" width="2" height="58" fill="#f3e7c4" opacity=".35"/>' +
-            '<circle r="9" fill="#22261b" stroke="#9b9166" stroke-width="1.5"/>' +
-            '<circle r="2.6" fill="#c9bd8c"/>' +
-          '</g>' +
-          '<ellipse cx="76" cy="62" rx="46" ry="26" fill="#ffffff" opacity=".07" transform="rotate(-22 76 62)"/>' +
-        '</svg>';
-      GAUGES[o.key] = { o: o, spin: host.querySelector('.spin'), val: host.querySelector('.gval') };
-      setGauge(o.key, o.min);
-    }
-
-    function setGauge(key, v) {
-      var g = GAUGES[key];
-      if (!g) return;
-      v = (typeof v === 'number' && isFinite(v)) ? v : 0;
-      var capped = Math.max(g.o.min, Math.min(g.o.max, v));
-      g.spin.setAttribute('transform', 'translate(100 100) rotate(' + gaugeAngle(capped, g.o).toFixed(2) + ')');
-      if (g.o.zeroDash && !(v > 0)) g.val.textContent = '–';
-      else g.val.textContent = (g.o.decimals ? v.toFixed(g.o.decimals) : String(Math.round(v)));
-    }
-
     // 7-segmentdisplayen på väggen visar åtta siffror: kortets högsta effekt.
     var SEG_MAP = {
       '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg',
@@ -917,7 +841,7 @@
     }
 
     function segDigitMarkup(extra) {
-      return '<svg class="seg-digit ' + (extra || '') + '" viewBox="0 0 56 96" aria-hidden="true">' + segRects() + '</svg>';
+      return '<svg class="seg-digit ' + (extra || '') + '" viewBox="0 0 56 96" aria-hidden="true">' + segRects() + '<circle class="seg-dp" cx="49" cy="87" r="5.3"/></svg>';
     }
 
     function paintSegDigit(svg, ch) {
@@ -952,15 +876,58 @@
       if (digits) digits.setAttribute('data-value', String(v));
     }
 
-    function initGauges() {
-      var kilo = function (v) { return v === 0 ? '0' : (v / 1000) + 'k'; };
-      makeGauge(byId('gaugePower'), { key: 'W', min: 0, max: 5000, minor: 200, major: 1000, unit: 'WATT', decimals: 0, redFrom: 2000, label: kilo });
-      makeGauge(byId('gaugeVolt'), { key: 'V', min: 200, max: 260, minor: 2, major: 10, unit: 'VOLT', decimals: 1, zeroDash: true });
-      makeGauge(byId('gaugeAmp'), { key: 'A', min: 0, max: 32, minor: 1, major: 4, unit: 'AMPERE', decimals: 2, zeroDash: true });
-      makeGauge(byId('gaugePrice'), { key: 'P', min: 0, max: 3, minor: .1, major: .5, unit: 'KR/KWH', decimals: 2, zeroDash: true, label: function (v) { return (Math.round(v * 10) / 10).toString().replace('.', ','); } });
-      makeGauge(byId('gaugeMaxW'), { key: 'MAXW', min: 0, max: 6000, minor: 200, major: 1000, unit: 'WATT', decimals: 0, label: kilo });
-      makeGauge(byId('gaugeMaxV'), { key: 'MAXV', min: 200, max: 260, minor: 2, major: 10, unit: 'VOLT', decimals: 1, zeroDash: true });
-      makeGauge(byId('gaugeMaxA'), { key: 'MAXA', min: 0, max: 32, minor: 1, major: 4, unit: 'AMPERE', decimals: 2, zeroDash: true });
+    // Fyrsiffriga segmentmätare för livevärden, maxvärden och spotpris.
+    function buildSegMeter(host, digits) {
+      if (!host) return [];
+      if (!host._segDigits || host._segDigits.length !== digits) {
+        var html = '';
+        for (var i = 0; i < digits; i++) html += segDigitMarkup('seg-num');
+        host.innerHTML = html;
+        host._segDigits = host.getElementsByTagName('svg');
+      }
+      return host._segDigits;
+    }
+
+    function setSegMeter(host, value, opt) {
+      if (!host) return;
+      opt = opt || {};
+      var digits = opt.digits || 4;
+      var svgs = buildSegMeter(host, digits);
+      var txt = '';
+      if (typeof value === 'number' && isFinite(value)) {
+        if (!opt.zeroDash || value > 0) txt = opt.decimals ? value.toFixed(opt.decimals) : String(Math.round(value));
+      } else if (typeof value === 'string') {
+        txt = value;
+      }
+
+      var tokens = [], i, c;
+      for (i = 0; i < txt.length; i++) {
+        c = txt.charAt(i);
+        if (c === '.' || c === ',') {
+          if (tokens.length) tokens[tokens.length - 1].dp = true;
+        } else if (c >= '0' && c <= '9') {
+          tokens.push({ ch: c, dp: false, blank: false });
+        }
+      }
+      while (tokens.length > digits) tokens.shift();
+      while (tokens.length < digits) tokens.unshift({ ch: '', dp: false, blank: true });
+
+      for (i = 0; i < digits; i++) {
+        var token = tokens[i], svg = svgs[i];
+        paintSegDigit(svg, token.ch);
+        svg.setAttribute('class', 'seg-digit seg-num' +
+          (token.dp ? ' has-dp' : '') + (token.blank ? ' blank' : ''));
+      }
+      host.setAttribute('data-value', txt);
+      if (opt.label) {
+        host.setAttribute('aria-label', opt.label + ': ' +
+          (txt ? txt.replace('.', ',') : 'saknas') + (opt.unit ? ' ' + opt.unit : ''));
+      }
+    }
+
+    function initSegMeters() {
+      var ids = ['segV', 'segW', 'segA', 'segMaxW', 'segMaxV', 'segMaxA', 'segPrice'];
+      for (var i = 0; i < ids.length; i++) buildSegMeter(byId(ids[i]), 4);
     }
 
     // ---------- rita grafer ----------
@@ -1201,7 +1168,7 @@
       }
       byId('priceNow').innerText = pn > 0 ? pn.toFixed(2) + ' kr/kWh' : '–';
       byId('priceRange').innerText = have ? ('min ' + mn.toFixed(2) + ' · max ' + mx.toFixed(2) + ' kr') : 'pris saknas';
-      setGauge('P', pn);
+      setSegMeter(byId('segPrice'), pn, { decimals: 2, zeroDash: true, label: 'Spotpris', unit: 'kronor per kWh' });
       curPriceTotal = pn > 0 ? pn + feeKr : 0;
       var pt = byId('priceTotal');
       if (pt) pt.innerText = pn > 0
@@ -1324,8 +1291,8 @@
       var hot = w > HIGH_W;
       var p = byId('gaugePanel');
       if (p) p.className = 'panel gauge-panel' + (hot ? ' over' : '');
-      var el = byId('nowW');
-      if (el) el.className = 'digits' + (hot ? ' high' : '');
+      var el = byId('segW');
+      if (el) el.classList.toggle('hot', hot);
       lamp('lampHigh', hot);
       reactorUpdate(w);
       limitLampUpdate(w);
@@ -1466,24 +1433,23 @@
       latest = d;
       lastCalcAt = (typeof d.at === 'number' && d.at > 0) ? d.at * 1000 : Date.now();
 
-      // Analoga mätare: effekt, spänning och ström.
-      var amps = num(d.a);
-      setGauge('W', num(d.w));
-      setGauge('V', num(d.v));
-      setGauge('A', amps);
-      sessMax.v = Math.max(sessMax.v, num(d.v));
+      // Segmentmätare: effekt, spänning och ström.
+      var amps = num(d.a), volts = num(d.v), watts = num(d.w);
+      setSegMeter(byId('segW'), watts, { decimals: 0, label: 'Effekt', unit: 'watt' });
+      setSegMeter(byId('segV'), volts, { decimals: 1, zeroDash: true, label: 'Spänning', unit: 'volt' });
+      setSegMeter(byId('segA'), amps, { decimals: 2, zeroDash: true, label: 'Ström', unit: 'ampere' });
+      sessMax.v = Math.max(sessMax.v, volts);
       sessMax.a = Math.max(sessMax.a, amps);
       // Kortets maxvärde kan vara lägre än en aktuell topp (t.ex. om det
       // räknas som medelvärde). Den stora displayen ska ändå visa högsta
       // effekten vi har sett, annars kan den visa mindre än mätaren.
-      sessMax.w = Math.max(sessMax.w, num(d.maxW), num(d.w));
-      setGauge('MAXW', sessMax.w);
+      sessMax.w = Math.max(sessMax.w, num(d.maxW), watts);
+      setSegMeter(byId('segMaxW'), sessMax.w, { decimals: 0, label: 'Max effekt', unit: 'watt' });
       setMaxSeg8(sessMax.w);
-      setGauge('MAXV', sessMax.v);
-      setGauge('MAXA', sessMax.a);
+      setSegMeter(byId('segMaxV'), sessMax.v, { decimals: 1, zeroDash: true, label: 'Max spänning', unit: 'volt' });
+      setSegMeter(byId('segMaxA'), sessMax.a, { decimals: 2, zeroDash: true, label: 'Max ström', unit: 'ampere' });
 
-      byId('nowW').innerText = num(d.w).toFixed(0) + ' W';
-      markHigh(num(d.w));
+      markHigh(watts);
       measAccum(d);
       byId('meterTotal').innerText = fmtKwh(d.tot);
       byId('sinceBoot').innerText = fmtWh(d.boot);
@@ -1515,7 +1481,7 @@
       }
     }
 
-    initGauges();
+    initSegMeters();
     setMaxSeg8(0);
 
     var client = mqtt.connect(MQTT_URL, {
