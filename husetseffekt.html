@@ -797,7 +797,7 @@
     var samples = [];               // {w, v, t}
     var latest = null;
     var lastSeenTm = 0;
-    var sessMax = { v: 0, a: 0 };   // max under den här visningen
+    var sessMax = { w: 0, v: 0, a: 0 };   // max under den här visningen
 
     function byId(id) { return document.getElementById(id); }
 
@@ -1570,8 +1570,12 @@
       setGauge('A', amps);
       sessMax.v = Math.max(sessMax.v, num(d.v));
       sessMax.a = Math.max(sessMax.a, amps);
-      setGauge('MAXW', num(d.maxW));
-      setMaxSeg8(num(d.maxW));
+      // Kortets maxvärde kan vara lägre än en aktuell topp (t.ex. om det
+      // räknas som medelvärde). Den stora displayen ska ändå visa högsta
+      // effekten vi har sett, annars kan den visa mindre än mätaren.
+      sessMax.w = Math.max(sessMax.w, num(d.maxW), num(d.w));
+      setGauge('MAXW', sessMax.w);
+      setMaxSeg8(sessMax.w);
       setGauge('MAXV', sessMax.v);
       setGauge('MAXA', sessMax.a);
 
