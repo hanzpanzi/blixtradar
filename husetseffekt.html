@@ -322,13 +322,30 @@
       text-shadow: 0 0 10px rgba(150,240,120,.35); font-variant-numeric: tabular-nums;
     }
     .digits.high { color: #ffb49c; text-shadow: 0 0 12px rgba(255,90,60,.6); }
-    .rec { width: 100%; height: 118px; display: block; margin-top: 8px; background: radial-gradient(ellipse at 50% 0%, #07130a, #030803 72%); border: 1px solid #050704; border-radius: 3px; box-shadow: inset 0 0 22px #000, inset 0 0 2px rgba(120,255,150,.18); }
-    .rec.lite { height: 48px; }
+    .seg-graph {
+      display: flex; align-items: stretch; justify-content: center; gap: clamp(2px, .8vw, 5px);
+      width: 100%; min-height: 64px; margin-top: 8px; padding: 8px 7px 7px;
+      background: radial-gradient(ellipse at 50% 0%, #07130a, #030803 72%);
+      border: 1px solid #050704; border-radius: 3px;
+      box-shadow: inset 0 0 22px #000, inset 0 0 2px rgba(120,255,150,.18);
+    }
+    .seg-graph.lite { min-height: 50px; margin-top: 4px; padding: 5px 6px; }
+    .seg-graph .seg-digit { flex: 1 1 0; min-width: 0; max-width: 54px; width: auto; height: auto; overflow: visible; filter: drop-shadow(0 0 4px rgba(255,125,45,.22)); }
+    .seg-graph.lite .seg-digit { max-width: 41px; }
+    .seg-graph .seg { fill: rgba(145,66,28,.12); }
+    .seg-graph .lvl-0 .seg.on, .seg-graph .lvl-1 .seg.on { fill: #55e27b; }
+    .seg-graph .lvl-2 .seg.on { fill: #b3df5c; }
+    .seg-graph .lvl-3 .seg.on { fill: #ffd24a; }
+    .seg-graph .lvl-4 .seg.on { fill: #ff9a3c; }
+    .seg-graph .lvl-5 .seg.on, .seg-graph .hot .seg.on { fill: #ff4b2e; }
+    .seg-graph .seg-digit.now { filter: drop-shadow(0 0 8px rgba(255,220,120,.8)); }
+    .seg-graph .seg-digit.empty { filter: none; }
+    .seg-graph .seg-digit.empty .seg { fill: rgba(145,66,28,.028); }
     .chart-note { margin-top: 6px; font: 9px/1.5 Consolas, "Courier New", monospace; color: #7f886c; letter-spacing: .7px; text-transform: uppercase; }
     .row3 { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; color: #8f987c; font: 10px Consolas, "Courier New", monospace; letter-spacing: .8px; text-transform: uppercase; }
     .volt-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #1a2016; font: 10px Consolas, "Courier New", monospace; color: #9aa383; letter-spacing: .8px; }
     .volt-strip b { color: #d7dcc0; }
-    .volt-strip canvas { flex: 1 1 160px; min-width: 120px; }
+    .volt-strip .seg-graph { flex: 1 1 100%; }
 
     /* ---- kokande reagensrör vid 2 kW ---- */
     .reactor-panel { overflow: hidden; }
@@ -453,21 +470,15 @@
     .price-info .pbig { font-size: 13px; color: #e6c778; letter-spacing: .8px; }
     .price-info .small { color: #9aa383; }
 
-    /* ---- energi, mätning, faser ---- */
+    /* ---- energi och mätning ---- */
     .split { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .split.single { grid-template-columns: 1fr; }
+    .split.single .gauge-row.even { max-width: 720px; margin: 0 auto; }
     .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .tile { background: #1c2317; border: 1px solid #10140c; border-radius: 3px; padding: 8px 7px; text-align: left; }
     .tile .label { font: 9px/1.3 Consolas, monospace; letter-spacing: 1.2px; text-transform: uppercase; color: #8f987c; }
     .drum { margin-top: 4px; background: #0b0e08; border-radius: 2px; padding: 4px 5px; color: #efe5bd; font: 700 13px/1.3 Consolas, "Courier New", monospace; letter-spacing: 1px; box-shadow: inset 0 0 10px #000; }
     .small { color: #909a7e; font-size: .8em; margin-top: 8px; }
-    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .phase { background: #1c2317; border: 1px solid #10140c; border-radius: 3px; padding: 5px 4px 7px; text-align: center; }
-    .phase.top { border-color: #8a6b26; box-shadow: 0 0 10px rgba(200,160,60,.18); }
-    .phase .pname { font: 9px Consolas, monospace; letter-spacing: 2px; color: #a9b18f; }
-    .phase .pgauge svg { width: 100%; height: auto; display: block; }
-    .phase .pw { font: 700 11px Consolas, monospace; color: #e6d9a8; letter-spacing: .5px; }
-    .phase .pmeta { font: 9px/1.5 Consolas, monospace; color: #8f987c; }
-
     .meas { cursor: pointer; transition: border-color .2s, box-shadow .2s; }
     .meas.active { border-color: #a33b28; }
     .meas.done { border-color: #57813f; }
@@ -513,7 +524,6 @@
       .split { grid-template-columns: 1.15fr 1fr; }
       .gauge-row { grid-template-columns: 1fr 1.5fr 1fr; }
       .tiles { grid-template-columns: repeat(4, 1fr); }
-      .rec { height: 140px; }
     }
     @media (max-width: 560px) {
       body { padding: 9px; }
@@ -621,14 +631,14 @@
             </div>
           </div>
         </div>
-        <canvas id="liveChart" class="rec" aria-label="Effekt senaste 30 minuter, LED-staplar"></canvas>
-        <div class="row3"><span>senaste 30 min</span><span id="liveAvg">snitt --</span><span id="liveMax">max --</span></div>
+        <div class="seg-graph" id="liveSeg" role="img" aria-label="Effekt senaste 30 minuter som segmentdisplay"></div>
+        <div class="row3"><span>−30 min · nivå 0–9</span><span id="liveAvg">snitt --</span><span id="liveMax">max --</span></div>
         <div class="volt-strip">
-          <span>Spänning · 30 min</span>
+          <span>Spänning · 12 segment</span>
           <b id="voltAvg">--</b>
           <span>min <b id="voltMin">--</b></span>
           <span>max <b id="voltMax">--</b></span>
-          <canvas id="voltChart" class="rec lite" aria-label="Spänning senaste 30 minuter, LED-staplar"></canvas>
+          <div class="seg-graph lite" id="voltSeg" role="img" aria-label="Spänning senaste 30 minuter som segmentdisplay"></div>
         </div>
       </section>
 
@@ -678,7 +688,7 @@
         </div>
       </section>
 
-      <div class="split">
+      <div class="split single">
         <section class="panel">
           <div class="panel-head">
             <span class="tag">ЩИТ №2</span>
@@ -704,14 +714,6 @@
           </div>
         </section>
 
-        <section class="panel">
-          <div class="panel-head">
-            <span class="tag">ЩИТ №3</span>
-            <h2>Faser L1–L3</h2>
-            <span class="tag" id="phaseHdr">fördelning</span>
-          </div>
-          <div class="grid3" id="phases"></div>
-        </section>
       </div>
 
       <div class="split">
@@ -766,8 +768,8 @@
             <div class="small" id="costToday">idag –</div>
           </div>
         </div>
-        <canvas id="priceChart" class="rec" aria-label="Elpris per timme, LED-staplar"></canvas>
-        <div class="chart-note">timmedel · kostnaden räknas per kvart</div>
+        <div class="seg-graph" id="priceSeg" role="img" aria-label="Elpris som segmentdisplay, två timmar per siffra"></div>
+        <div class="chart-note">2 timmar/siffra · nivå 0–9 · kostnad per kvart</div>
       </section>
 
       <section class="panel">
@@ -943,9 +945,7 @@
     };
     var segDigits = null;
 
-    function buildSeg8() {
-      var host = byId('maxSeg8');
-      if (!host || segDigits) return;
+    function segRects() {
       var r = '';
       var segs = [
         ['a', 10, 4, 36, 8], ['b', 45, 11, 8, 32], ['c', 45, 51, 8, 32],
@@ -955,8 +955,28 @@
         r += '<rect class="seg" data-seg="' + segs[s][0] + '" x="' + segs[s][1] + '" y="' + segs[s][2] +
              '" width="' + segs[s][3] + '" height="' + segs[s][4] + '" rx="3"/>';
       }
+      return r;
+    }
+
+    function segDigitMarkup(extra) {
+      return '<svg class="seg-digit ' + (extra || '') + '" viewBox="0 0 56 96" aria-hidden="true">' + segRects() + '</svg>';
+    }
+
+    function paintSegDigit(svg, ch) {
+      if (!svg) return;
+      var on = SEG_MAP[ch] || '';
+      var rects = svg.getElementsByTagName('rect');
+      for (var j = 0; j < rects.length; j++) {
+        var seg = rects[j].getAttribute('data-seg');
+        rects[j].setAttribute('class', 'seg' + (on.indexOf(seg) >= 0 ? ' on' : ''));
+      }
+    }
+
+    function buildSeg8() {
+      var host = byId('maxSeg8');
+      if (!host || segDigits) return;
       var h = '';
-      for (var i = 0; i < 8; i++) h += '<svg class="seg-digit" viewBox="0 0 56 96" aria-hidden="true">' + r + '</svg>';
+      for (var i = 0; i < 8; i++) h += segDigitMarkup();
       host.innerHTML = h;
       segDigits = host.getElementsByTagName('svg');
     }
@@ -967,14 +987,7 @@
       v = (typeof v === 'number' && isFinite(v) && v > 0) ? Math.round(v) : 0;
       var s = String(Math.min(99999999, v));
       while (s.length < 8) s = '0' + s;
-      for (var i = 0; i < segDigits.length; i++) {
-        var on = SEG_MAP[s.charAt(i)] || '';
-        var rects = segDigits[i].getElementsByTagName('rect');
-        for (var j = 0; j < rects.length; j++) {
-          var seg = rects[j].getAttribute('data-seg');
-          rects[j].setAttribute('class', 'seg' + (on.indexOf(seg) >= 0 ? ' on' : ''));
-        }
-      }
+      for (var i = 0; i < segDigits.length; i++) paintSegDigit(segDigits[i], s.charAt(i));
       var box = byId('wallMax');
       if (box) box.setAttribute('aria-label', 'Högsta effekt ' + v + ' watt');
       var digits = byId('maxSeg8');
@@ -992,81 +1005,38 @@
       makeGauge(byId('gaugeMaxA'), { key: 'MAXA', min: 0, max: 32, minor: 1, major: 4, unit: 'AMPERE', decimals: 2, zeroDash: true });
     }
 
-    var phasesBuilt = false;
-    function buildPhases() {
-      if (phasesBuilt) return;
-      var host = byId('phases');
-      if (!host) return;
-      var h = '', i;
-      for (i = 0; i < 3; i++) {
-        h += '<div class="phase" id="phas' + i + '">' +
-             '<div class="pname">L' + (i + 1) + '</div>' +
-             '<div class="pgauge" id="gaugeL' + i + '"></div>' +
-             '<div class="pw" id="pw' + i + '">–</div>' +
-             '<div class="pmeta" id="pm' + i + '"></div></div>';
-      }
-      host.innerHTML = h;
-      for (i = 0; i < 3; i++) {
-        makeGauge(byId('gaugeL' + i), { key: 'L' + i, min: 0, max: 20, minor: 2, major: 5, unit: 'A', decimals: 1, zeroDash: true, labels: false });
-      }
-      phasesBuilt = true;
-    }
-
     // ---------- rita grafer ----------
-    function prepCanvas(cv, high) {
-      var dpr = window.devicePixelRatio || 1;
-      var w = cv.clientWidth || 300, h = high;
-      cv.width = w * dpr; cv.height = h * dpr;
-      var ctx = cv.getContext('2d');
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.clearRect(0, 0, w, h);
-      return { ctx: ctx, w: w, h: h };
+    // Fasta platser i livegraferna: en stapel per minut, nyast till höger.
+    function padSeries(vals, n) {
+      if (!vals.length || vals.length >= n) return vals;
+      var out = [], i;
+      for (i = 0; i < n - vals.length; i++) out.push(0);
+      return out.concat(vals);
     }
 
-    // En rundad lysdiod. roundRect finns i alla webbläsare som sidan stödjer,
-    // men fillRect är en ofarlig reserv för äldre versioner.
-    function ledCell(ctx, x, y, w, h) {
-      if (typeof ctx.roundRect === 'function') {
-        ctx.beginPath();
-        ctx.roundRect(x, y, w, h, Math.min(1.5, h / 2));
-        ctx.fill();
-      } else {
-        ctx.fillRect(x, y, w, h);
-      }
-    }
-
-    // LED-staplar: varje stapel är en kolumn tända lysdioder, som på en
-    // gammal spektrumanalysator. opt.min/max låser skalan; annars anpassas
-    // den till värdena. opt.agg 'max' fångar korta effekttoppar.
-    function ledChart(cv, vals, opt) {
-      if (!cv) return;
+    // En historik som en rad 7-segmentsiffror. Varje siffra är en nivå 0–9
+    // för sitt tidsfönster; färgen följer nivån precis som på de gamla
+    // LED-staplarna, och den aktuella siffran markeras med en glöd.
+    function segGraph(host, vals, opt) {
+      if (!host) return;
       opt = opt || {};
-      var height = Math.max(opt.height || 96, cv.clientHeight || 0);
-      var p = prepCanvas(cv, height), ctx = p.ctx, w = p.w, h = p.h, i, c;
-      ctx.fillStyle = '#040a04';
-      ctx.fillRect(0, 0, w, h);
-      var glass = ctx.createLinearGradient(0, 0, 0, h);
-      glass.addColorStop(0, 'rgba(140,255,170,.08)');
-      glass.addColorStop(.35, 'rgba(20,60,30,.02)');
-      glass.addColorStop(1, 'rgba(0,0,0,.35)');
-      ctx.fillStyle = glass;
-      ctx.fillRect(0, 0, w, h);
-      if (!vals || !vals.length) return;
-
-      var maxCols = opt.maxCols || Math.max(16, Math.floor(w / 9));
-      var cols = Math.min(vals.length, maxCols);
-      var data = [], mn = opt.min, mx = opt.max;
+      vals = vals || [];
+      var cols = opt.cols || 12, data = [], c, i;
       for (c = 0; c < cols; c++) {
-        var a = Math.floor(c * vals.length / cols), b = Math.floor((c + 1) * vals.length / cols);
+        var a = vals.length ? Math.floor(c * vals.length / cols) : 0;
+        var b = vals.length ? Math.floor((c + 1) * vals.length / cols) : 0;
         var sum = 0, top = -Infinity, n = 0;
         for (i = a; i < b; i++) {
           var raw = vals[i];
           if (typeof raw !== 'number' || !isFinite(raw)) continue;
+          if (opt.ignoreZero && !(raw > 0)) continue;
           sum += raw; n++;
           if (raw > top) top = raw;
         }
         data.push(opt.agg === 'max' ? (top === -Infinity ? 0 : top) : (n ? sum / n : 0));
       }
+
+      var mn = opt.min, mx = opt.max;
       if (mn === undefined || mx === undefined) {
         mn = 1e9; mx = -1e9;
         for (i = 0; i < data.length; i++) {
@@ -1080,75 +1050,32 @@
       }
       if (!(mx > mn)) mx = mn + 1;
 
-      var labelH = opt.labels ? 13 : 6;
-      var baseY = h - labelH;
-      var step = h >= 100 ? 6 : 4.6;
-      var rows = Math.max(5, Math.floor((baseY - 3) / step));
-      var colW = (w - 2) / cols;
-      var gapX = cols > 40 ? 3 : (cols > 28 ? 4 : 5);
-      var ledW = Math.max(1.4, colW - gapX);
-      var ledH = Math.max(2, step - 1.6);
-      var markCol = opt.markAt === undefined ? -1 : Math.min(cols - 1, Math.floor(opt.markAt / vals.length * cols));
+      if (!host._segDigits || host._segDigits.length !== cols) {
+        var html = '';
+        for (c = 0; c < cols; c++) html += segDigitMarkup('seg-cell');
+        host.innerHTML = html;
+        host._segDigits = host.getElementsByTagName('svg');
+      }
 
+      var mark = opt.markCol === undefined ? -1 : Math.max(0, Math.min(cols - 1, opt.markCol));
       for (c = 0; c < cols; c++) {
-        var frac = (data[c] - mn) / (mx - mn);
-        frac = Math.max(0, Math.min(1, frac));
-        var lit = Math.round(frac * rows);
-        var x = 1 + c * colW + gapX / 2;
-        for (i = 0; i < rows; i++) {
-          var y = baseY - (i + 1) * step + (step - ledH) / 2;
-          if (i < lit) {
-            var level = mn + ((i + .5) / rows) * (mx - mn);
-            var colour = ledColour(opt.kind, level, mn, mx);
-            ctx.fillStyle = 'rgba(120,255,150,.14)';
-            ledCell(ctx, x - 1, y - 1, ledW + 2, ledH + 2);
-            ctx.fillStyle = colour;
-            ledCell(ctx, x, y, ledW, ledH);
-            ctx.fillStyle = 'rgba(255,255,255,.22)';
-            ctx.fillRect(x, y, ledW, 1);
-          } else {
-            ctx.fillStyle = '#0a170c';
-            ledCell(ctx, x, y, ledW, ledH);
-          }
+        var svg = host._segDigits[c];
+        if (opt.blankZero && !(data[c] > 0)) {
+          paintSegDigit(svg, '');
+          svg.setAttribute('class', 'seg-digit seg-cell empty');
+          continue;
         }
-        if (c === markCol) {
-          ctx.fillStyle = '#e6c778';
-          ctx.fillRect(x, h - 5, ledW, 2);
-          if (lit > 0) {
-            var capY = baseY - lit * step + (step - ledH) / 2;
-            ctx.fillRect(x, capY - 2, ledW, 1.5);
-          }
-        }
+        var f = (data[c] - mn) / (mx - mn);
+        f = Math.max(0, Math.min(1, f));
+        paintSegDigit(svg, String(Math.round(f * 9)));
+        var lvl = Math.min(5, Math.max(0, Math.ceil(f * 5)));
+        var cls = 'seg-digit seg-cell lvl-' + lvl + (c === mark ? ' now' : '');
+        if (opt.kind === 'power' && data[c] >= 2000) cls += ' hot';
+        if (opt.kind === 'price' && f >= .82) cls += ' hot';
+        svg.setAttribute('class', cls);
       }
-      if (opt.labels) {
-        ctx.fillStyle = '#72885f';
-        ctx.font = '9px Consolas, monospace';
-        var lx = function (bar) { return Math.max(1, Math.min(w - 12, (bar + .5) / cols * w - 5)); };
-        ctx.fillText('00', lx(0), h - 1);
-        ctx.fillText('06', lx(6), h - 1);
-        ctx.fillText('12', lx(12), h - 1);
-        ctx.fillText('18', lx(18), h - 1);
-        ctx.fillText('23', lx(23), h - 1);
-      }
-    }
-
-    // Färgen sitter på lysdiodens nivå, inte på hela stapeln: grönt i botten,
-    // gult och rött högst upp – som på en VU-mätare. Effekt över 2 kW blir röd.
-    function ledColour(kind, level, mn, mx) {
-      var f = (level - mn) / (mx - mn);
-      if (kind === 'power') return level >= 2000 ? '#ff4b2e' : '#45f27a';
-      if (kind === 'volt') return f > .93 ? '#ff7a3c' : (f > .8 ? '#ffd24a' : '#4df07c');
-      if (f > .82) return '#ff4b2e';
-      if (f > .6) return '#ffd24a';
-      return '#45f27a';
-    }
-
-    // Fasta platser i livegraferna: en stapel per minut, nyast till höger.
-    function padSeries(vals, n) {
-      if (!vals.length || vals.length >= n) return vals;
-      var out = [], i;
-      for (i = 0; i < n - vals.length; i++) out.push(0);
-      return out.concat(vals);
+      host.setAttribute('data-values', data.map(function (x) { return Math.round(x * 10) / 10; }).join(','));
+      if (opt.aria) host.setAttribute('aria-label', opt.aria);
     }
 
     function drawGraphs() {
@@ -1156,7 +1083,6 @@
       var ws = [], vs = [], i;
       for (i = 0; i < samples.length; i++) {
         ws.push(samples[i].w);
-        // Prover utan spänning får inte hamna i grafen – de blev NaN-punkter.
         if (typeof samples[i].v === 'number' && samples[i].v > 1) vs.push(samples[i].v);
       }
 
@@ -1176,16 +1102,16 @@
       byId('voltMax').innerText = n ? vmax.toFixed(1) : '–';
 
       var wPlot = padSeries(ws, 30), vPlot = padSeries(vs, 30);
-      ledChart(byId('liveChart'), wPlot, { min: 0, max: 5000, agg: 'max', kind: 'power', maxCols: 30, markAt: wPlot.length - 1 });
-      ledChart(byId('voltChart'), vPlot, { agg: 'avg', kind: 'volt', ignoreZero: true, pad: 1, height: 48, maxCols: 30, markAt: vPlot.length - 1 });
+      segGraph(byId('liveSeg'), wPlot, { cols: 12, min: 0, max: 5000, agg: 'max', kind: 'power', blankZero: true, markCol: 11, aria: 'Effekt senaste 30 minuter som segmentdisplay' });
+      segGraph(byId('voltSeg'), vPlot, { cols: 12, min: 200, max: 260, agg: 'avg', ignoreZero: true, blankZero: true, kind: 'volt', markCol: 11, aria: 'Spänning senaste 30 minuter som segmentdisplay' });
     }
 
     // ---------- elpris (SE3) och maxtimme ----------
-    // Prisgrafen visar timmedel (24 staplar) i stället för 96 kvartsstaplar.
-    // Kvartspriserna används fortfarande för kostnad, statusrad och ticker.
-    function drawPriceBars(cv, arr, cur) {
+    // Prisdisplayen visar 12 siffror för tvåtimmarsspann. Kvartspriserna
+    // används fortfarande för kostnad, statusrad och ticker.
+    function drawPriceSeg(host, arr, cur) {
       arr = arr || [];
-      var vals = [], h, i, sum, n, v;
+      var hourly = [], h, i, sum, n, v;
       if (arr.length >= 96) {
         for (h = 0; h < 24; h++) {
           sum = 0; n = 0;
@@ -1193,14 +1119,28 @@
             v = num(arr[i]);
             if (v > 0) { sum += v; n++; }
           }
-          vals.push(n ? sum / n : 0);
+          hourly.push(n ? sum / n : 0);
         }
       } else {
-        vals = arr.slice();
+        hourly = arr.slice();
+      }
+      var bins = [], cols = 12, a, b;
+      for (h = 0; h < cols; h++) {
+        a = Math.floor(h * hourly.length / cols);
+        b = Math.floor((h + 1) * hourly.length / cols);
+        sum = 0; n = 0;
+        for (i = a; i < b; i++) {
+          if (hourly[i] > 0) { sum += hourly[i]; n++; }
+        }
+        bins.push(n ? sum / n : 0);
       }
       var mx = 0.1;
-      for (i = 0; i < vals.length; i++) if (vals[i] > mx) mx = vals[i];
-      ledChart(cv, vals, { min: 0, max: mx * 1.1, kind: 'price', labels: true, maxCols: 24, markAt: Math.min(23, Math.floor(cur / 4)) });
+      for (i = 0; i < bins.length; i++) if (bins[i] > mx) mx = bins[i];
+      segGraph(host, bins, {
+        cols: 12, min: 0, max: mx * 1.1, kind: 'price', blankZero: true,
+        markCol: Math.min(11, Math.floor(cur / 8)),
+        aria: 'Elpris som segmentdisplay, två timmar per siffra'
+      });
     }
 
     // Kvartspriserna kommer från Greenelys egen spotpris-endpoint och sparas i
@@ -1310,7 +1250,7 @@
         ? ((pn + feeKr).toFixed(2) + ' kr/kWh inkl elöverföring · kvart ' +
            ('0' + cur).slice(-2) + ':' + ('0' + (Math.floor(now.getMinutes() / 15) * 15)).slice(-2))
         : '';
-      drawPriceBars(byId('priceChart'), qp, qIdx);
+      drawPriceSeg(byId('priceSeg'), qp, qIdx);
 
       var mw = num(d.maxW), mh = (typeof d.maxH === 'number' ? d.maxH : -1);
       // En rad per klockslag. Kvartarnas energi (q) gånger kvartarnas pris
@@ -1570,9 +1510,6 @@
 
       // Analoga mätare: effekt, spänning och ström.
       var amps = num(d.a);
-      if (!(amps > 0) && d.ph) {
-        for (var ai = 0; ai < d.ph.length; ai++) amps += num(d.ph[ai] && d.ph[ai][2]);
-      }
       setGauge('W', num(d.w));
       setGauge('V', num(d.v));
       setGauge('A', amps);
@@ -1597,29 +1534,9 @@
       renderPrice(d);
       measTick();
 
-      // Faser L1-L3: [W, V, A, Wh] per fas. Varje fas har en egen liten
-      // amperemeter; den mest belastade markeras.
-      var ph = d.ph || [];
-      buildPhases();
-      var topIdx = 0, topVal = -1e9, i;
-      for (i = 0; i < 3; i++) {
-        var v0 = num(ph[i] && ph[i][0]);
-        if (v0 > topVal) { topVal = v0; topIdx = i; }
-      }
-      for (i = 0; i < 3; i++) {
-        var p = ph[i] || [];
-        var pw = num(p[0]), pv = num(p[1]), pa = num(p[2]);
-        var pwEl = byId('pw' + i), pmEl = byId('pm' + i), cell = byId('phas' + i);
-        if (pwEl) pwEl.innerText = pw.toFixed(0) + ' W';
-        if (pmEl) pmEl.innerHTML = (pv > 1 ? pv.toFixed(0) + ' V · ' : '') +
-          (pa > 0.005 ? pa.toFixed(2) + ' A' : '–') + '<br>' + fmtWh(p[3]);
-        if (cell) cell.className = 'phase' + (i === topIdx && topVal > 0 ? ' top' : '');
-        setGauge('L' + i, pa);
-      }
-
-      var up = d.up || 0, nFas = d.n || ph.length || 0;
+      var up = d.up || 0;
       byId('foot').innerText = 'Uppringd tid hos kortet: ' + Math.floor(up / 3600) + ' h ' +
-        Math.floor((up % 3600) / 60) + ' min · ' + nFas + ' fas' + (nFas === 1 ? '' : 'er') +
+        Math.floor((up % 3600) / 60) + ' min' +
         (d.rssi ? ' · Wi-Fi ' + d.rssi + ' dBm' : '');
 
       if (Date.now() - lastSeenTm > 30000) {
