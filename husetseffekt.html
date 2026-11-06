@@ -116,6 +116,7 @@
     .panel-head .tag:first-child { margin-left: 0; }
 
     /* ---- analoga mätare ---- */
+    .gauge-row.even { grid-template-columns: repeat(3, 1fr); }
     .gauge-row { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 10px; align-items: end; }
     .gcell { min-width: 0; text-align: center; }
     .dial-name { font: 10px/1.3 Consolas, "Courier New", monospace; letter-spacing: 2px; text-transform: uppercase; color: #abb391; margin-bottom: 5px; text-shadow: 0 1px 0 #000; }
@@ -212,6 +213,8 @@
       .panel { padding: 13px 10px 11px; }
       .gauge-row { grid-template-columns: 1fr 1fr; gap: 6px; }
       .gcell.main { grid-column: 1 / -1; }
+      .gauge-row.even { grid-template-columns: 1fr 1fr; }
+      .gauge-row.even .gcell:last-child { grid-column: 1 / -1; max-width: 58%; margin: 0 auto; }
       .panel-head { flex-wrap: wrap; gap: 6px; }
       .panel-head h2 { font-size: 10px; letter-spacing: 1.8px; }
       .tag { max-width: 100%; }
@@ -302,7 +305,7 @@
             <h2>Maxvärden</h2>
             <span class="tag">sedan start</span>
           </div>
-          <div class="gauge-row">
+          <div class="gauge-row even">
             <div class="gcell">
               <div class="dial-name">Max effekt</div>
               <div class="gauge" id="gaugeMaxW"></div>
