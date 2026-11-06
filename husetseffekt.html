@@ -8,11 +8,11 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Husets effekt">
+  <meta name="apple-mobile-web-app-title" content="PowerPlant">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-  <title>Husets effekt · PEAKTOP №4</title>
+  <title>PowerPlant · PEAKTOP №4</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -106,8 +106,8 @@
     .plate-top { font: 700 9px/1.2 Consolas, "Courier New", monospace; letter-spacing: 3px; color: #5b5943; text-transform: uppercase; }
     .plate h1 {
       margin: 2px 0 2px; font-family: "Arial Narrow", "Segoe UI", Impact, sans-serif;
-      font-size: clamp(24px, 5.4vw, 42px); line-height: .95; letter-spacing: 1.5px;
-      text-transform: uppercase; color: #20231a; text-shadow: 0 1px 0 rgba(255,255,255,.4);
+      font-size: clamp(24px, 5.4vw, 42px); line-height: .95; letter-spacing: .5px;
+      text-transform: none; color: #20231a; text-shadow: 0 1px 0 rgba(255,255,255,.4);
     }
     .plate-bot { font: 700 9px/1.2 Consolas, "Courier New", monospace; letter-spacing: 2.6px; color: #5b5943; text-transform: uppercase; }
 
@@ -198,6 +198,52 @@
     .volt-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #1a2016; font: 10px Consolas, "Courier New", monospace; color: #9aa383; letter-spacing: .8px; }
     .volt-strip b { color: #d7dcc0; }
     .volt-strip canvas { flex: 1 1 160px; min-width: 120px; }
+
+    /* ---- kokande reagensrör vid 2 kW ---- */
+    .reactor-panel { overflow: hidden; }
+    .reactor-body { display: flex; align-items: center; gap: clamp(14px, 3vw, 30px); }
+    .tube { position: relative; flex: 0 0 auto; width: 62px; height: 128px; margin-left: 4px; }
+    .tube::before { content: ""; position: absolute; left: -4px; right: -4px; top: -5px; height: 8px; border-radius: 4px; background: linear-gradient(180deg, rgba(220,235,220,.55), rgba(140,160,140,.25)); box-shadow: 0 2px 4px rgba(0,0,0,.5); }
+    .tube-glass { position: absolute; inset: 0; border: 3px solid rgba(200,222,206,.5); border-top: none; border-radius: 5px 5px 30px 30px / 5px 5px 40px 40px; background: linear-gradient(90deg, rgba(255,255,255,.10), rgba(255,255,255,.02) 42%, rgba(255,255,255,.14) 72%, rgba(255,255,255,.04)); box-shadow: inset 0 0 20px rgba(0,0,0,.5), 0 6px 12px rgba(0,0,0,.5); }
+    .liquid { position: absolute; left: 5px; right: 5px; bottom: 5px; height: 46%; border-radius: 4px 4px 25px 25px / 4px 4px 34px 34px; background: linear-gradient(180deg, rgba(206,158,82,.9), rgba(138,82,28,.95)); box-shadow: 0 0 16px rgba(220,140,50,.28); transition: height .6s ease, background .3s, box-shadow .3s; }
+    .reactor-panel.boil .liquid { background: linear-gradient(180deg, #ffd484, #dd7f2c 55%, #a8400f); box-shadow: 0 0 26px rgba(255,140,60,.7); }
+    .bubbles { position: absolute; inset: 0; overflow: hidden; border-radius: 0 0 30px 30px / 0 0 40px 40px; }
+    .bubbles i { position: absolute; bottom: 10px; width: 7px; height: 7px; border-radius: 50%; background: rgba(255,238,205,.8); opacity: 0; box-shadow: 0 0 6px rgba(255,220,170,.7); }
+    .bubbles i:nth-child(1) { left: 12px; animation-duration: 1.5s; animation-delay: 0s; }
+    .bubbles i:nth-child(2) { left: 30px; animation-duration: 1.9s; animation-delay: .35s; }
+    .bubbles i:nth-child(3) { left: 20px; animation-duration: 1.3s; animation-delay: .7s; }
+    .bubbles i:nth-child(4) { left: 40px; animation-duration: 1.7s; animation-delay: .15s; }
+    .bubbles i:nth-child(5) { left: 8px;  animation-duration: 2.1s; animation-delay: .9s; }
+    .bubbles i:nth-child(6) { left: 34px; animation-duration: 1.6s; animation-delay: 1.1s; }
+    .reactor-panel.boil .bubbles i { animation-name: bubble; animation-timing-function: linear; animation-iteration-count: infinite; }
+    @keyframes bubble { 0% { transform: translateY(0) scale(.5); opacity: 0; } 12% { opacity: .85; } 100% { transform: translateY(-86px) scale(1.2); opacity: 0; } }
+    .steam i { position: absolute; top: -8px; width: 12px; height: 12px; border-radius: 50%; background: rgba(230,240,225,.2); filter: blur(3px); opacity: 0; }
+    .steam i:nth-child(1) { left: 14px; }
+    .steam i:nth-child(2) { left: 28px; animation-delay: .8s; }
+    .steam i:nth-child(3) { left: 40px; animation-delay: 1.6s; }
+    .reactor-panel.boil .steam i { animation: steam 2.4s ease-out infinite; }
+    @keyframes steam { 0% { transform: translateY(0) scale(.6); opacity: 0; } 25% { opacity: .5; } 100% { transform: translate(4px, -30px) scale(1.7); opacity: 0; } }
+    .heat { position: absolute; left: 50%; bottom: -9px; width: 40px; height: 12px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(255,120,40,.6), transparent 70%); opacity: 0; transition: opacity .3s; }
+    .reactor-panel.boil .heat { opacity: 1; }
+    .reactor-info { flex: 1 1 auto; min-width: 0; }
+    .reactor-value { font: 700 26px/1 Consolas, "Courier New", monospace; color: #efe5bd; letter-spacing: 1px; }
+    .reactor-value small { font-size: 12px; color: #9aa383; margin-left: 4px; }
+    .reactor-line { margin-top: 3px; font: 10px Consolas, monospace; letter-spacing: 1.2px; text-transform: uppercase; color: #9aa383; }
+    .reactor-panel.boil .reactor-line { color: #e0836a; }
+    .powerbar { position: relative; height: 10px; margin-top: 16px; background: #0b0f08; border: 1px solid #050704; border-radius: 2px; box-shadow: inset 0 0 8px #000; }
+    .powerbar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 1px; background: linear-gradient(90deg, #6d8a4c, #b7a24a 60%, #c0602c); transition: width .6s ease; }
+    .reactor-panel.boil .powerbar-fill { background: linear-gradient(90deg, #bd8f3f, #d9782a 65%, #e2451f); }
+    .powerbar-limit { position: absolute; left: 40%; top: -4px; bottom: -4px; width: 2px; background: #c33a24; box-shadow: 0 0 6px rgba(200,60,30,.8); }
+    .powerbar-limit span { position: absolute; top: -14px; left: -10px; font: 8px Consolas, monospace; color: #dd836a; letter-spacing: .6px; }
+    .powerbar-mark { position: absolute; top: -4px; width: 2px; height: 16px; background: #ece4c6; box-shadow: 0 0 6px rgba(255,255,230,.75); transition: left .6s ease; }
+    .powerbar-scale { display: flex; justify-content: space-between; margin-top: 4px; font: 8px Consolas, monospace; color: #7f886c; letter-spacing: .8px; }
+    @media (max-width: 560px) {
+      .tube { width: 54px; height: 112px; }
+      .reactor-value { font-size: 21px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .bubbles i, .steam i, .liquid { animation: none !important; }
+    }
 
     /* ---- pris ---- */
     .price-row { display: grid; grid-template-columns: minmax(120px, 190px) 1fr; gap: 14px; align-items: center; }
@@ -305,7 +351,7 @@
     <header class="masthead">
       <div class="plate">
         <div class="plate-top">ЭНЕРГОБЛОК · ЩИТ №4</div>
-        <h1>Husets effekt</h1>
+        <h1>PowerPlant</h1>
         <div class="plate-bot">PEAKTOP №4 · SE3 · LIVE</div>
       </div>
     </header>
@@ -362,6 +408,33 @@
           <span>min <b id="voltMin">--</b></span>
           <span>max <b id="voltMax">--</b></span>
           <canvas id="voltChart" class="rec lite" aria-label="Spänning senaste 30 minuter"></canvas>
+        </div>
+      </section>
+
+      <section class="panel reactor-panel" id="reactor">
+        <div class="panel-head">
+          <span class="tag">ЩИТ №8</span>
+          <h2>Reaktor · kokpunkt 2 kW</h2>
+          <span class="tag" id="reactorState">stabil</span>
+        </div>
+        <div class="reactor-body">
+          <div class="tube" aria-hidden="true">
+            <div class="tube-glass"></div>
+            <div class="liquid" id="tubeLiquid"></div>
+            <div class="bubbles"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="steam"><i></i><i></i><i></i></div>
+            <div class="heat"></div>
+          </div>
+          <div class="reactor-info">
+            <div class="reactor-value"><span id="reactorW">–</span><small>W</small></div>
+            <div class="reactor-line" id="reactorHint">under kokpunkten · 2 kW</div>
+            <div class="powerbar" aria-hidden="true">
+              <div class="powerbar-fill" id="reactorFill"></div>
+              <div class="powerbar-limit"><span>2 kW</span></div>
+              <div class="powerbar-mark" id="reactorMark"></div>
+            </div>
+            <div class="powerbar-scale" aria-hidden="true"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5 kW</span></div>
+          </div>
         </div>
       </section>
 
@@ -959,6 +1032,23 @@
     setInterval(tickClock, 1000);
 
     // Hög last: över 2000 W lyser panelen och ПЕРЕГРУЗ-lampan rött.
+    // Kokande reagensrör: vid 2 kW börjar vätskan koka, bubbla och ånga.
+    function reactorUpdate(w) {
+      var box = byId('reactor');
+      if (!box) return;
+      w = num(w);
+      var pct = Math.max(0, Math.min(1, w / 5000));
+      var boil = w >= 2000;
+      box.className = 'panel reactor-panel' + (boil ? ' boil' : '');
+      var fill = byId('reactorFill'), mark = byId('reactorMark'), liq = byId('tubeLiquid');
+      if (fill) fill.style.width = (pct * 100).toFixed(1) + '%';
+      if (mark) mark.style.left = (pct * 100).toFixed(1) + '%';
+      if (liq) liq.style.height = (36 + pct * 45).toFixed(0) + '%';
+      var v = byId('reactorW'); if (v) v.innerText = String(Math.round(w));
+      var st = byId('reactorState'); if (st) st.innerText = boil ? 'kokar' : 'stabil';
+      var hi = byId('reactorHint'); if (hi) hi.innerText = boil ? 'över kokpunkten · 2 kW' : 'under kokpunkten · 2 kW';
+    }
+
     var HIGH_W = 2000;
     function markHigh(w) {
       var hot = w > HIGH_W;
@@ -967,6 +1057,7 @@
       var el = byId('nowW');
       if (el) el.className = 'digits' + (hot ? ' high' : '');
       lamp('lampHigh', hot);
+      reactorUpdate(w);
     }
 
     // ---- Mätning: nollställ, mät i upp till en timme, visa kWh och kr ----
