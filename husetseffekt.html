@@ -187,6 +187,104 @@
     .panel-head .tag { margin-left: auto; }
     .panel-head .tag:first-child { margin-left: 0; }
 
+    /* ---- mätarbordet: vägg, 8-siffrig maxdisplay och träbord ---- */
+    .desk-scene {
+      position: relative; overflow: hidden; margin: 2px -2px 0; padding: 0 2px;
+      border-radius: 3px;
+      background:
+        radial-gradient(120% 70% at 50% 0%, rgba(255,170,80,.06), transparent 62%),
+        repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 1px, transparent 1px 54px),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 4px),
+        linear-gradient(180deg, #11140d 0%, #1a1f15 52%, #0a0d08 100%);
+      box-shadow: inset 0 0 42px rgba(0,0,0,.75), inset 0 1px 0 rgba(255,255,255,.04);
+    }
+    .desk-scene::before {
+      content: ""; position: absolute; inset: 0 0 110px; pointer-events: none;
+      background:
+        linear-gradient(90deg, transparent 0 22%, rgba(0,0,0,.4) 22% calc(22% + 2px), transparent calc(22% + 2px) 78%, rgba(0,0,0,.4) 78% calc(78% + 2px), transparent calc(78% + 2px)),
+        linear-gradient(180deg, transparent 0 38%, rgba(0,0,0,.32) 38% calc(38% + 2px), transparent calc(38% + 2px));
+      opacity: .8;
+    }
+    .wall-max {
+      position: relative; z-index: 1; width: min(600px, 93%); margin: 8px auto 0;
+      padding: 9px 12px 7px;
+      background: linear-gradient(180deg, #272c1e 0%, #161a10 58%, #0d100a 100%);
+      border: 1px solid #070906; border-top-color: #454c37; border-radius: 4px;
+      box-shadow: 0 14px 30px rgba(0,0,0,.55), inset 0 0 22px rgba(0,0,0,.8), 0 0 28px rgba(255,145,70,.06);
+    }
+    .wall-max::before, .wall-max::after {
+      content: ""; position: absolute; top: 6px; width: 4px; height: 4px; border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #b1a47a, #3a3627 60%, #0b0d08);
+      box-shadow: 0 0 0 1px #070906;
+    }
+    .wall-max::before { left: 6px; }
+    .wall-max::after { right: 6px; }
+    .wm-head, .wm-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .wm-label, .wm-serial, .wm-foot {
+      font: 700 8px/1.2 Consolas, "Courier New", monospace; letter-spacing: 1.7px; text-transform: uppercase;
+      color: #8f977c;
+    }
+    .wm-label { color: #c4b68d; }
+    .wm-serial { border: 1px solid #2c3224; border-radius: 2px; padding: 2px 5px; color: #b0a282; letter-spacing: 1.2px; }
+    .seg8 {
+      display: flex; align-items: stretch; justify-content: center; gap: clamp(2px, 1.1vw, 6px);
+      margin: 6px 0 5px; padding: 7px 7px 6px;
+      background:
+        radial-gradient(90% 120% at 50% 0%, rgba(255,140,60,.08), transparent 70%),
+        #070504;
+      border: 1px solid #030403; border-radius: 2px;
+      box-shadow: inset 0 0 26px #000, 0 1px 0 rgba(255,255,255,.05);
+    }
+    .seg-digit { flex: 1 1 0; min-width: 0; max-width: 58px; height: auto; overflow: visible; filter: drop-shadow(0 0 4px rgba(255,125,45,.28)); }
+    .seg { fill: rgba(145,66,28,.12); }
+    .seg.on { fill: #ff9d4b; }
+    .wm-foot { color: #7c856c; letter-spacing: 1.3px; }
+    .wm-foot .wm-unit { color: #b79a63; }
+    .desk-body { position: relative; margin-top: 8px; }
+    .desk-table { position: absolute; z-index: 2; left: -2px; right: -2px; top: 0; bottom: 0; height: auto; pointer-events: none; }
+    .desk-top {
+      position: absolute; left: 0; right: 0; top: 0; bottom: 92px; height: auto;
+      background:
+        radial-gradient(110% 55% at 50% 0%, rgba(255,203,140,.11), transparent 62%),
+        repeating-linear-gradient(0deg, rgba(22,13,7,.18) 0 2px, transparent 2px 37px),
+        repeating-linear-gradient(2deg, rgba(255,220,170,.022) 0 1px, transparent 1px 7px),
+        linear-gradient(180deg, #5a4129 0%, #402e1e 34%, #2b1e13 72%, #19110a 100%);
+      border-top: 2px solid #6e5534;
+      box-shadow: inset 0 2px 0 rgba(255,235,195,.14), inset 0 -20px 34px rgba(0,0,0,.45), 0 -8px 18px rgba(0,0,0,.45);
+    }
+    .desk-top::before {
+      content: ""; position: absolute; left: 0; right: 0; top: 0; height: 15px; z-index: 1;
+      background: linear-gradient(180deg, #2a1e12, #4a3520 55%, #24180e);
+      border-bottom: 1px solid rgba(255,210,150,.16);
+      box-shadow: 0 8px 16px rgba(0,0,0,.45);
+    }
+    .desk-top::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(120% 90% at 50% 45%, transparent 38%, rgba(0,0,0,.42) 100%);
+    }
+    .desk-front {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 92px;
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.35), transparent 12% 88%, rgba(0,0,0,.35)),
+        repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 5px),
+        linear-gradient(180deg, #30372a 0%, #22281d 55%, #12160e 100%);
+      border-top: 1px solid #080a06;
+      box-shadow: inset 0 8px 16px rgba(0,0,0,.65), inset 0 -10px 20px rgba(0,0,0,.5);
+    }
+    .desk-front::before {
+      content: ""; position: absolute; left: 7%; right: 7%; top: 15%; bottom: 13%;
+      border: 1px solid rgba(214,198,152,.13); border-radius: 2px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 1px 0 rgba(0,0,0,.5);
+    }
+    .desk-front::after {
+      content: ""; position: absolute; left: 50%; top: 52%; width: 76px; max-width: 16%; height: 6px;
+      transform: translate(-50%, -50%); border-radius: 3px;
+      background: linear-gradient(180deg, #a0875b, #5a4930 55%, #2b2416);
+      box-shadow: 0 2px 3px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,240,210,.35);
+    }
+    .desk-scene .gauge-row { position: relative; z-index: 3; margin-top: 6px; padding: 0 4px 112px; }
+    .desk-scene .gcell { position: relative; }
+
     /* ---- analoga mätare ---- */
     .gauge-row.even { grid-template-columns: repeat(3, 1fr); }
     .gauge-row { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 10px; align-items: end; }
@@ -194,7 +292,19 @@
     .dial-name { font: 10px/1.3 Consolas, "Courier New", monospace; letter-spacing: 2px; text-transform: uppercase; color: #abb391; margin-bottom: 5px; text-shadow: 0 1px 0 #000; }
     .gcell .gauge { max-width: 218px; margin: 0 auto; }
     .gcell.main .gauge { max-width: 300px; }
-    .gauge svg { display: block; width: 100%; height: auto; filter: drop-shadow(0 6px 8px rgba(0,0,0,.45)); }
+    .gauge { position: relative; }
+    .gauge svg { position: relative; z-index: 2; display: block; width: 100%; height: auto; filter: drop-shadow(0 6px 8px rgba(0,0,0,.45)); }
+    .gauge::before {
+      content: ""; position: absolute; z-index: 1; left: 50%; bottom: -5px; width: 46%; height: 12px;
+      transform: translateX(-50%); border-radius: 4px 4px 8px 8px;
+      background: linear-gradient(180deg, #9a8a60 0%, #62583c 40%, #2b2a1d 100%);
+      box-shadow: inset 0 1px 0 rgba(255,250,220,.35), 0 4px 6px rgba(0,0,0,.55);
+    }
+    .gauge::after {
+      content: ""; position: absolute; z-index: 0; left: 50%; bottom: -13px; width: 70%; height: 20px;
+      transform: translateX(-50%); border-radius: 50%;
+      background: radial-gradient(ellipse at 50% 30%, rgba(0,0,0,.6), rgba(0,0,0,.2) 55%, transparent 72%);
+    }
     .gval { letter-spacing: .5px; }
     .gsub { font: 10px/1.5 Consolas, "Courier New", monospace; color: #9aa383; letter-spacing: .6px; margin-top: 6px; min-height: 15px; }
     .digits {
@@ -399,6 +509,14 @@
     }
     @media (max-width: 560px) {
       body { padding: 9px; }
+      .desk-top { bottom: 84px; }
+      .desk-front { height: 84px; }
+      .desk-scene .gauge-row { padding-bottom: 100px; }
+      .desk-scene .gcell.main { order: -1; }
+      .wall-max { width: 97%; padding: 7px 8px 6px; }
+      .wm-label, .wm-serial, .wm-foot { font-size: 7px; letter-spacing: 1.1px; }
+      .seg8 { gap: 3px; padding: 5px; }
+      .desk-front::after { width: 54px; }
       .console { gap: 9px; }
       .panel { padding: 13px 10px 11px; }
       .gauge-row { grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -469,20 +587,30 @@
           <h2>Mätpanel · live</h2>
           <span class="tag" id="espInfo">Watt · spänning · ström</span>
         </div>
-        <div class="gauge-row">
-          <div class="gcell">
-            <div class="dial-name">Spänning</div>
-            <div class="gauge" id="gaugeVolt"></div>
+        <div class="desk-scene">
+          <div class="wall-max" id="wallMax" role="img" aria-label="Högsta effekt 0 watt">
+            <div class="wm-head"><span class="wm-label">МАКС · МОЩНОСТЬ</span><span class="wm-serial">СЕРИЯ 08</span></div>
+            <div class="seg8" id="maxSeg8" aria-hidden="true"></div>
+            <div class="wm-foot"><span>Högsta effekt</span><span class="wm-unit">8 siffror · W</span></div>
           </div>
-          <div class="gcell main">
-            <div class="dial-name">Effekt</div>
-            <div class="gauge" id="gaugePower"></div>
-            <div class="digits" id="nowW">--</div>
-            <div class="small" id="lastCalc">senast räknat –</div>
-          </div>
-          <div class="gcell">
-            <div class="dial-name">Ström</div>
-            <div class="gauge" id="gaugeAmp"></div>
+          <div class="desk-body">
+            <div class="desk-table" aria-hidden="true"><div class="desk-top"></div><div class="desk-front"></div></div>
+            <div class="gauge-row">
+              <div class="gcell">
+                <div class="dial-name">Spänning</div>
+                <div class="gauge" id="gaugeVolt"></div>
+              </div>
+              <div class="gcell main">
+                <div class="dial-name">Effekt</div>
+                <div class="gauge" id="gaugePower"></div>
+                <div class="digits" id="nowW">--</div>
+                <div class="small" id="lastCalc">senast räknat –</div>
+              </div>
+              <div class="gcell">
+                <div class="dial-name">Ström</div>
+                <div class="gauge" id="gaugeAmp"></div>
+              </div>
+            </div>
           </div>
         </div>
         <canvas id="liveChart" class="rec" aria-label="Effekt senaste 30 minuter, LED-staplar"></canvas>
@@ -798,6 +926,51 @@
       g.spin.setAttribute('transform', 'translate(100 100) rotate(' + gaugeAngle(capped, g.o).toFixed(2) + ')');
       if (g.o.zeroDash && !(v > 0)) g.val.textContent = '–';
       else g.val.textContent = (g.o.decimals ? v.toFixed(g.o.decimals) : String(Math.round(v)));
+    }
+
+    // 7-segmentdisplayen på väggen visar åtta siffror: kortets högsta effekt.
+    var SEG_MAP = {
+      '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg',
+      '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg'
+    };
+    var segDigits = null;
+
+    function buildSeg8() {
+      var host = byId('maxSeg8');
+      if (!host || segDigits) return;
+      var r = '';
+      var segs = [
+        ['a', 10, 4, 36, 8], ['b', 45, 11, 8, 32], ['c', 45, 51, 8, 32],
+        ['d', 10, 83, 36, 8], ['e', 3, 51, 8, 32], ['f', 3, 11, 8, 32], ['g', 10, 44, 36, 8]
+      ];
+      for (var s = 0; s < segs.length; s++) {
+        r += '<rect class="seg" data-seg="' + segs[s][0] + '" x="' + segs[s][1] + '" y="' + segs[s][2] +
+             '" width="' + segs[s][3] + '" height="' + segs[s][4] + '" rx="3"/>';
+      }
+      var h = '';
+      for (var i = 0; i < 8; i++) h += '<svg class="seg-digit" viewBox="0 0 56 96" aria-hidden="true">' + r + '</svg>';
+      host.innerHTML = h;
+      segDigits = host.getElementsByTagName('svg');
+    }
+
+    function setMaxSeg8(v) {
+      buildSeg8();
+      if (!segDigits) return;
+      v = (typeof v === 'number' && isFinite(v) && v > 0) ? Math.round(v) : 0;
+      var s = String(Math.min(99999999, v));
+      while (s.length < 8) s = '0' + s;
+      for (var i = 0; i < segDigits.length; i++) {
+        var on = SEG_MAP[s.charAt(i)] || '';
+        var rects = segDigits[i].getElementsByTagName('rect');
+        for (var j = 0; j < rects.length; j++) {
+          var seg = rects[j].getAttribute('data-seg');
+          rects[j].setAttribute('class', 'seg' + (on.indexOf(seg) >= 0 ? ' on' : ''));
+        }
+      }
+      var box = byId('wallMax');
+      if (box) box.setAttribute('aria-label', 'Högsta effekt ' + v + ' watt');
+      var digits = byId('maxSeg8');
+      if (digits) digits.setAttribute('data-value', String(v));
     }
 
     function initGauges() {
@@ -1398,6 +1571,7 @@
       sessMax.v = Math.max(sessMax.v, num(d.v));
       sessMax.a = Math.max(sessMax.a, amps);
       setGauge('MAXW', num(d.maxW));
+      setMaxSeg8(num(d.maxW));
       setGauge('MAXV', sessMax.v);
       setGauge('MAXA', sessMax.a);
 
@@ -1455,6 +1629,7 @@
     }
 
     initGauges();
+    setMaxSeg8(0);
 
     var client = mqtt.connect(MQTT_URL, {
       clientId: 'husetseffekt-web-' + Math.random().toString(16).slice(2, 10),
