@@ -420,6 +420,8 @@
     /* ---- pris ---- */
     .price-row { display: grid; grid-template-columns: minmax(120px, 190px) 1fr; gap: 14px; align-items: center; }
     .price-row .seg-value { max-width: 180px; }
+    .price-source { margin: 0 0 10px; padding: 7px 9px; border-left: 2px solid #a5341f; background: rgba(0,0,0,.18); color: #c4cdb2; font: 10px/1.6 Consolas, "Courier New", monospace; letter-spacing: .25px; }
+    .price-source b { color: #e6d7ad; }
     .price-info { text-align: left; font: 11px/1.65 Consolas, "Courier New", monospace; color: #b3bca0; }
     .price-info .pbig { font-size: 13px; color: #e6c778; letter-spacing: .8px; }
     .price-info .small { color: #9aa383; }
@@ -703,7 +705,7 @@
               <div class="meas-v" id="measKwh">0.000 kWh</div>
               <div class="small">förbrukning</div>
               <div class="meas-v" id="measKr" style="color:#e6c778;">–</div>
-              <div class="small">kostnad inkl överföring</div>
+              <div class="small">kostnad inkl överföring · ex moms</div>
             </div>
           </div>
           <div class="row3 meas-foot"><span id="measTime">00:00 / 60:00</span><span>max 60 min</span></div>
@@ -716,11 +718,12 @@
           <h2>Elpris SE3 · Greenely</h2>
           <span class="tag" id="priceNow">--</span>
         </div>
+        <div class="price-source" role="note"><b>Elpriset hämtas från Greenely (SE3) som kvartspris.</b> Priset visas ex moms; elöverföring tillkommer i kostnaden.</div>
         <div class="price-row">
           <div class="gcell">
             <div class="dial-name">Spotpris nu</div>
             <div class="seg-value" id="segPrice" role="img" aria-label="Spotpris"></div>
-            <div class="seg-unit">kr/kWh</div>
+            <div class="seg-unit">kr/kWh ex moms</div>
           </div>
           <div class="price-info">
             <div class="pbig" id="priceRange">pris saknas</div>
@@ -729,7 +732,7 @@
           </div>
         </div>
         <div class="seg-graph" id="priceSeg" role="img" aria-label="Elpris som segmentdisplay, två timmar per siffra"></div>
-        <div class="chart-note">2 timmar/siffra · nivå 0–9 · kostnad per kvart</div>
+        <div class="chart-note">2 timmar/siffra · nivå 0–9 · kostnad per kvart · ex moms</div>
       </section>
 
       <section class="panel">
@@ -741,7 +744,7 @@
         <div class="fee-line">
           <span>Elöverföring</span>
           <input id="feeInput" type="number" min="0" step="0.1" inputmode="decimal">
-          <span>öre/kWh · kostnaden är spot + överföring</span>
+          <span>öre/kWh · spot + överföring, ex moms</span>
         </div>
         <div class="hourlist">
           <div class="hrow head"><span class="ht">timme</span><span class="hk">förbrukning</span><span class="hp">kr/kWh</span><span class="hc">kostnad</span></div>
@@ -1168,11 +1171,11 @@
       }
       byId('priceNow').innerText = pn > 0 ? pn.toFixed(2) + ' kr/kWh' : '–';
       byId('priceRange').innerText = have ? ('min ' + mn.toFixed(2) + ' · max ' + mx.toFixed(2) + ' kr') : 'pris saknas';
-      setSegMeter(byId('segPrice'), pn, { decimals: 2, zeroDash: true, label: 'Spotpris', unit: 'kronor per kWh' });
+      setSegMeter(byId('segPrice'), pn, { decimals: 2, zeroDash: true, label: 'Spotpris ex moms', unit: 'kronor per kWh' });
       curPriceTotal = pn > 0 ? pn + feeKr : 0;
       var pt = byId('priceTotal');
       if (pt) pt.innerText = pn > 0
-        ? ((pn + feeKr).toFixed(2) + ' kr/kWh inkl elöverföring · kvart ' +
+        ? ((pn + feeKr).toFixed(2) + ' kr/kWh inkl elöverföring · ex moms · kvart ' +
            ('0' + cur).slice(-2) + ':' + ('0' + (Math.floor(now.getMinutes() / 15) * 15)).slice(-2))
         : '';
       drawPriceSeg(byId('priceSeg'), qp, qIdx);
@@ -1226,7 +1229,7 @@
       }
       var ct = byId('costToday');
       if (ct) ct.innerText = kwhDay > 0
-        ? ('idag ' + kwhDay.toFixed(2) + ' kWh · ' + costDay.toFixed(2) + ' kr inkl elöverföring')
+        ? ('idag ' + kwhDay.toFixed(2) + ' kWh · ' + costDay.toFixed(2) + ' kr inkl elöverföring · ex moms')
         : 'idag 0 kWh';
 
       var me = byId('maxHour'), mwe = byId('maxHourWhen');
