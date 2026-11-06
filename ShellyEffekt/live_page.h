@@ -45,13 +45,6 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
     .dot.grey { background: #475569; animation: none; }
     @keyframes pulse { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74,222,128,0.55); } 50% { opacity: 0.6; box-shadow: 0 0 0 7px rgba(74,222,128,0); } }
     .row3 { display: flex; justify-content: space-between; color: #64748b; font-size: 0.72em; margin-top: 6px; }
-    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 12px; }
-    .phase { background: #0f172a; border: 1px solid #263449; border-radius: 12px; padding: 10px 6px; text-align: center; }
-    .phase .pname { color: #38bdf8; font-weight: 700; font-size: 0.8em; letter-spacing: 0.5px; }
-    .phase .pw { font-size: 1.2em; font-weight: 800; color: #fbbf24; margin: 3px 0 2px; }
-    .phase .pmeta { color: #94a3b8; font-size: 0.72em; line-height: 1.5; }
-    .phase.top { border-color: #fbbf24; box-shadow: 0 0 12px rgba(251,191,36,0.25); }
-    .topbadge { display: inline-block; background: #fbbf24; color: #0f172a; font-size: 0.6em; font-weight: 800; border-radius: 5px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; letter-spacing: 0.5px; }
     .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
     .tile { background: #0f172a; border: 1px solid #263449; border-radius: 12px; padding: 10px 6px; text-align: center; }
     .tile .v { font-size: 1.05em; font-weight: 700; margin-top: 5px; color: #e2e8f0; }
@@ -170,11 +163,6 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
             </div>
           </div>
           <canvas class="lite" id="voltChart"></canvas>
-        </div>
-
-        <div class="block">
-          <div class="label" id="phaseHdr">Fördelning per fas</div>
-          <div class="grid3" id="phases"></div>
         </div>
 
         <div class="block">
@@ -676,28 +664,9 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       renderPrice(d);
       measTick();
 
-      // Faser L1-L3: [W, V, A, Wh] per fas. Värdena normaliseras så att ett
-      // ofullständigt meddelande inte kraschar hela renderingen.
-      var ph = d.ph || [];
-      var topIdx = 0, topVal = -1e9, i;
-      for (i = 0; i < ph.length && i < 3; i++) { if (num(ph[i] && ph[i][0]) > topVal) { topVal = num(ph[i][0]); topIdx = i; } }
-      var html = '';
-      for (i = 0; i < ph.length && i < 3; i++) {
-        var p = ph[i] || [];
-        var pw = num(p[0]), pv = num(p[1]), pa = num(p[2]);
-        var isTop = (i === topIdx && topVal > 0);
-        html += '<div class="phase' + (isTop ? ' top' : '') + '">' +
-                '<div class="pname">L' + (i + 1) + (isTop ? '<span class="topbadge">mest</span>' : '') + '</div>' +
-                '<div class="pw">' + pw.toFixed(0) + ' W</div>' +
-                '<div class="pmeta">' + (pv > 1 ? pv.toFixed(0) + ' V · ' : '') +
-                (pa > 0.005 ? pa.toFixed(2) + ' A' : '-') +
-                '<br>' + fmtWh(p[3]) + '</div></div>';
-      }
-      byId('phases').innerHTML = html;
-
-      var up = d.up || 0, nFas = d.n || ph.length || 0;
+      var up = d.up || 0;
       byId('foot').innerText = 'Uppringd tid hos kortet: ' + Math.floor(up / 3600) + ' h ' +
-        Math.floor((up % 3600) / 60) + ' min · ' + nFas + ' fas' + (nFas === 1 ? '' : 'er') +
+        Math.floor((up % 3600) / 60) + ' min' +
         (d.rssi ? ' · Wi-Fi ' + d.rssi + ' dBm' : '');
 
       if (Date.now() - lastSeenTm > 30000) {
@@ -726,8 +695,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       return {
         w: num(d.power), v: num(d.volt), a: num(d.amp),
         tot: num(d.totalWh), boot: num(d.bootWh), h1: num(d.h1Wh), today: num(d.todayWh),
-        n: num(d.phases), ok: d.valid ? 1 : 0, up: num(d.uptime), rssi: num(d.rssi),
-        ph: (d.ph || []).map(function (p) { return [num(p.w), num(p.v), num(p.a), num(p.wh)]; }),
+        ok: d.valid ? 1 : 0, up: num(d.uptime), rssi: num(d.rssi),
         maxW: num(d.maxW), maxH: num(d.maxH), pn: num(d.priceNow), pr: (d.price || []).map(num), at: num(d.at),
         hr: (d.hr || []).map(num), q: (d.q || []).map(num)
       };

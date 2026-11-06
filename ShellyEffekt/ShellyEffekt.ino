@@ -1487,21 +1487,10 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
   .metric { margin:2px 0 0; }
   .livegraph { width:100%; height:88px; display:block; margin-top:6px; }
   .liverow { display:flex; justify-content:space-between; color:#64748b; font-size:.72em; margin-top:4px; }
-  .phaserow { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:12px; }
-  .phase { background:#0f172a; border:1px solid #263449; border-radius:12px; padding:10px 6px; text-align:center; }
-  .phase .pname { color:#38bdf8; font-weight:700; font-size:.8em; letter-spacing:.5px; }
-  .phase .pw { font-size:1.25em; font-weight:800; color:#fbbf24; margin:3px 0 2px; }
-  .phase .pmeta { color:#94a3b8; font-size:.72em; line-height:1.55; }
   .voltbox { background:#0f172a; border:1px solid #263449; border-radius:14px;
              padding:10px 12px 8px; margin-top:10px; }
   .voltnow { text-align:center; font-size:1.4em; font-weight:800; color:#34d399; margin-top:2px; }
   .voltgraph { width:100%; height:56px; display:block; margin-top:2px; }
-  .phasehdr { color:#94a3b8; font-size:.75em; text-align:center; margin-top:12px; }
-  .phasehdr b { color:#fbbf24; }
-  .phase.top { border-color:#fbbf24; box-shadow:0 0 12px rgba(251,191,36,.25); }
-  .phase .pavg { color:#64748b; font-size:.68em; margin-top:1px; }
-  .topbadge { display:inline-block; background:#fbbf24; color:#0f172a; font-size:.6em; font-weight:800;
-              border-radius:5px; padding:1px 5px; margin-left:4px; vertical-align:middle; letter-spacing:.5px; }
   @supports (padding:max(0px)) {
     body { padding-left:max(12px,env(safe-area-inset-left)); padding-right:max(12px,env(safe-area-inset-right));
            padding-top:max(12px,env(safe-area-inset-top)); padding-bottom:max(12px,env(safe-area-inset-bottom)); }
@@ -1540,7 +1529,7 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
   </div>
 
   <div class="voltbox">
-    <div class="livelbl">Spänning · snitt över faserna</div>
+    <div class="livelbl">Spänning · snitt</div>
     <div class="voltnow" id="voltNow">–</div>
     <svg class="voltgraph" viewBox="0 0 360 50" preserveAspectRatio="none">
       <polyline id="voltLine" fill="none" stroke="#34d399" stroke-width="2"
@@ -1553,9 +1542,6 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
       <span id="voltMax">–</span>
     </div>
   </div>
-
-  <div class="phasehdr" id="phaseHdr"></div>
-  <div class="phaserow" id="phases"></div>
 
   <div class="grid">
     <div class="tile"><div class="label">Mätarens total</div><div class="v" id="total">–</div></div>
@@ -1587,8 +1573,6 @@ function fmtKwh(wh) {
 }
 function $(id) { return document.getElementById(id); }
 
-var phAvg = [0, 0, 0];   // snitteffekt per fas, senaste 5 min (från /api/live)
-
 function poll() {
   fetch('/api/power', { cache: 'no-store' })
     .then(function (r) {
@@ -1614,31 +1598,6 @@ function poll() {
       $('liveDot').className = 'livedot' + (d.online ? '' : ' off');
       $('vv').textContent    = (d.volt > 1 ? d.volt.toFixed(0) + ' V' : '–');
       $('a').textContent     = (d.amp > 0.005 ? d.amp.toFixed(2) + ' A' : '–');
-
-      // Per fas (Shelly 3EM): visa bara om mätaren rapporterar flera faser
-      var ph = d.ph || [];
-      if (d.phases >= 2) {
-        var topIdx = 0, topVal = -1;
-        for (var i = 0; i < 3; i++) if (phAvg[i] > topVal) { topVal = phAvg[i]; topIdx = i; }
-        var phHtml = '';
-        for (var i = 0; i < ph.length && i < d.phases; i++) {
-          phHtml += '<div class="phase' + (i === topIdx && topVal > 0 ? ' top' : '') + '">' +
-                    '<div class="pname">L' + (i + 1) +
-                    (i === topIdx && topVal > 0 ? '<span class="topbadge">MEST</span>' : '') + '</div>' +
-                    '<div class="pw">' + ph[i].w.toFixed(0) + ' W</div>' +
-                    '<div class="pavg">snitt ' +
-                    (phAvg[i] > 0 ? phAvg[i].toFixed(0) + ' W' : '–') + '</div>' +
-                    '<div class="pmeta">' +
-                    (ph[i].v > 1 ? ph[i].v.toFixed(0) + ' V' : '–') + ' · ' +
-                    (ph[i].a > 0.005 ? ph[i].a.toFixed(1) + ' A' : '–') +
-                    '<br>' + fmtKwh(ph[i].wh) + '</div></div>';
-        }
-        $('phases').innerHTML = phHtml;
-        $('phases').style.display = 'grid';
-      } else {
-        $('phases').style.display = 'none';
-        var hdr = $('phaseHdr'); if (hdr) hdr.textContent = '';
-      }
 
       var bits = [];
       if (d.temp > -100) bits.push('Mätare ' + d.temp.toFixed(1) + ' °C');
@@ -1706,7 +1665,7 @@ function live() {
       $('liveAvg').textContent = 'snitt ' + (sum / n).toFixed(0) + ' W';
       $('liveMax').textContent = 'max ' + mx.toFixed(0) + ' W';
 
-      // Snittspänning över faserna – egen liten graf
+      // Snittspänning – egen liten graf
       var v = d.v || [];
       if (v.length >= 2) {
         var vmx = v[0], vmn = v[0], vsum = 0;
@@ -1731,22 +1690,6 @@ function live() {
         $('voltMin').textContent = 'min ' + vmn.toFixed(1) + ' V';
         $('voltAvg').textContent = 'snitt ' + vavg.toFixed(1) + ' V';
         $('voltMax').textContent = 'max ' + vmx.toFixed(1) + ' V';
-      }
-
-      // Snitt per fas (5 min) – visa vilken fas som drar mest
-      var pa = d.phAvg || [0, 0, 0];
-      phAvg = pa;
-      if (pa.length >= 2) {
-        var hi = 0;
-        for (var i = 1; i < pa.length; i++) if (pa[i] > pa[hi]) hi = i;
-        var tot = pa[0] + pa[1] + (pa[2] || 0);
-        var hdr = $('phaseHdr');
-        if (hdr) {
-          hdr.innerHTML = (tot > 0)
-            ? 'Snitt 5 min · <b>L' + (hi + 1) + ' drar mest</b> (' +
-              pa[hi].toFixed(0) + ' W · ' + Math.round(pa[hi] / tot * 100) + ' % av lasten)'
-            : 'Snitt 5 min';
-        }
       }
     });
 }
