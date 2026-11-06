@@ -22,13 +22,73 @@
       text-align: center;
     }
     body::before {
-      content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .5;
       background:
         radial-gradient(circle at 50% -10%, rgba(140,160,100,.12), transparent 55%),
         repeating-linear-gradient(90deg, rgba(0,0,0,.22) 0 2px, transparent 2px 72px),
         repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px);
     }
-    .console { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+
+    /* ---- bakgrund: kontrollrummet ---- */
+    .room { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+      background: radial-gradient(120% 100% at 50% 28%, #262d24 0%, #141810 55%, #080a07 100%); }
+    .room-ceiling {
+      position: absolute; left: -30%; right: -30%; top: -8vh; height: 52vh;
+      transform-origin: 50% 0; transform: perspective(640px) rotateX(-63deg);
+      background:
+        repeating-linear-gradient(90deg, rgba(0,0,0,.85) 0 5px, transparent 5px 96px),
+        repeating-linear-gradient(0deg, rgba(0,0,0,.8) 0 5px, transparent 5px 84px),
+        repeating-linear-gradient(90deg, transparent 0 46px, rgba(248,255,235,.13) 46px 74px, transparent 74px 96px),
+        linear-gradient(180deg, #39402f, #151a12);
+      opacity: .7;
+      -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 88%);
+      mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 88%);
+    }
+    .room-ceiling::after {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(ellipse 46px 26px at 50% 50%, rgba(250,255,236,.55), rgba(250,255,236,.12) 55%, transparent 72%) 0 0 / 192px 168px repeat;
+      opacity: .38;
+    }
+    .room-wall {
+      position: absolute; left: -8%; right: -8%; top: 24vh; height: 50vh;
+      background:
+        repeating-linear-gradient(90deg, rgba(0,0,0,.7) 0 2px, transparent 2px 84px),
+        repeating-linear-gradient(0deg, rgba(0,0,0,.55) 0 2px, transparent 2px 62px),
+        repeating-linear-gradient(90deg, transparent 0 10px, rgba(214,224,198,.07) 10px 60px, transparent 60px 84px),
+        linear-gradient(180deg, #2f362b, #20271d 55%, #171d14);
+      opacity: .85;
+      box-shadow: inset 0 -60px 90px rgba(0,0,0,.85), inset 0 50px 70px rgba(0,0,0,.55);
+    }
+    .room-wall::before, .room-wall::after {
+      content: ""; position: absolute; top: 22%; width: 15vw; height: 15vw; min-width: 130px; min-height: 130px; max-width: 220px; max-height: 220px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, rgba(214,228,198,.30) 0 1.6px, transparent 2.2px) 0 0 / 11px 11px,
+        radial-gradient(circle at 50% 40%, #2a3226, #121710 70%);
+      box-shadow: 0 0 30px rgba(0,0,0,.7), inset 0 0 24px #000;
+      opacity: .55;
+    }
+    .room-wall::before { left: 5%; }
+    .room-wall::after { left: 25%; }
+    .room-floor {
+      position: absolute; left: -30%; right: -30%; bottom: -16vh; height: 58vh;
+      transform-origin: 50% 100%; transform: perspective(560px) rotateX(67deg);
+      background:
+        repeating-linear-gradient(90deg, rgba(0,0,0,.65) 0 2px, transparent 2px 104px),
+        repeating-linear-gradient(0deg, rgba(0,0,0,.6) 0 2px, transparent 2px 104px),
+        linear-gradient(180deg, #4a4d3d 0%, #2c3025 45%, #191d15 100%);
+      opacity: .42;
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 28%, #000 100%);
+      mask-image: linear-gradient(to bottom, transparent 0%, #000 28%, #000 100%);
+    }
+    .room-glow {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(55% 40% at 50% 0%, rgba(245,255,232,.10), transparent 70%),
+        radial-gradient(80% 70% at 50% 115%, rgba(0,0,0,.8), transparent 65%),
+        radial-gradient(120% 120% at 50% 45%, transparent 40%, rgba(0,0,0,.78) 100%);
+    }
+    .console { position: relative; z-index: 2; max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; padding-top: clamp(24px, 10vh, 110px); padding-bottom: clamp(14px, 6vh, 64px); }
 
     /* ---- överskrift: emaljskylt ---- */
     .masthead { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
@@ -233,6 +293,13 @@
   </style>
 </head>
 <body>
+  <div class="room" aria-hidden="true">
+    <div class="room-ceiling"></div>
+    <div class="room-wall"></div>
+    <div class="room-floor"></div>
+    <div class="room-glow"></div>
+  </div>
+
   <div class="console">
 
     <header class="masthead">
