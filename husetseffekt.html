@@ -327,20 +327,13 @@
     .heat { position: absolute; left: 50%; bottom: -9px; width: 40px; height: 12px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(ellipse, rgba(255,120,40,.6), transparent 70%); opacity: 0; transition: opacity .3s; }
     .reactor-panel.boil .heat { opacity: 1; }
     .reactor-info { flex: 1 1 auto; min-width: 0; }
-    .reactor-value { font: 700 26px/1 Consolas, "Courier New", monospace; color: #efe5bd; letter-spacing: 1px; }
-    .reactor-value small { font-size: 12px; color: #9aa383; margin-left: 4px; }
+    .reactor-label { margin-bottom: 4px; text-align: left; }
+    .reactor-seg { max-width: 248px; margin: 0; padding: 6px 6px 5px; }
+    .reactor-seg .seg-digit { flex-basis: 50px; max-width: 50px; }
     .reactor-line { margin-top: 3px; font: 10px Consolas, monospace; letter-spacing: 1.2px; text-transform: uppercase; color: #9aa383; }
     .reactor-panel.boil .reactor-line { color: #e0836a; }
-    .powerbar { position: relative; height: 10px; margin-top: 16px; background: #0b0f08; border: 1px solid #050704; border-radius: 2px; box-shadow: inset 0 0 8px #000; }
-    .powerbar-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 1px; background: linear-gradient(90deg, #6d8a4c, #b7a24a 60%, #c0602c); transition: width .6s ease; }
-    .reactor-panel.boil .powerbar-fill { background: linear-gradient(90deg, #bd8f3f, #d9782a 65%, #e2451f); }
-    .powerbar-limit { position: absolute; left: 40%; top: -4px; bottom: -4px; width: 2px; background: #c33a24; box-shadow: 0 0 6px rgba(200,60,30,.8); }
-    .powerbar-limit span { position: absolute; top: -14px; left: -10px; font: 8px Consolas, monospace; color: #dd836a; letter-spacing: .6px; }
-    .powerbar-mark { position: absolute; top: -4px; width: 2px; height: 16px; background: #ece4c6; box-shadow: 0 0 6px rgba(255,255,230,.75); transition: left .6s ease; }
-    .powerbar-scale { display: flex; justify-content: space-between; margin-top: 4px; font: 8px Consolas, monospace; color: #7f886c; letter-spacing: .8px; }
     @media (max-width: 560px) {
       .tube { width: 54px; height: 112px; }
-      .reactor-value { font-size: 21px; }
     }
     @media (prefers-reduced-motion: reduce) {
       .bubbles i, .steam i, .liquid { animation: none !important; }
@@ -615,14 +608,10 @@
             <div class="heat"></div>
           </div>
           <div class="reactor-info">
-            <div class="reactor-value"><span id="reactorW">–</span><small>W</small></div>
+            <div class="dial-name reactor-label">Reaktoreffekt</div>
+            <div class="seg-value reactor-seg" id="reactorSeg" role="img" aria-label="Reaktoreffekt saknas"></div>
+            <div class="seg-unit">watt</div>
             <div class="reactor-line" id="reactorHint">under kokpunkten · 2 kW</div>
-            <div class="powerbar" aria-hidden="true">
-              <div class="powerbar-fill" id="reactorFill"></div>
-              <div class="powerbar-limit"><span>2 kW</span></div>
-              <div class="powerbar-mark" id="reactorMark"></div>
-            </div>
-            <div class="powerbar-scale" aria-hidden="true"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5 kW</span></div>
           </div>
         </div>
       </section>
@@ -929,7 +918,7 @@
     }
 
     function initSegMeters() {
-      var ids = ['segV', 'segW', 'segA', 'segMaxW', 'segMaxV', 'segMaxA', 'segPrice'];
+      var ids = ['segV', 'segW', 'segA', 'segMaxW', 'segMaxV', 'segMaxA', 'segPrice', 'reactorSeg'];
       for (var i = 0; i < ids.length; i++) buildSegMeter(byId(ids[i]), 4);
     }
 
@@ -1280,11 +1269,12 @@
       var pct = Math.max(0, Math.min(1, w / 5000));
       var boil = w >= 2000;
       box.className = 'panel reactor-panel' + (boil ? ' boil' : '');
-      var fill = byId('reactorFill'), mark = byId('reactorMark'), liq = byId('tubeLiquid');
-      if (fill) fill.style.width = (pct * 100).toFixed(1) + '%';
-      if (mark) mark.style.left = (pct * 100).toFixed(1) + '%';
+      var liq = byId('tubeLiquid'), seg = byId('reactorSeg');
       if (liq) liq.style.height = (36 + pct * 45).toFixed(0) + '%';
-      var v = byId('reactorW'); if (v) v.innerText = String(Math.round(w));
+      if (seg) {
+        setSegMeter(seg, Math.round(w), { digits: 4, label: 'Reaktoreffekt', unit: 'watt' });
+        seg.classList.toggle('hot', boil);
+      }
       var st = byId('reactorState'); if (st) st.innerText = boil ? 'kokar' : 'stabil';
       var hi = byId('reactorHint'); if (hi) hi.innerText = boil ? 'över kokpunkten · 2 kW' : 'under kokpunkten · 2 kW';
     }
