@@ -465,6 +465,10 @@
     .credit { margin: 1px auto 4px; color: #c0aa94; font: 9px/1.55 Consolas, "Courier New", monospace; letter-spacing: .45px; text-align: center; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
     .credit a { color: #e6c778; text-decoration: none; border-bottom: 1px dotted rgba(230,199,120,.5); }
     .credit a:hover, .credit a:focus-visible { color: #fff0ba; }
+    .usage-log { margin: 3px auto 10px; color: #7f886e; font: 9px/1.55 Consolas, "Courier New", monospace; letter-spacing: .55px; text-align: center; }
+    .usage-log b { color: #d9c28a; font-weight: 600; }
+    .usage-log b::before { content: " · "; color: #626b58; font-weight: 400; }
+    .usage-log .usage-period { color: #626b58; }
 
     @media (pointer: fine) {
       .hourlist { scrollbar-width: thin; scrollbar-color: #3c4530 transparent; }
@@ -745,6 +749,11 @@
 
     <div class="foot" id="foot">Uppgiftshämtning: – –</div>
     <div class="credit">Bakgrund: <a href="https://nl.vecteezy.com/vector-kunst/3537980-vlag-symbool-van-ussr-sovjet-unie-ex-rusland-land-vector-illustratie-rode-achtergrond" target="_blank" rel="noopener">USSR-flagga</a> av Aditya Agustian Yudi Putra · Vecteezy</div>
+    <div class="usage-log" id="usageLog" title="Sparas lokalt i webbläsaren i 400 dagar">
+      <span id="usageLabel">Förbrukningslogg · startar</span>
+      <b id="usageTotal">–</b>
+      <span class="usage-period" id="usagePeriod">· sparas lokalt</span>
+    </div>
 
   </div>
 
@@ -776,6 +785,117 @@
       if (wh === null || wh === undefined || isNaN(wh)) return '–';
       return (wh / 1000).toFixed(2) + ' kWh';
     }
+
+    // ---- förbrukningslogg: dagliga mätarställningar i 400 dagar ----
+    // Loggen ligger i webbläsarens localStorage. 400 dagar behålls, alltså
+    // minst sex månader även om sidan bara öppnas då och då.
+    var USAGE_KEY = 'husetseffekt.usage.v1';
+    var USAGE_DAYS = 400;
+    var usageState = { entries: null, lastSave: 0 };
+
+    function usageDate(s) {
+      var p = String(s || '').split('-');
+      return new Date(+p[0], (+p[1] || 1) - 1, +p[2] || 1);
+    }
+
+    function usageDay(dt) {
+      var p = function (n) { return (n < 10 ? '0' : '') + n; };
+      return dt.getFullYear() + '-' + p(dt.getMonth() + 1) + '-' + p(dt.getDate());
+    }
+
+    function usageLoad() {
+      if (usageState.entries) return usageState.entries;
+      var out = [];
+      try {
+        var raw = JSON.parse(localStorage.getItem(USAGE_KEY) || '[]');
+        if (Array.isArray(raw)) {
+          for (var i = 0; i < raw.length; i++) {
+            var e = raw[i];
+            if (e && /^\d{4}-\d{2}-\d{2}$/.test(e.d) && isFinite(e.t) && +e.t >= 0) {
+              out.push({ d: e.d, t: +e.t });
+            }
+          }
+        }
+      } catch (err) {}
+      out.sort(function (a, b) { return a.d < b.d ? -1 : (a.d > b.d ? 1 : 0); });
+      usageState.entries = out;
+      return out;
+    }
+
+    function usageSave(entries, force) {
+      usageState.entries = entries;
+      var now = Date.now();
+      if (!force && now - usageState.lastSave < 60000) return;
+      try {
+        localStorage.setItem(USAGE_KEY, JSON.stringify(entries));
+        usageState.lastSave = now;
+      } catch (err) {}
+    }
+
+    function usageRender(totalWh) {
+      var label = byId('usageLabel'), total = byId('usageTotal'), period = byId('usagePeriod');
+      if (!label || !total || !period) return;
+      var entries = usageLoad();
+      if (!entries.length) {
+        label.innerText = 'Förbrukningslogg · startar';
+        total.innerText = '–';
+        period.innerText = '· sparas lokalt';
+        return;
+      }
+
+      var now = new Date();
+      var cutoff = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
+      var cutoffKey = usageDay(cutoff), cutoffMs = usageDate(cutoffKey).getTime();
+      var base = entries[0], bestDiff = Infinity, i;
+      // Välj den dagliga mätarställning som ligger närmast sexmånadersgränsen.
+      // Då blir totalen cirka sex månader även om loggen har enstaka luckor.
+      for (i = 0; i < entries.length; i++) {
+        var diff = Math.abs(usageDate(entries[i].d).getTime() - cutoffMs);
+        if (diff < bestDiff) { bestDiff = diff; base = entries[i]; }
+      }
+
+      var last = entries[entries.length - 1];
+      var endTotal = (typeof totalWh === 'number' && isFinite(totalWh) && totalWh > 0) ? totalWh : last.t;
+      if (endTotal + 1 < base.t) endTotal = last.t; // mätaren har nollställts
+      var used = Math.max(0, endTotal - base.t);
+      var span = Math.max(0, Math.round((usageDate(usageDay(now)) - usageDate(base.d)) / 86400000));
+      label.innerText = span < 1 ? 'Förbrukningslogg · startar'
+        : 'Förbrukningslogg · ' + (span >= 180 ? '6 mån' : 'loggat') + ' totalt';
+      total.innerText = fmtKwh(used);
+      period.innerText = '· ' + base.d + '–' + (endTotal !== last.t ? usageDay(now) : last.d);
+    }
+
+    function usageRecord(d) {
+      var tot = num(d && d.tot);
+      if (!(tot > 0)) { usageRender(tot); return; }
+
+      var now = new Date();
+      var key = usageDay(now);
+      var entries = usageLoad();
+      var last = entries.length ? entries[entries.length - 1] : null;
+      if (last && key < last.d) { usageRender(tot); return; }
+
+      var newDay = !last || last.d !== key;
+      if (last && tot + 1 < last.t) entries = []; // mätarens totala värde nollställdes
+      last = entries.length ? entries[entries.length - 1] : null;
+      if (last && last.d === key) last.t = Math.max(last.t, tot);
+      else {
+        entries.push({ d: key, t: tot });
+        newDay = true;
+      }
+
+      var cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      cutoff.setDate(cutoff.getDate() - USAGE_DAYS);
+      var cutoffKey = usageDay(cutoff);
+      entries = entries.filter(function (e) { return e.d >= cutoffKey; });
+      usageSave(entries, newDay);
+      usageRender(tot);
+    }
+
+    usageRender(0);
+    window.addEventListener('pagehide', function () {
+      if (usageState.entries) usageSave(usageState.entries, true);
+    });
     // Fullständig fras för statusraden: "just nu", "12 sek sedan", "3 min sedan"…
     function liveSince(t) {
       var s = Math.floor((Date.now() - t) / 1000);
@@ -1445,6 +1565,7 @@
       markHigh(watts);
       measAccum(d);
       byId('meterTotal').innerText = fmtKwh(d.tot);
+      usageRecord(d);
       byId('sinceBoot').innerText = fmtWh(d.boot);
       byId('hour1').innerText = fmtWh(d.h1);
       byId('today').innerText = fmtWh(d.today);
