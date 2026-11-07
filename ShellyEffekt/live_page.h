@@ -149,26 +149,27 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       <div class="dash-left">
 
         <div class="block">
-          <div class="label"><span class="dot" id="espDot"></span>Just nu</div>
-          <div class="seg-value" id="nowW" aria-label="Effekt just nu"></div>
-          <div class="seg-unit">watt · just nu</div>
-          <div class="row3"><span id="espInfo">Watt · spänning · ström</span></div>
+          <div class="label"><span class="dot" id="espDot"></span>Använd effekt · nu</div>
+          <div class="seg-value" id="nowW" aria-label="Använd effekt just nu"></div>
+          <div class="seg-unit">watt · används nu</div>
+          <div class="small" style="text-align:center">det huset drar just nu</div>
+          <div class="row3"><span id="espInfo">Använd effekt · spänning · ström</span></div>
           <div class="small" id="lastCalc" style="text-align:center">senast räknat –</div>
           <div class="seg-graph" id="liveSeg" role="img" aria-label="Effekt senaste 30 minuter som segmentdisplay"></div>
           <div class="row3"><span>senaste 30 min</span><span id="liveAvg">snitt --</span><span id="liveMax">max --</span></div>
         </div>
 
         <div class="block meas" id="measCard" role="button" tabindex="0">
-          <div class="label">Mätning · nollställ och mät</div>
+          <div class="label">Förbrukad energi · mätning</div>
           <div class="meas-row">
-            <div><div class="meas-v" id="measKwh">0.000 kWh</div><div class="small" style="margin-top:2px;">förbrukning</div></div>
+            <div><div class="meas-v" id="measKwh">0.000 kWh</div><div class="small" style="margin-top:2px;">förbrukad energi</div></div>
             <div style="text-align:right;"><div class="meas-v" id="measKr" style="color:#fbbf24;">–</div><div class="small" style="margin-top:2px;">kostnad inkl överföring</div></div>
           </div>
           <div class="row3"><span id="measTime">00:00 / 60:00</span><span id="measState">tryck för att nollställa</span></div>
         </div>
 
         <div class="block">
-          <div class="label">Spänning · snitt</div>
+          <div class="label">Nätspänning · snitt</div>
           <div class="row" style="margin-top:6px; align-items:center;">
             <div style="flex:1 1 190px;">
               <div class="seg-value" id="voltAvg" aria-label="Spänning snitt"></div>
@@ -179,18 +180,19 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
               <div>max <span id="voltMax">--</span></div>
             </div>
           </div>
-          <div class="seg-graph" id="voltSeg" role="img" aria-label="Spänning senaste 30 minuter som segmentdisplay"></div>
+          <div class="seg-graph" id="voltSeg" role="img" aria-label="Nätspänning senaste 30 minuter som segmentdisplay"></div>
+          <div class="small" style="margin-top:3px">Nätets spänning kan variera något.</div>
         </div>
 
         <div class="block">
-          <div class="label">Energi</div>
+          <div class="label">Förbrukad energi</div>
           <div class="tiles">
             <div class="tile"><div class="label">Mätarens total</div><div class="v" id="meterTotal">--</div></div>
             <div class="tile"><div class="label">Sedan start</div><div class="v" id="sinceBoot">--</div></div>
             <div class="tile"><div class="label">Senaste 1 timme</div><div class="v" id="hour1">--</div></div>
             <div class="tile"><div class="label">Idag</div><div class="v" id="today">--</div></div>
           </div>
-          <div class="small" id="sampleInfo">Senaste 30 minuterna visas som segment när sidan är öppen</div>
+          <div class="small" id="sampleInfo">Senaste 30 minuterna visas som segment när sidan är öppen. Använd effekt mäts i W; förbrukad energi i kWh över tid.</div>
         </div>
         <div class="block">
           <div class="label">Elpris SE3 · idag</div>
@@ -212,7 +214,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
         </div>
 
         <div class="block">
-          <div class="label">Förbrukning per timme · SE3 + elöverföring</div>
+          <div class="label">Förbrukad energi per timme · SE3 + elöverföring</div>
           <div class="small" style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
             <span>Elöverföring</span>
             <input id="feeInput" type="number" min="0" step="0.1" inputmode="decimal"
@@ -220,7 +222,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
             <span>öre/kWh · kostnaden nedan är spot + överföring</span>
           </div>
           <div class="hourlist">
-            <div class="hrow head"><span class="ht">timme</span><span class="hk">förbrukning</span><span class="hp">kr/kWh</span><span class="hc">kostnad</span></div>
+            <div class="hrow head"><span class="ht">timme</span><span class="hk">energi</span><span class="hp">kr/kWh</span><span class="hc">kostnad</span></div>
             <div id="hourList"></div>
           </div>
         </div>
@@ -398,7 +400,7 @@ const char HTML_LIVE[] PROGMEM = R"rawliteral(
       var b = byId('espDot');
       if (b) { b.className = 'dot' + (ok ? '' : ' grey'); }
       var i = byId('espInfo');
-      if (i) { i.innerText = ok ? 'Watt · spänning · ström' : 'ESP32: väntar på data'; }
+      if (i) { i.innerText = ok ? 'Använd effekt · spänning · ström' : 'ESP32: väntar på data'; }
     }
 
     function setStatus(txt, ok) {

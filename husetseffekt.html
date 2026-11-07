@@ -295,6 +295,8 @@
     .seg-graph .seg-digit.empty { filter: none; }
     .seg-graph .seg-digit.empty .seg { fill: rgba(145,66,28,.028); }
     .chart-note { margin-top: 6px; font: 9px/1.5 Consolas, "Courier New", monospace; color: #7f886c; letter-spacing: .7px; text-transform: uppercase; }
+    .meter-note { margin-top: 10px; padding: 7px 9px; border-left: 2px solid #59694b; background: rgba(0,0,0,.18); color: #b8c2a4; font: 10px/1.55 Consolas, "Courier New", monospace; letter-spacing: .2px; }
+    .meter-note b { color: #e6d7ad; font-weight: 600; }
     .row3 { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; color: #8f987c; font: 10px Consolas, "Courier New", monospace; letter-spacing: .8px; text-transform: uppercase; }
     .volt-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #1a2016; font: 10px Consolas, "Courier New", monospace; color: #9aa383; letter-spacing: .8px; }
     .volt-strip b { color: #d7dcc0; }
@@ -556,7 +558,7 @@
         <div class="panel-head">
           <span class="tag">ЩИТ №1</span>
           <h2>Mätpanel · live</h2>
-          <span class="tag" id="espInfo">Watt · spänning · ström</span>
+          <span class="tag" id="espInfo">Använd effekt · spänning · ström</span>
         </div>
         <div class="desk-scene">
           <div class="wall-max" id="wallMax" role="img" aria-label="Högsta effekt 0 watt">
@@ -568,14 +570,14 @@
             <div class="desk-table" aria-hidden="true"><div class="desk-top"></div><div class="desk-front"></div></div>
             <div class="gauge-row">
               <div class="gcell">
-                <div class="dial-name">Spänning</div>
-                <div class="seg-value" id="segV" role="img" aria-label="Spänning"></div>
-                <div class="seg-unit">volt</div>
+                <div class="dial-name">Nätspänning</div>
+                <div class="seg-value" id="segV" role="img" aria-label="Nätspänning"></div>
+                <div class="seg-unit">volt · kan variera</div>
               </div>
               <div class="gcell main">
-                <div class="dial-name">Effekt</div>
-                <div class="seg-value" id="segW" role="img" aria-label="Effekt"></div>
-                <div class="seg-unit">watt</div>
+                <div class="dial-name">Använd effekt</div>
+                <div class="seg-value" id="segW" role="img" aria-label="Använd effekt just nu"></div>
+                <div class="seg-unit">watt · just nu</div>
                 <div class="small" id="lastCalc">senast räknat –</div>
               </div>
               <div class="gcell">
@@ -589,12 +591,13 @@
         <div class="seg-graph" id="liveSeg" role="img" aria-label="Effekt senaste 30 minuter som segmentdisplay"></div>
         <div class="row3"><span>−30 min · nivå 0–9</span><span id="liveAvg">snitt --</span><span id="liveMax">max --</span></div>
         <div class="volt-strip">
-          <span>Spänning · 12 segment</span>
+          <span>Nätspänning · 12 segment</span>
           <b id="voltAvg">--</b>
           <span>min <b id="voltMin">--</b></span>
           <span>max <b id="voltMax">--</b></span>
-          <div class="seg-graph lite" id="voltSeg" role="img" aria-label="Spänning senaste 30 minuter som segmentdisplay"></div>
+          <div class="seg-graph lite" id="voltSeg" role="img" aria-label="Nätspänning senaste 30 minuter som segmentdisplay"></div>
         </div>
+        <div class="meter-note"><b>Använd effekt</b> är det huset drar just nu (W). <b>Förbrukad energi</b> är summan över tid (kWh). Spänningen kan variera något.</div>
       </section>
 
       <section class="panel reactor-panel" id="reactor">
@@ -674,8 +677,8 @@
         <section class="panel">
           <div class="panel-head">
             <span class="tag">ЩИТ №4</span>
-            <h2>Energi</h2>
-            <span class="tag">kWh</span>
+            <h2>Förbrukad energi</h2>
+            <span class="tag">kWh över tid</span>
           </div>
           <div class="tiles">
             <div class="tile"><div class="label">Mätarens total</div><div class="drum" id="meterTotal">--</div></div>
@@ -683,7 +686,7 @@
             <div class="tile"><div class="label">Senaste 1 timme</div><div class="drum" id="hour1">--</div></div>
             <div class="tile"><div class="label">Idag</div><div class="drum" id="today">--</div></div>
           </div>
-          <div class="small" id="sampleInfo">Senaste 30 minuterna ritas ut när sidan är öppen</div>
+          <div class="small" id="sampleInfo">Senaste 30 minuterna visas som segment när sidan är öppen</div>
         </section>
 
         <section class="panel meas" id="measCard" role="button" tabindex="0">
@@ -696,7 +699,7 @@
             <div class="bigbtn" aria-hidden="true">M</div>
             <div class="meas-cols">
               <div class="meas-v" id="measKwh">0.000 kWh</div>
-              <div class="small">förbrukning</div>
+              <div class="small">förbrukad energi</div>
               <div class="meas-v" id="measKr" style="color:#e6c778;">–</div>
               <div class="small">kostnad inkl överföring · ex moms</div>
             </div>
@@ -731,7 +734,7 @@
       <section class="panel">
         <div class="panel-head">
           <span class="tag">ЩИТ №7</span>
-          <h2>Förbrukning per timme</h2>
+          <h2>Förbrukad energi per timme</h2>
           <span class="tag">SE3 + överföring</span>
         </div>
         <div class="fee-line">
@@ -740,7 +743,7 @@
           <span>öre/kWh · spot + överföring, ex moms</span>
         </div>
         <div class="hourlist">
-          <div class="hrow head"><span class="ht">timme</span><span class="hk">förbrukning</span><span class="hp">kr/kWh</span><span class="hc">kostnad</span></div>
+          <div class="hrow head"><span class="ht">timme</span><span class="hk">energi</span><span class="hp">kr/kWh</span><span class="hc">kostnad</span></div>
           <div id="hourList"></div>
         </div>
       </section>
@@ -922,7 +925,7 @@
       var b = byId('espDot');
       if (b) { b.className = 'dot' + (ok ? '' : ' grey'); }
       var i = byId('espInfo');
-      if (i) { i.innerText = ok ? 'Watt · spänning · ström' : 'ESP32: väntar på data'; }
+      if (i) { i.innerText = ok ? 'Använd effekt · spänning · ström' : 'ESP32: väntar på data'; }
       lamp('lampEsp', !!ok);
     }
 
@@ -1548,16 +1551,15 @@
 
       // Segmentmätare: effekt, spänning och ström.
       var amps = num(d.a), volts = num(d.v), watts = num(d.w);
-      setSegMeter(byId('segW'), watts, { decimals: 0, label: 'Effekt', unit: 'watt' });
-      setSegMeter(byId('segV'), volts, { decimals: 1, zeroDash: true, label: 'Spänning', unit: 'volt' });
+      setSegMeter(byId('segW'), watts, { decimals: 0, label: 'Använd effekt just nu', unit: 'watt' });
+      setSegMeter(byId('segV'), volts, { decimals: 1, zeroDash: true, label: 'Nätspänning', unit: 'volt' });
       setSegMeter(byId('segA'), amps, { decimals: 2, zeroDash: true, label: 'Ström', unit: 'ampere' });
       sessMax.v = Math.max(sessMax.v, volts);
       sessMax.a = Math.max(sessMax.a, amps);
       // Kortets maxvärde kan vara lägre än en aktuell topp (t.ex. om det
       // räknas som medelvärde). Den stora displayen ska ändå visa högsta
       // effekten vi har sett, annars kan den visa mindre än mätaren.
-      sessMax.w = Math.max(sessMax.w, num(d.maxW), watts);
-      setSegMeter(byId('segMaxW'), sessMax.w, { decimals: 0, label: 'Max effekt', unit: 'watt' });
+      sessMax.w = Math.max(sessMax.w, num(d.maxW), watts);        setSegMeter(byId('segMaxW'), sessMax.w, { decimals: 0, label: 'Max använd effekt', unit: 'watt' });
       setMaxSeg8(sessMax.w);
       setSegMeter(byId('segMaxV'), sessMax.v, { decimals: 1, zeroDash: true, label: 'Max spänning', unit: 'volt' });
       setSegMeter(byId('segMaxA'), sessMax.a, { decimals: 2, zeroDash: true, label: 'Max ström', unit: 'ampere' });

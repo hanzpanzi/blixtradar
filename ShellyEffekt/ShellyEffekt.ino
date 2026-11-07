@@ -1518,9 +1518,10 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
   <div class="status" id="status">Ansluter…</div>
 
   <div class="livebox">
-    <div class="livelbl"><span class="livedot" id="liveDot"></span>Just nu</div>
-    <div class="seg-value" id="nowW" aria-label="Effekt just nu"></div>
-    <div class="seg-unit">watt · just nu</div>
+    <div class="livelbl"><span class="livedot" id="liveDot"></span>Använd effekt · nu</div>
+    <div class="seg-value" id="nowW" aria-label="Använd effekt just nu"></div>
+    <div class="seg-unit">watt · används nu</div>
+    <div class="sublabel">det huset drar just nu</div>
     <div class="seg-graph" id="liveSeg" role="img" aria-label="Effekt senaste 5 minuter som segmentdisplay"></div>
     <div class="liverow">
       <span>senaste 5 min</span>
@@ -1531,9 +1532,10 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
   </div>
 
   <div class="voltbox">
-    <div class="livelbl">Spänning · nu</div>
-    <div class="seg-value" id="voltNow" aria-label="Spänning nu"></div>
-    <div class="seg-unit">volt · nu</div>
+    <div class="livelbl">Nätspänning · nu</div>
+    <div class="seg-value" id="voltNow" aria-label="Nätspänning nu"></div>
+    <div class="seg-unit">volt · nätspänning</div>
+    <div class="sublabel">kan variera något</div>
     <div class="seg-graph" id="voltSeg" role="img" aria-label="Spänning senaste 5 minuter som segmentdisplay"></div>
     <div class="liverow">
       <span>senaste 5 min</span>
@@ -1548,12 +1550,13 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
     <div class="tile"><div class="label">Sedan start</div><div class="v" id="boot">–</div></div>
     <div class="tile"><div class="label">Senaste 1 h</div><div class="v" id="h1">–</div></div>
     <div class="tile"><div class="label">Idag</div><div class="v" id="today">–</div></div>
-    <div class="tile"><div class="label">Spänning</div><div class="v" id="vv">–</div></div>
+    <div class="tile"><div class="label">Nätspänning</div><div class="v" id="vv">–</div></div>
     <div class="tile"><div class="label">Ström</div><div class="v" id="a">–</div></div>
   </div>
+  <div class="sublabel" style="margin-top:8px;text-align:left">Förbrukad energi i kWh över tid. Använd effekt i W visas ovan.</div>
 
   <div class="block">
-    <div class="label">Förbrukning per timme (kWh, senaste 24 h)</div>
+    <div class="label">Förbrukad energi per timme (kWh, senaste 24 h)</div>
     <div class="seg-graph" id="hourSeg" role="img" aria-label="Förbrukning per timme som segmentdisplay"></div>
     <div class="ticks" id="ticks"></div>
   </div>
