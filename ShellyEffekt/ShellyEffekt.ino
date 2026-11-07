@@ -1445,16 +1445,31 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
             color:#4ade80; border:1px solid #1e293b; word-break:break-word; font-size:.9em;
             text-align:center; margin-top:14px; }
   .status.bad { color:#f87171; }
-  .metric { font-size:2.7em; font-weight:800; color:#fbbf24; text-align:center; margin:10px 0 0;
-            text-shadow:0 0 18px rgba(251,191,36,.35); }
+  .seg-value { display:flex; align-items:stretch; justify-content:center; gap:3px; width:100%; max-width:270px; margin:8px auto 0; padding:6px 5px 4px;
+               background:radial-gradient(ellipse at 50% 0%,#171303,#080806 72%); border:1px solid #3a2d1a; border-radius:9px; box-shadow:inset 0 0 16px #000; }
+  .seg-value .seg-digit { flex:0 1 42px; min-width:0; max-width:42px; width:auto; height:auto; overflow:visible; filter:drop-shadow(0 0 4px rgba(251,191,36,.25)); }
+  .seg-value .seg { fill:rgba(251,191,36,.1); }
+  .seg-value .seg.on { fill:#fbbf24; }
+  .seg-value.hot .seg.on { fill:#ff4b2e; }
+  .seg-value .seg-dp { opacity:0; }
+  .seg-value .has-dp .seg-dp { opacity:1; fill:#fbbf24; }
+  .seg-value .seg-digit.blank .seg { fill:rgba(251,191,36,.025); }
+  .seg-unit { margin-top:2px; text-align:center; color:#94a3b8; font-size:.7em; letter-spacing:1px; text-transform:uppercase; }
+  .seg-graph { display:flex; align-items:stretch; justify-content:center; gap:2px; width:100%; min-height:48px; margin-top:8px; padding:5px; background:#0b1220; border:1px solid #263449; border-radius:8px; }
+  .seg-graph .seg-digit { flex:1 1 0; min-width:0; max-width:28px; width:auto; height:auto; overflow:visible; }
+  .seg-graph .seg { fill:rgba(56,189,248,.1); }
+  .seg-graph .lvl-0 .seg.on, .seg-graph .lvl-1 .seg.on { fill:#4ade80; }
+  .seg-graph .lvl-2 .seg.on { fill:#a3e635; }
+  .seg-graph .lvl-3 .seg.on { fill:#fbbf24; }
+  .seg-graph .lvl-4 .seg.on { fill:#fb923c; }
+  .seg-graph .lvl-5 .seg.on, .seg-graph .hot .seg.on { fill:#f87171; }
+  .seg-graph .seg-digit.now { filter:drop-shadow(0 0 6px rgba(251,191,36,.8)); }
+  .seg-graph .seg-digit.empty .seg { fill:rgba(56,189,248,.025); }
   .sublabel { text-align:center; color:#94a3b8; font-size:.8em; margin-top:2px; }
   .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:16px; }
   .tile { background:#0f172a; border:1px solid #263449; border-radius:12px; padding:10px 6px; text-align:center; }
   .tile .v { font-size:1.05em; font-weight:700; margin-top:5px; color:#e2e8f0; }
   .block { background:#0f172a; border:1px solid #263449; border-radius:14px; padding:12px; margin-top:14px; }
-  .chart { display:flex; align-items:flex-end; gap:2px; height:110px; margin-top:10px; }
-  .bar { flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%; }
-  .fill { background:linear-gradient(180deg,#38bdf8,#0ea5e9); border-radius:3px 3px 0 0; min-height:1px; }
   .ticks { display:flex; gap:2px; margin-top:4px; }
   .ticks span { flex:1; text-align:center; color:#64748b; font-size:9px; }
   .foot { color:#64748b; font-size:.75em; text-align:center; margin-top:14px; line-height:1.6; }
@@ -1484,13 +1499,9 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
     0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(74,222,128,.55); }
     50%     { opacity:.6; box-shadow:0 0 0 7px rgba(74,222,128,0); }
   }
-  .metric { margin:2px 0 0; }
-  .livegraph { width:100%; height:88px; display:block; margin-top:6px; }
   .liverow { display:flex; justify-content:space-between; color:#64748b; font-size:.72em; margin-top:4px; }
   .voltbox { background:#0f172a; border:1px solid #263449; border-radius:14px;
              padding:10px 12px 8px; margin-top:10px; }
-  .voltnow { text-align:center; font-size:1.4em; font-weight:800; color:#34d399; margin-top:2px; }
-  .voltgraph { width:100%; height:56px; display:block; margin-top:2px; }
   @supports (padding:max(0px)) {
     body { padding-left:max(12px,env(safe-area-inset-left)); padding-right:max(12px,env(safe-area-inset-right));
            padding-top:max(12px,env(safe-area-inset-top)); padding-bottom:max(12px,env(safe-area-inset-bottom)); }
@@ -1508,18 +1519,9 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
 
   <div class="livebox">
     <div class="livelbl"><span class="livedot" id="liveDot"></span>Just nu</div>
-    <div class="metric" id="nowW">–</div>
-    <svg class="livegraph" viewBox="0 0 360 90" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="liveFillGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.5"></stop>
-          <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"></stop>
-        </linearGradient>
-      </defs>
-      <path id="liveFill" fill="url(#liveFillGrad)"></path>
-      <polyline id="liveLine" fill="none" stroke="#38bdf8" stroke-width="2"
-                vector-effect="non-scaling-stroke"></polyline>
-    </svg>
+    <div class="seg-value" id="nowW" aria-label="Effekt just nu"></div>
+    <div class="seg-unit">watt · just nu</div>
+    <div class="seg-graph" id="liveSeg" role="img" aria-label="Effekt senaste 5 minuter som segmentdisplay"></div>
     <div class="liverow">
       <span>senaste 5 min</span>
       <span id="liveMin">–</span>
@@ -1529,12 +1531,10 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
   </div>
 
   <div class="voltbox">
-    <div class="livelbl">Spänning · snitt</div>
-    <div class="voltnow" id="voltNow">–</div>
-    <svg class="voltgraph" viewBox="0 0 360 50" preserveAspectRatio="none">
-      <polyline id="voltLine" fill="none" stroke="#34d399" stroke-width="2"
-                vector-effect="non-scaling-stroke"></polyline>
-    </svg>
+    <div class="livelbl">Spänning · nu</div>
+    <div class="seg-value" id="voltNow" aria-label="Spänning nu"></div>
+    <div class="seg-unit">volt · nu</div>
+    <div class="seg-graph" id="voltSeg" role="img" aria-label="Spänning senaste 5 minuter som segmentdisplay"></div>
     <div class="liverow">
       <span>senaste 5 min</span>
       <span id="voltMin">–</span>
@@ -1554,7 +1554,7 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
 
   <div class="block">
     <div class="label">Förbrukning per timme (kWh, senaste 24 h)</div>
-    <div class="chart" id="chart"></div>
+    <div class="seg-graph" id="hourSeg" role="img" aria-label="Förbrukning per timme som segmentdisplay"></div>
     <div class="ticks" id="ticks"></div>
   </div>
 
@@ -1572,6 +1572,114 @@ function fmtKwh(wh) {
   return (wh / 1000).toFixed(2) + ' kWh';
 }
 function $(id) { return document.getElementById(id); }
+
+// Alla signaler ritas som 7-segment. SVG-siffrorna fungerar i alla webbläsare.
+var SEG_MAP = {
+  '0': 'abcdef', '1': 'bc', '2': 'abdeg', '3': 'abcdg', '4': 'bcfg',
+  '5': 'acdfg', '6': 'acdefg', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg'
+};
+function segRects() {
+  var r = '', segs = [
+    ['a', 10, 4, 36, 8], ['b', 45, 11, 8, 32], ['c', 45, 51, 8, 32],
+    ['d', 10, 83, 36, 8], ['e', 3, 51, 8, 32], ['f', 3, 11, 8, 32], ['g', 10, 44, 36, 8]
+  ], i;
+  for (i = 0; i < segs.length; i++) r += '<rect class="seg" data-seg="' + segs[i][0] + '" x="' + segs[i][1] +
+    '" y="' + segs[i][2] + '" width="' + segs[i][3] + '" height="' + segs[i][4] + '" rx="3"/>';
+  return r;
+}
+function segMarkup(extra) {
+  return '<svg class="seg-digit ' + (extra || '') + '" viewBox="0 0 56 96" aria-hidden="true">' +
+         segRects() + '<circle class="seg-dp" cx="51" cy="88" r="4.2"/></svg>';
+}
+function paintSeg(svg, ch) {
+  if (!svg) return;
+  var on = SEG_MAP[ch] || '', rects = svg.getElementsByTagName('rect'), i;
+  for (i = 0; i < rects.length; i++) {
+    var seg = rects[i].getAttribute('data-seg');
+    rects[i].setAttribute('class', 'seg' + (on.indexOf(seg) >= 0 ? ' on' : ''));
+  }
+}
+function segDigits(host, count, extra) {
+  if (!host) return [];
+  if (!host._segDigits || host._segDigits.length !== count) {
+    var html = '', i;
+    for (i = 0; i < count; i++) html += segMarkup(extra);
+    host.innerHTML = html;
+    host._segDigits = host.getElementsByTagName('svg');
+  }
+  return host._segDigits;
+}
+function setSegMeter(host, value, digits, opt) {
+  if (!host) return;
+  opt = opt || {};
+  var svgs = segDigits(host, digits, 'seg-num'), txt = '';
+  if (typeof value === 'number' && isFinite(value)) txt = opt.decimals ? value.toFixed(opt.decimals) : String(Math.round(value));
+  var tokens = [], i, c;
+  for (i = 0; i < txt.length; i++) {
+    c = txt.charAt(i);
+    if (c === '.' || c === ',') { if (tokens.length) tokens[tokens.length - 1].dp = true; }
+    else if (c >= '0' && c <= '9') tokens.push({ ch: c, dp: false, blank: false });
+  }
+  while (tokens.length > digits) tokens.shift();
+  while (tokens.length < digits) tokens.unshift({ ch: '', dp: false, blank: true });
+  for (i = 0; i < digits; i++) {
+    var t = tokens[i], svg = svgs[i];
+    paintSeg(svg, t.ch);
+    svg.setAttribute('class', 'seg-digit seg-num' + (t.dp ? ' has-dp' : '') + (t.blank ? ' blank' : ''));
+  }
+  host.setAttribute('data-value', txt);
+  host.setAttribute('aria-label', (opt.unit || 'värde') + ': ' + (txt ? txt.replace('.', ',') : 'saknas'));
+}
+function segHistory(host, vals, opt) {
+  if (!host) return;
+  opt = opt || {};
+  vals = vals || [];
+  var cols = opt.cols || 12, data = [], c, i;
+  for (c = 0; c < cols; c++) {
+    var a = vals.length ? Math.floor(c * vals.length / cols) : 0;
+    var b = vals.length ? Math.floor((c + 1) * vals.length / cols) : 0;
+    var sum = 0, top = -Infinity, n = 0;
+    for (i = a; i < b; i++) {
+      var raw = vals[i];
+      if (typeof raw !== 'number' || !isFinite(raw)) continue;
+      if (opt.ignoreZero && !(raw > 0)) continue;
+      sum += raw; n++;
+      if (raw > top) top = raw;
+    }
+    data.push(opt.agg === 'max' ? (top === -Infinity ? 0 : top) : (n ? sum / n : 0));
+  }
+  var mn = opt.min, mx = opt.max, f;
+  if (mn === undefined || mx === undefined) {
+    mn = 1e9; mx = -1e9;
+    for (i = 0; i < data.length; i++) {
+      if (opt.ignoreZero && !(data[i] > 0)) continue;
+      if (data[i] < mn) mn = data[i];
+      if (data[i] > mx) mx = data[i];
+    }
+    if (!(mx >= mn)) { mn = 0; mx = 1; }
+    var pad = Math.max((mx - mn) * .25, 0);
+    mn -= pad; mx += pad;
+  }
+  if (!(mx > mn)) mx = mn + 1;
+  var svgs = segDigits(host, cols, 'seg-cell');
+  var mark = opt.markCol === undefined ? -1 : Math.max(0, Math.min(cols - 1, opt.markCol));
+  for (c = 0; c < cols; c++) {
+    var svg = svgs[c];
+    if (opt.blankZero && !(data[c] > 0)) {
+      paintSeg(svg, '');
+      svg.setAttribute('class', 'seg-digit seg-cell empty');
+      continue;
+    }
+    f = Math.max(0, Math.min(1, (data[c] - mn) / (mx - mn)));
+    paintSeg(svg, String(Math.round(f * 9)));
+    var lvl = Math.min(5, Math.max(0, Math.ceil(f * 5)));
+    var cls = 'seg-digit seg-cell lvl-' + lvl + (c === mark ? ' now' : '');
+    if (opt.kind === 'power' && data[c] >= 2000) cls += ' hot';
+    svg.setAttribute('class', cls);
+  }
+  host.setAttribute('data-values', data.map(function (x) { return Math.round(x * 10) / 10; }).join(','));
+  if (opt.aria) host.setAttribute('aria-label', opt.aria);
+}
 
 function poll() {
   fetch('/api/power', { cache: 'no-store' })
@@ -1594,7 +1702,8 @@ function poll() {
       $('boot').textContent  = fmtWh(d.bootWh);
       $('h1').textContent    = fmtWh(d.h1Wh);
       $('today').textContent = fmtWh(d.todayWh);
-      $('nowW').innerHTML    = (d.online ? d.power.toFixed(0) : '–') + '<small> W</small>';
+      setSegMeter($('nowW'), d.online ? d.power : null, 4, { unit: 'watt' });
+      $('nowW').className = 'seg-value' + (d.online && d.power > 2000 ? ' hot' : '');
       $('liveDot').className = 'livedot' + (d.online ? '' : ' off');
       $('vv').textContent    = (d.volt > 1 ? d.volt.toFixed(0) + ' V' : '–');
       $('a').textContent     = (d.amp > 0.005 ? d.amp.toFixed(2) + ' A' : '–');
@@ -1618,17 +1727,13 @@ function graph() {
   fetch('/api/history', { cache: 'no-store' })
     .then(function (r) { return r.json(); })
     .then(function (d) {
-      var max = 0.001;
-      for (var i = 0; i < d.kwh.length; i++) if (d.kwh[i] > max) max = d.kwh[i];
-      var chart = '', ticks = '';
-      for (var i = 0; i < d.kwh.length; i++) {
-        var h = Math.round(d.kwh[i] / max * 100);
-        chart += '<div class="bar"><div class="fill" style="height:' + h +
-                 '%" title="' + d.kwh[i].toFixed(3) + ' kWh"></div></div>';
-        ticks += '<span>' + (i % 4 === 0 ? d.labels[i] : '') + '</span>';
-      }
-      $('chart').innerHTML = chart;
-      $('ticks').innerHTML = ticks;
+      var max = 0.001, i;
+      for (i = 0; i < d.kwh.length; i++) if (d.kwh[i] > max) max = d.kwh[i];
+      segHistory($('hourSeg'), d.kwh, {
+        cols: 12, min: 0, max: max * 1.1, blankZero: true, kind: 'power',
+        aria: 'Förbrukning per timme som segmentdisplay'
+      });
+      $('ticks').innerHTML = '<span>00</span><span>06</span><span>12</span><span>18</span>';
     });
 }
 
@@ -1648,19 +1753,10 @@ function live() {
         sum += w[i];
       }
 
-      var top = Math.max(mx, 1);
-      var bot = Math.min(mn, 0);
-      var range = Math.max(top - bot, 1);
-      var pts = [];
-
-      for (var i = 0; i < n; i++) {
-        var x = (i / (n - 1)) * 360;
-        var y = 86 - ((w[i] - bot) / range) * 78;
-        pts.push(x.toFixed(1) + ',' + y.toFixed(1));
-      }
-
-      $('liveLine').setAttribute('points', pts.join(' '));
-      $('liveFill').setAttribute('d', 'M0,90 L' + pts.join(' L') + ' L360,90 Z');
+      segHistory($('liveSeg'), w, {
+        cols: 12, min: 0, max: 5000, agg: 'max', kind: 'power', blankZero: true,
+        aria: 'Effekt senaste 5 minuter som segmentdisplay'
+      });
       $('liveMin').textContent = 'min ' + mn.toFixed(0) + ' W';
       $('liveAvg').textContent = 'snitt ' + (sum / n).toFixed(0) + ' W';
       $('liveMax').textContent = 'max ' + mx.toFixed(0) + ' W';
@@ -1675,18 +1771,11 @@ function live() {
           vsum += v[i];
         }
         var vavg = vsum / v.length;
-        // Lite luft runt kurvan så den inte ligger platt mot kanten
-        var vpad = Math.max((vmx - vmn) * 0.15, 0.8);
-        var vtop = vmx + vpad, vbot = vmn - vpad;
-        var vrange = Math.max(vtop - vbot, 0.1);
-        var vpts = [];
-        for (var i = 0; i < v.length; i++) {
-          var vx = (i / (v.length - 1)) * 360;
-          var vy = 44 - ((v[i] - vbot) / vrange) * 38;
-          vpts.push(vx.toFixed(1) + ',' + vy.toFixed(1));
-        }
-        $('voltLine').setAttribute('points', vpts.join(' '));
-        $('voltNow').textContent = v[v.length - 1].toFixed(1) + ' V';
+        setSegMeter($('voltNow'), v[v.length - 1], 3, { unit: 'volt' });
+        segHistory($('voltSeg'), v, {
+          cols: 12, agg: 'avg', ignoreZero: true, blankZero: true,
+          aria: 'Spänning senaste 5 minuter som segmentdisplay'
+        });
         $('voltMin').textContent = 'min ' + vmn.toFixed(1) + ' V';
         $('voltAvg').textContent = 'snitt ' + vavg.toFixed(1) + ' V';
         $('voltMax').textContent = 'max ' + vmx.toFixed(1) + ' V';
