@@ -471,6 +471,7 @@
     .usage-log b { color: #d9c28a; font-weight: 600; }
     .usage-log b::before { content: " · "; color: #626b58; font-weight: 400; }
     .usage-log .usage-period { color: #626b58; }
+    .usage-log .usage-month { display: block; margin-top: 2px; color: #7f886e; }
 
     @media (pointer: fine) {
       .hourlist { scrollbar-width: thin; scrollbar-color: #3c4530 transparent; }
@@ -756,6 +757,7 @@
       <span id="usageLabel">Förbrukningslogg · startar</span>
       <b id="usageTotal">–</b>
       <span class="usage-period" id="usagePeriod">· sparas lokalt</span>
+      <div class="usage-month">1 mån <b id="usageMonth">–</b></div>
     </div>
 
   </div>
@@ -837,11 +839,13 @@
 
     function usageRender(totalWh) {
       var label = byId('usageLabel'), total = byId('usageTotal'), period = byId('usagePeriod');
-      if (!label || !total || !period) return;
+      var month = byId('usageMonth');
+      if (!label || !total || !period || !month) return;
       var entries = usageLoad();
       if (!entries.length) {
         label.innerText = 'Förbrukningslogg · startar';
         total.innerText = '–';
+        month.innerText = '–';
         period.innerText = '· sparas lokalt';
         return;
       }
@@ -862,9 +866,23 @@
       if (endTotal + 1 < base.t) endTotal = last.t; // mätaren har nollställts
       var used = Math.max(0, endTotal - base.t);
       var span = Math.max(0, Math.round((usageDate(usageDay(now)) - usageDate(base.d)) / 86400000));
+
+      // Rullande enmånaderssumma: samma mätarställning som ligger närmast
+      // en månad tillbaka, så att summan blir cirka 30 dagar även vid luckor.
+      var monthCutoff = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+      var monthCutoffMs = usageDate(usageDay(monthCutoff)).getTime();
+      var monthBase = entries[0], bestMonth = Infinity;
+      for (i = 0; i < entries.length; i++) {
+        var monthDiff = Math.abs(usageDate(entries[i].d).getTime() - monthCutoffMs);
+        if (monthDiff < bestMonth) { bestMonth = monthDiff; monthBase = entries[i]; }
+      }
+      if (endTotal + 1 < monthBase.t) monthBase = last;
+      var monthUsed = Math.max(0, endTotal - monthBase.t);
+
       label.innerText = span < 1 ? 'Förbrukningslogg · startar'
         : 'Förbrukningslogg · ' + (span >= 180 ? '6 mån' : 'loggat') + ' totalt';
       total.innerText = fmtKwh(used);
+      month.innerText = fmtKwh(monthUsed);
       period.innerText = '· ' + base.d + '–' + (endTotal !== last.t ? usageDay(now) : last.d);
     }
 
