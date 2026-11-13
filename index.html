@@ -1,0 +1,2677 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Powerplant">
+  <meta name="description" content="Aktuell effekt, dagens energi och Greenelys SE3-priser.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <title>Powerplant · live</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #050605;
+      --panel: #0c0f0b;
+      --panel-soft: #11150f;
+      --line: #30362b;
+      --line-strong: #525d47;
+      --text: #f5f8ef;
+      --muted: #aab3a0;
+      --dim: #7f8976;
+      --lime: #d8ff58;
+      --amber: #ffc65c;
+      --red: #ff7164;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      min-height: 100svh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      -webkit-text-size-adjust: 100%;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .wrap {
+      width: min(100% - 28px, 980px);
+      margin: 0 auto;
+      padding-top: max(22px, env(safe-area-inset-top));
+      padding-bottom: max(28px, env(safe-area-inset-bottom));
+    }
+    .top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 10px 16px;
+      padding-bottom: 18px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+    .top > div:first-child { min-width: 0; }
+    .eyebrow,
+    .label {
+      margin: 0;
+      color: var(--muted);
+      font: 700 12px/1.3 var(--mono);
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 5px 0 0;
+      font: 750 clamp(32px, 6vw, 48px)/1 var(--sans);
+      letter-spacing: -.045em;
+    }
+    .live {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: 100%;
+      padding: 8px 11px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      color: var(--muted);
+      font: 700 12px/1.2 var(--mono);
+      letter-spacing: .05em;
+      white-space: nowrap;
+    }
+    #liveText {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .live .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--dim);
+      box-shadow: 0 0 0 3px rgba(127, 137, 118, .13);
+    }
+    .top-status {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      min-width: 0;
+      max-width: 100%;
+      margin-left: auto;
+    }
+    .aurora {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border: 1px solid #4d6d5c;
+      border-radius: 999px;
+      background: rgba(88, 218, 155, .08);
+      color: #c4f8d9;
+      font: 700 12px/1.2 var(--mono);
+      letter-spacing: .04em;
+      white-space: nowrap;
+    }
+    .aurora[hidden] { display: none; }
+    .aurora-face {
+      font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+      font-size: 17px;
+      line-height: 1;
+      filter: drop-shadow(0 0 7px rgba(116, 255, 181, .55));
+      animation: auroraBlink 1.15s ease-in-out infinite;
+    }
+    @keyframes auroraBlink {
+      0%, 100% { opacity: 1; transform: scale(1) rotate(-4deg); }
+      50% { opacity: .22; transform: scale(.9) rotate(4deg); }
+    }
+    .live.on { color: var(--text); border-color: var(--lime); }
+    .live.on .dot { background: var(--lime); box-shadow: 0 0 0 3px rgba(216, 255, 88, .17); }
+    .live.stale { color: var(--amber); border-color: #806331; }
+    .live.stale .dot { background: var(--amber); box-shadow: 0 0 0 3px rgba(255, 198, 92, .14); }
+    .live.off { color: var(--red); border-color: #7e3d35; }
+    .live.off .dot { background: var(--red); }
+    .temp {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border: 1px solid #3f5266;
+      border-radius: 999px;
+      background: rgba(138, 180, 248, .07);
+      color: var(--text);
+      font: 700 12px/1.2 var(--mono);
+      letter-spacing: .04em;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .temp:hover { border-color: #8ab4f8; }
+    .temp-icon {
+      font-size: 14px;
+      line-height: 1;
+      filter: drop-shadow(0 0 5px rgba(138, 180, 248, .35));
+    }
+    .temp-value {
+      color: #8ab4f8;
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+    }
+    .temp-place {
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .temp.stale { border-color: var(--line); background: transparent; }
+    .temp.stale .temp-value { color: var(--muted); }
+
+    .cost-strip {
+      margin: 0 0 12px;
+      padding: 14px 16px 13px;
+      background:
+        linear-gradient(135deg, rgba(216, 255, 88, .06), transparent 56%),
+        var(--panel);
+      border: 1px solid #3d4934;
+      border-radius: 6px;
+    }
+    .cost-strip-top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 10px 18px;
+    }
+    .cost-strip-heading { min-width: 0; }
+    .cost-strip-heading h2 {
+      margin: 4px 0 0;
+      font: 750 20px/1.15 var(--sans);
+      letter-spacing: -.025em;
+    }
+    .cost-strip-sub {
+      margin: 4px 0 0;
+      color: var(--dim);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .cost-strip-total {
+      margin-left: auto;
+      text-align: right;
+    }
+    .cost-strip-total strong {
+      color: var(--lime);
+      font: 750 clamp(34px, 5.2vw, 48px)/1 var(--mono);
+      letter-spacing: -.07em;
+      font-variant-numeric: tabular-nums;
+    }
+    .cost-strip-total .unit {
+      margin-left: 5px;
+      color: var(--muted);
+      font: 700 13px/1 var(--mono);
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .cost-strip-total small {
+      display: block;
+      margin-top: 3px;
+      color: var(--dim);
+      font: 700 11px/1.2 var(--mono);
+      letter-spacing: .04em;
+    }
+    .cost-strip-now {
+      flex: 0 0 auto;
+      min-width: 110px;
+      padding-left: 14px;
+      border-left: 1px solid var(--line);
+      text-align: right;
+    }
+    .cost-strip-now > span {
+      display: block;
+      color: var(--muted);
+      font: 700 10px/1.3 var(--mono);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .cost-strip-now b {
+      color: var(--amber);
+      font: 750 20px/1.15 var(--mono);
+      letter-spacing: -.03em;
+      font-variant-numeric: tabular-nums;
+    }
+    .cost-strip-now small {
+      color: var(--muted);
+      font: 700 10px/1 var(--mono);
+      text-transform: uppercase;
+    }
+    .cost-bar {
+      display: flex;
+      gap: 1px;
+      height: 7px;
+      margin: 12px 0 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #242a21;
+    }
+    .cost-bar i {
+      display: block;
+      width: 0;
+      height: 100%;
+      transition: width .35s ease;
+    }
+    .cost-bar .spot { background: var(--lime); }
+    .cost-bar .tax { background: var(--amber); }
+    .cost-bar .grid { background: #8ab4f8; }
+    .cost-bar .sub { background: #b58cff; }
+    .cost-parts {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px 12px;
+    }
+    .cost-parts div { min-width: 0; }
+    .cost-parts span {
+      display: block;
+      color: var(--muted);
+      font: 700 10px/1.3 var(--mono);
+      letter-spacing: .055em;
+      text-transform: uppercase;
+    }
+    .cost-parts b {
+      display: inline-block;
+      margin-top: 2px;
+      color: var(--text);
+      font: 750 15px/1.2 var(--mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .cost-parts small {
+      display: block;
+      color: var(--dim);
+      font: 10px/1.3 var(--mono);
+    }
+    .cost-note {
+      margin: 9px 0 0;
+      color: var(--dim);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .grid { display: grid; gap: 12px; }
+    .hero { grid-template-columns: minmax(0, 1fr); }
+    .card {
+      min-width: 0;
+      padding: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+    .power-card {
+      position: relative;
+      overflow: hidden;
+      isolation: isolate;
+      min-height: 268px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background:
+        linear-gradient(135deg, rgba(216, 255, 88, .055), transparent 48%),
+        var(--panel);
+      border-color: #3d4636;
+    }
+    .power-glow {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .power-glow .glow {
+      position: absolute;
+      top: 50%;
+      width: 78%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      filter: blur(30px);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .power-glow .glow-a {
+      left: 5%;
+      transform: translateY(-50%);
+      background: radial-gradient(circle, rgba(216, 255, 88, .24) 0%, rgba(216, 255, 88, .08) 44%, transparent 70%);
+      animation: glowBreathe 3.4s ease-in-out infinite;
+    }
+    .power-glow .glow-b {
+      right: 5%;
+      transform: translateY(-50%);
+      background: radial-gradient(circle, rgba(52, 116, 255, .62) 0%, rgba(52, 116, 255, .16) 44%, transparent 70%);
+    }
+    .power-card.high .glow-a {
+      background: radial-gradient(circle, rgba(242, 230, 0, .22) 0%, rgba(242, 230, 0, .06) 44%, transparent 70%);
+      animation: none;
+      opacity: .55;
+    }
+    .power-card.high .glow-b {
+      opacity: 0;
+      animation: none;
+    }
+    .power-card > .card-head,
+    .power-card > .power-line,
+    .power-card > .note {
+      position: relative;
+      z-index: 1;
+    }
+    .power-alert {
+      position: absolute;
+      right: 16px;
+      bottom: 12px;
+      z-index: 2;
+      width: 78px;
+      opacity: 0;
+      visibility: hidden;
+      transform: scale(.82) rotate(-3deg);
+      pointer-events: none;
+      filter: drop-shadow(0 0 8px rgba(242, 230, 0, .25));
+    }
+    .power-alert svg { display: block; width: 100%; height: auto; }
+    .power-card.high .power-alert {
+      opacity: 1;
+      visibility: visible;
+      transform: scale(1) rotate(0);
+      animation: radioactiveBlink 1s steps(1, end) infinite;
+    }
+    .power-card.high > .note { padding-right: 92px; }
+    @keyframes glowBreathe {
+      0%, 100% { opacity: .36; transform: translateY(-50%) scale(.94); }
+      50% { opacity: .72; transform: translateY(-50%) scale(1.04); }
+    }
+    @keyframes radioactiveBlink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: .28; }
+    }
+    .today-card { display: flex; flex-direction: column; justify-content: space-between; }
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .chip {
+      display: inline-block;
+      max-width: 100%;
+      padding: 4px 7px;
+      border: 1px solid var(--line);
+      border-radius: 2px;
+      color: var(--muted);
+      font: 700 11px/1.25 var(--mono);
+      letter-spacing: .04em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .power-line,
+    .energy-line {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      min-width: 0;
+      margin: 18px 0 14px;
+    }
+    .power {
+      display: block;
+      color: var(--lime);
+      font: 750 clamp(76px, 15vw, 142px)/.82 var(--mono);
+      letter-spacing: -.085em;
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+    }
+    .energy {
+      display: block;
+      color: var(--text);
+      font: 750 clamp(47px, 8vw, 72px)/.9 var(--mono);
+      letter-spacing: -.07em;
+      font-variant-numeric: tabular-nums;
+    }
+    .unit {
+      color: var(--muted);
+      font: 700 15px/1 var(--mono);
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+    .note,
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .hint { color: var(--dim); font-size: 12px; }
+    .today-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin: 0;
+      padding-top: 13px;
+      border-top: 1px solid var(--line);
+    }
+    .today-stats div { min-width: 0; }
+    dt {
+      margin: 0 0 4px;
+      color: var(--muted);
+      font: 700 11px/1.3 var(--mono);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    dd {
+      margin: 0;
+      color: var(--text);
+      font: 750 18px/1.25 var(--mono);
+      font-variant-numeric: tabular-nums;
+    }
+    #todayW {
+      color: var(--lime);
+      font-size: 24px;
+      letter-spacing: -.03em;
+    }
+    .price-card { margin-top: 12px; }
+    .price-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+    }
+    .price-top h2,
+    .history-head h2 {
+      margin: 5px 0 0;
+      font: 750 21px/1.15 var(--sans);
+      letter-spacing: -.025em;
+    }
+    .price-top .note { margin-top: 5px; }
+    .price-now {
+      flex: 0 0 auto;
+      text-align: right;
+    }
+    .price-now > span {
+      display: block;
+      color: var(--muted);
+      font: 700 11px/1.3 var(--mono);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .price-now strong {
+      display: inline-block;
+      margin-top: 1px;
+      color: var(--amber);
+      font: 750 clamp(38px, 6vw, 54px)/1 var(--mono);
+      letter-spacing: -.06em;
+      font-variant-numeric: tabular-nums;
+    }
+    .price-now small {
+      margin-left: 4px;
+      color: var(--muted);
+      font: 700 12px/1 var(--mono);
+    }
+    .price-now .quarter {
+      display: block;
+      margin-top: 5px;
+      color: var(--dim);
+      font-size: 11px;
+      letter-spacing: .02em;
+      text-transform: none;
+    }
+    .price-breakdown {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px 20px;
+      margin: 18px 0 16px;
+      padding: 11px 0;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font: 600 13px/1.35 var(--mono);
+    }
+    .price-breakdown span { white-space: nowrap; }
+    .price-breakdown b { color: var(--text); font-weight: 800; }
+    .price-breakdown .total b { color: var(--amber); }
+    .price-breakdown small { color: var(--dim); font-size: 11px; }
+    .price-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      width: 100%;
+      height: 92px;
+      padding-top: 8px;
+      border-bottom: 1px solid var(--line-strong);
+      overflow: hidden;
+    }
+    .price-chart i {
+      display: block;
+      flex: 1 1 0;
+      min-width: 0;
+      height: 3px;
+      background: #596350;
+      border-radius: 1px 1px 0 0;
+      align-self: flex-end;
+    }
+    .price-chart i.now {
+      background: var(--amber);
+      box-shadow: 0 0 0 1px rgba(255, 198, 92, .22);
+    }
+    .price-chart i.empty { background: #242a21; }
+    .chart-empty {
+      width: 100%;
+      align-self: center;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+    .chart-axis {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+      color: var(--dim);
+      font: 600 10px/1.2 var(--mono);
+    }
+    .price-facts {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      margin-top: 15px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .price-facts div {
+      min-width: 0;
+      padding: 10px;
+      background: var(--panel-soft);
+    }
+    .price-facts span {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font: 700 11px/1.25 var(--mono);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .price-facts b {
+      color: var(--text);
+      font: 750 17px/1.2 var(--mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .price-facts small {
+      color: var(--dim);
+      font: 600 10px/1.2 var(--mono);
+    }
+    .fee-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      margin-top: 14px;
+      padding-top: 13px;
+      border-top: 1px dashed var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .fee-control {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      flex: 0 0 auto;
+      color: var(--text);
+      font-weight: 700;
+    }
+    #feeInput {
+      width: 76px;
+      min-height: 38px;
+      padding: 7px 8px;
+      background: #050705;
+      border: 1px solid var(--line-strong);
+      border-radius: 3px;
+      color: var(--text);
+      font: 700 16px/1.2 var(--mono);
+      font-variant-numeric: tabular-nums;
+    }
+    #feeInput:focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--lime);
+      outline-offset: 2px;
+    }
+    .history-card { margin-top: 12px; }
+    .history-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .history-list {
+      max-height: 430px;
+      overflow-y: auto;
+      border-top: 1px solid var(--line);
+      scrollbar-width: thin;
+      scrollbar-color: var(--line-strong) transparent;
+    }
+    .history-list::-webkit-scrollbar { width: 8px; }
+    .history-list::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+    .day-head,
+    .day-row {
+      display: grid;
+      grid-template-columns: minmax(95px, 1.05fr) minmax(70px, 1.5fr) minmax(76px, .8fr) minmax(76px, .8fr);
+      gap: 10px;
+      align-items: center;
+    }
+    .day-head {
+      padding: 0 4px 7px;
+      color: var(--dim);
+      font: 700 10px/1.2 var(--mono);
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+    .day-head span:nth-child(3),
+    .day-head span:nth-child(4) { text-align: right; }
+    .day-row {
+      padding: 10px 4px;
+      border-top: 1px solid #20251d;
+      font-variant-numeric: tabular-nums;
+    }
+    .day-row.today { background: rgba(216, 255, 88, .055); }
+    .day-date { min-width: 0; }
+    .day-date b {
+      display: block;
+      overflow: hidden;
+      color: var(--text);
+      font: 700 14px/1.3 var(--sans);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .day-row.today .day-date b { color: var(--lime); }
+    .day-date small {
+      display: block;
+      margin-top: 2px;
+      overflow: hidden;
+      color: var(--muted);
+      font: 500 11px/1.3 var(--mono);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .day-bar {
+      height: 8px;
+      background: #20261d;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .day-bar i {
+      display: block;
+      height: 100%;
+      min-width: 0;
+      background: #8fa17f;
+      border-radius: 2px;
+    }
+    .day-row.today .day-bar i { background: var(--lime); }
+    .day-kwh,
+    .day-w {
+      text-align: right;
+      white-space: nowrap;
+    }
+    .day-kwh b,
+    .day-w b {
+      color: var(--text);
+      font: 700 14px/1.2 var(--mono);
+    }
+    .day-kwh small,
+    .day-w small {
+      color: var(--dim);
+      font: 600 10px/1.2 var(--mono);
+    }
+    .empty-history {
+      margin: 0;
+      padding: 25px 4px;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+    }
+    .history-footer {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 6px 18px;
+      margin-top: 13px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--line);
+    }
+    .history-footer p { margin: 0; }
+    .foot {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 5px 16px;
+      margin-top: 16px;
+      padding-top: 13px;
+      border-top: 1px solid var(--line);
+      color: var(--dim);
+      font: 600 11px/1.5 var(--mono);
+      letter-spacing: .025em;
+    }
+    .foot span:last-child { color: var(--muted); }
+    @media (min-width: 760px) {
+      .card { padding: 22px; }
+      .power-card { min-height: 300px; }
+    }
+    .ships-card { margin-top: 12px; }
+    .ships-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .ships-head h2 {
+      margin: 4px 0 0;
+      font-size: 20px;
+      letter-spacing: -.02em;
+    }
+    .ship-counts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .ship-count {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 92px;
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--panel-soft);
+      color: var(--muted);
+      font: 700 10px/1.2 var(--mono);
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+    .ship-count b {
+      color: var(--text);
+      font: 750 20px/1 var(--mono);
+      letter-spacing: -.04em;
+      font-variant-numeric: tabular-nums;
+    }
+    .ship-count.in b { color: var(--lime); }
+    .ship-count.out b { color: var(--amber); }
+    .ship-alert {
+      margin-top: 10px;
+      padding: 9px 12px;
+      border: 1px solid #ffd23f;
+      border-radius: 9px;
+      background: rgba(255, 210, 63, .12);
+      color: #ffd23f;
+      font: 700 11px/1.5 var(--mono);
+      letter-spacing: .01em;
+      box-shadow: 0 0 24px rgba(255, 210, 63, .55), inset 0 0 14px rgba(255, 210, 63, .18);
+      animation: shipAlertGlow 1.8s ease-in-out infinite;
+    }
+    .ship-alert[hidden] { display: none; }
+    @keyframes shipAlertGlow {
+      0%, 100% { box-shadow: 0 0 12px rgba(255, 210, 63, .35), inset 0 0 8px rgba(255, 210, 63, .12); }
+      50% { box-shadow: 0 0 30px rgba(255, 210, 63, .85), inset 0 0 18px rgba(255, 210, 63, .32); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ship-alert { animation: none; }
+    }
+    .ship-list {
+      max-height: 560px;
+      margin-top: 10px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      border-top: 1px solid var(--line);
+    }
+    .ship-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(110px, .8fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--line);
+      color: var(--text);
+      text-decoration: none;
+    }
+    .ship-main { min-width: 0; }
+    .ship-name {
+      display: block;
+      font: 700 14px/1.2 var(--sans);
+      letter-spacing: .01em;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ship-arrow { color: var(--muted); font-size: 11px; }
+    .ship-from {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font: 11px/1.25 var(--mono);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ship-spec {
+      display: block;
+      margin-top: 2px;
+      overflow: hidden;
+      color: var(--muted);
+      font: 10px/1.3 var(--mono);
+      letter-spacing: .01em;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ship-when { min-width: 0; text-align: right; font-family: var(--mono); }
+    .ship-when b { display: block; color: var(--text); font-size: 12px; }
+    .ship-when small {
+      display: block;
+      margin-top: 3px;
+      overflow: hidden;
+      color: var(--muted);
+      font-size: 10px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ship-status {
+      justify-self: end;
+      padding: 4px 7px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      color: var(--muted);
+      font: 700 10px/1.1 var(--mono);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .ship-status.incoming { color: var(--amber); border-color: #806331; }
+    .ship-status.inport { color: var(--lime); border-color: #4d6d5c; }
+    .ship-status.departed { color: var(--muted); border-color: var(--line); }
+    .ship-row:hover .ship-name { color: var(--lime); }
+    .ship-empty { margin: 0; padding: 12px 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .ship-empty a, .ships-foot a { color: var(--lime); text-decoration: none; }
+    .ship-empty a:hover, .ships-foot a:hover { text-decoration: underline; }
+    .ships-foot {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 14px;
+      padding-top: 10px;
+      color: var(--muted);
+      font: 11px/1.3 var(--mono);
+    }
+    .ships-foot span { margin-left: auto; }
+    .ship-group {
+      margin: 0;
+      padding: 14px 0 6px;
+      color: var(--muted);
+      font: 700 10px/1.2 var(--mono);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--line);
+    }
+    .map-card { margin-top: 12px; }
+    .speakers-card { margin-top: 12px; }
+    .speaker-open {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 12px;
+      padding: 9px 12px;
+      border: 1px solid var(--lime);
+      border-radius: 5px;
+      background: var(--lime);
+      color: #050605;
+      font: 700 12px/1.2 var(--mono);
+      letter-spacing: .02em;
+      text-decoration: none;
+    }
+    .speaker-open:hover { background: #e5ff86; }
+    .speaker-open.alt {
+      background: transparent;
+      color: var(--lime);
+    }
+    .speaker-open.alt:hover { background: rgba(216, 255, 88, .08); }
+    .speakers-card code { color: var(--lime); font: 11px/1.4 var(--mono); }
+    .map-radii { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .map-radius {
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font: 700 11px/1.1 var(--mono);
+      cursor: pointer;
+    }
+    .map-radius:hover { color: var(--text); border-color: var(--line-strong); }
+    .map-radius.is-active { background: var(--lime); border-color: var(--lime); color: #050605; }
+    .ship-map {
+      position: relative;
+      height: 400px;
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--panel-soft);
+    }
+    .ship-map .leaflet-container {
+      background: var(--panel-soft);
+      color: var(--text);
+      font: 12px/1.4 var(--sans);
+    }
+    .ship-map .leaflet-tile-pane {
+      filter: invert(1) hue-rotate(180deg) brightness(.9) contrast(.9) saturate(.75);
+    }
+    .ship-map .leaflet-control-attribution {
+      background: rgba(5, 6, 5, .75);
+      color: var(--muted);
+      font: 10px/1.4 var(--mono);
+    }
+    .ship-map .leaflet-control-attribution a { color: var(--lime); }
+    .ship-map .leaflet-bar a {
+      background: #0b0d0c;
+      color: var(--text);
+      border-color: var(--line);
+    }
+    .ship-map .leaflet-bar a:hover { background: #131712; }
+    .ship-map .leaflet-popup-content-wrapper,
+    .ship-map .leaflet-popup-tip {
+      background: #0b0d0c;
+      color: var(--text);
+      box-shadow: 0 6px 22px rgba(0, 0, 0, .55);
+    }
+    .ship-map .leaflet-popup-content {
+      margin: 10px 12px;
+      font: 12px/1.45 var(--mono);
+    }
+    .ship-map .leaflet-popup-content a { color: var(--lime); }
+    .ship-map .leaflet-tooltip {
+      padding: 4px 7px;
+      border: 1px solid var(--line);
+      background: #0b0d0c;
+      color: var(--text);
+      font: 700 10px/1.2 var(--mono);
+      box-shadow: none;
+    }
+    .ship-map .leaflet-tooltip-top:before { border-top-color: #0b0d0c; }
+    .boat-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .boat-chip {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 6px 9px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--text);
+      font: 700 11px/1.2 var(--sans);
+      text-align: left;
+      cursor: pointer;
+    }
+    .boat-chip span { color: var(--muted); font: 10px/1.2 var(--mono); }
+    .boat-chip:hover { border-color: var(--line-strong); }
+    .boat-chip.is-active { border-color: var(--lime); color: var(--lime); }
+    .map-reset {
+      padding: 5px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font: 700 10px/1.1 var(--mono);
+      cursor: pointer;
+    }
+    .map-reset:hover { color: var(--text); border-color: var(--line-strong); }
+    @media (max-width: 480px) {
+      .ship-map { height: 300px; }
+    }
+    @media (min-width: 1180px) {
+      .wrap { width: min(100% - 40px, 1180px); }
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 1.04fr) minmax(0, .96fr);
+        gap: 12px;
+        align-items: start;
+      }
+      .hero { grid-column: 1 / -1; }
+      .history-card { margin-top: 0; grid-column: 1 / -1; }
+      .price-chart { height: 86px; }
+      .ships-card, .map-card, .speakers-card { grid-column: 1 / -1; margin-top: 0; }
+    }
+    @media (min-width: 1180px) and (max-height: 850px) {
+      .wrap { padding-top: max(14px, env(safe-area-inset-top)); }
+      .top { padding-bottom: 12px; margin-bottom: 10px; }
+      h1 { font-size: 40px; }
+      .card { padding: 18px; }
+      .power-card { min-height: 220px; }
+      .power { font-size: clamp(68px, 8vw, 112px); }
+      .energy { font-size: 64px; }
+      .price-top h2 { font-size: 19px; }
+      .price-chart { height: 72px; }
+      .price-breakdown { margin: 12px 0; padding: 9px 0; }
+      .price-facts { margin-top: 12px; }
+      .fee-row { margin-top: 11px; padding-top: 10px; }
+    }
+    @media (max-width: 700px) {
+      .hero { grid-template-columns: 1fr; }
+      .power-card { min-height: 220px; }
+      .power { font-size: clamp(74px, 22vw, 128px); }
+      .top { align-items: flex-start; }
+      .top-status { width: 100%; justify-content: flex-start; }
+    }
+    @media (max-width: 560px) {
+      .temp-place { display: none; }
+    }
+    @media (max-width: 560px) {
+      .wrap { width: min(100% - 20px, 980px); padding-top: max(14px, env(safe-area-inset-top)); }
+      .top { padding-bottom: 14px; margin-bottom: 10px; }
+      h1 { font-size: 34px; }
+      .live { padding: 7px 9px; font-size: 11px; }
+      #feeInput { min-height: 44px; }
+      .card { padding: 15px; }
+      .power-card { min-height: 190px; }
+      .power { font-size: clamp(68px, 24vw, 108px); }
+      .energy { font-size: 52px; }
+      .today-stats { gap: 10px; }
+      dd { font-size: 17px; }
+      #todayW { font-size: 21px; }
+      .price-top { gap: 10px; }
+      .price-top h2 { font-size: 18px; }
+      .price-now strong { font-size: 38px; }
+      .price-chart { height: 74px; gap: 1px; }
+      .price-breakdown { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 12px; }
+      .price-breakdown .total { grid-column: 1 / -1; }
+      .price-facts div { padding: 8px 7px; }
+      .price-facts b { font-size: 14px; }
+      .price-facts small { display: none; }
+      .day-head,
+      .day-row {
+        grid-template-columns: minmax(0, 1.2fr) minmax(62px, .8fr) minmax(64px, .8fr);
+        gap: 7px;
+      }
+      .day-head span:nth-child(2),
+      .day-bar { display: none; }
+      .day-head span:nth-child(3),
+      .day-head span:nth-child(4) { display: block; }
+      .day-row { padding: 10px 2px; }
+      .day-date b { font-size: 13px; }
+      .day-kwh b,
+      .day-w b { font-size: 13px; }
+      .ship-list { max-height: 420px; }
+      .ship-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 4px 10px;
+      }
+      .ship-status { display: none; }
+      .ship-when { text-align: right; }
+      .ship-when small { max-width: 110px; }
+      .ships-foot { gap: 5px 10px; }
+      .ships-foot span { width: 100%; margin-left: 0; }
+      .history-list { max-height: 390px; }
+    }
+    @media (max-width: 380px) {
+      .wrap { width: min(100% - 16px, 980px); }
+      .top { gap: 8px 10px; }
+      h1 { font-size: 30px; }
+      .card { padding: 13px; }
+      .power { font-size: clamp(60px, 24vw, 84px); }
+      .energy { font-size: 44px; }
+      .price-top { flex-wrap: wrap; }
+      .price-now { margin-left: auto; }
+      .price-now strong { font-size: 34px; }
+      .price-breakdown { font-size: 12px; gap: 6px 10px; }
+      .price-facts span { font-size: 10px; }
+      .price-facts b { font-size: 13px; }
+      .day-head, .day-row { gap: 6px; }
+      .day-date b { font-size: 12px; }
+      .day-kwh b, .day-w b { font-size: 12px; }
+      .day-kwh small, .day-w small { font-size: 9px; }
+    }
+    @media (max-width: 700px) {
+      .cost-strip-top { align-items: flex-start; }
+      .cost-strip-total { margin-left: 0; text-align: left; }
+      .cost-strip-now { margin-left: auto; border-left: 0; padding-left: 0; }
+      .cost-parts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 560px) {
+      .cost-strip { padding: 12px 13px; }
+      .cost-strip-top {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+      }
+      .cost-strip-heading { grid-column: 1 / -1; }
+      .cost-strip-heading h2 { font-size: 18px; }
+      .cost-strip-total { margin-left: 0; text-align: left; }
+      .cost-strip-total strong { font-size: 34px; }
+      .cost-strip-now {
+        width: auto;
+        margin-left: auto;
+        padding: 0 0 0 10px;
+        border-top: 0;
+        border-left: 1px solid var(--line);
+        text-align: right;
+      }
+      .cost-strip-now b { font-size: 18px; }
+      .cost-parts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 10px; }
+      .cost-strip-sub, .cost-note { display: none; }
+      .cost-note { font-size: 10px; }
+    }
+    @media (max-width: 380px) {
+      .cost-strip-total strong { font-size: 30px; }
+      .cost-parts b { font-size: 14px; }
+      .cost-strip-top { grid-template-columns: 1fr; }
+      .cost-strip-now {
+        margin-left: 0;
+        padding: 8px 0 0;
+        border-top: 1px solid var(--line);
+        border-left: 0;
+        text-align: left;
+      }
+    }
+    @media (min-width: 1180px) and (max-height: 850px) {
+      .cost-strip { padding: 11px 14px 10px; }
+      .cost-strip-heading h2 { font-size: 18px; }
+      .cost-strip-total strong { font-size: 38px; }
+      .cost-bar { margin: 9px 0 8px; }
+    }
+    @media (max-width: 560px) {
+      .power-alert { width: 62px; right: 10px; bottom: 10px; }
+      .power-card.high > .note { padding-right: 72px; }
+    }
+    @media (max-width: 380px) {
+      .power-alert { width: 54px; right: 8px; bottom: 8px; }
+      .power-card.high > .note { padding-right: 62px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { scroll-behavior: auto !important; }
+      .power-glow .glow-a { animation: none !important; opacity: .55; }
+      .power-card.high .glow-a { opacity: .55; }
+      .power-card.high .glow-b { animation: none !important; opacity: 0; }
+      .power-card.high .power-alert { animation: none !important; opacity: 1; }
+      .aurora-face { animation: none !important; }
+      .cost-bar i { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <p class="eyebrow">Live · SE3 · Greenely</p>
+        <h1>Powerplant</h1>
+      </div>
+      <div class="top-status">
+        <div class="live" id="live" role="status" aria-live="polite">
+          <i class="dot" aria-hidden="true"></i>
+          <span id="liveText">Ansluter…</span>
+        </div>
+        <a class="temp" id="tempChip" href="https://www.temperatur.nu/engesberg_norrlandet" target="_blank" rel="noopener noreferrer" title="Aktuell temperatur i Engesberg/Norrlandet · Temperatur.nu">
+          <span class="temp-icon" aria-hidden="true">🌡️</span>
+          <span class="temp-value" id="tempValue">–°</span>
+          <span class="temp-place">Engesberg</span>
+        </a>
+        <div class="aurora" id="aurora" role="status" aria-live="polite" hidden>
+          <span class="aurora-face" aria-hidden="true">😄</span>
+          <span id="auroraText">Norrsken</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="cost-strip" aria-labelledby="costLabel">
+      <div class="cost-strip-top">
+        <div class="cost-strip-heading">
+          <p class="label" id="costLabel">Elkostnad · alla loggade kWh</p>
+          <h2>Totalt inkl moms</h2>
+          <p class="cost-strip-sub">Spot + energiskatt + elöverföring + abonnemang</p>
+        </div>
+        <div class="cost-strip-total">
+          <strong id="costTotal">–</strong><span class="unit">kr</span>
+          <small id="costOre">– öre</small>
+        </div>
+        <div class="cost-strip-now">
+          <span>Just nu per kWh</span>
+          <div><b id="costPerKwh">–</b><small> kr</small></div>
+        </div>
+      </div>
+      <div class="cost-bar" aria-hidden="true">
+        <i class="spot" id="costBarSpot"></i>
+        <i class="tax" id="costBarTax"></i>
+        <i class="grid" id="costBarGrid"></i>
+        <i class="sub" id="costBarSub"></i>
+      </div>
+      <div class="cost-parts">
+        <div><span>Loggat</span><b id="costKwh">–</b><small>kWh</small></div>
+        <div><span>Spot</span><b id="costSpot">–</b><small>kr inkl moms</small></div>
+        <div><span>Energiskatt</span><b id="costTax">–</b><small>kr · 45 öre/kWh</small></div>
+        <div><span>Elöverföring</span><b id="costGrid">–</b><small>kr · 15 öre/kWh</small></div>
+        <div><span>Abonnemang</span><b id="costSub">–</b><small id="costSubUnit">429 kr/mån inkl moms</small></div>
+      </div>
+      <p class="cost-note" id="costNote">Spot ex moms · 25 % moms på spot, energiskatt och elöverföring · abonnemang 429 kr/mån inkl moms.</p>
+    </section>
+
+    <main>
+      <div class="grid hero">
+        <section class="card power-card" aria-labelledby="powerLabel">
+          <div class="power-glow" aria-hidden="true">
+            <span class="glow glow-a"></span>
+            <span class="glow glow-b"></span>
+          </div>
+          <div class="power-alert" title="Hög förbrukning över 2 kW" aria-hidden="true">
+            <svg viewBox="0 0 120 110" focusable="false" aria-hidden="true">
+              <g fill="#f2e600">
+                <path d="M53.50 30.74 L43.50 13.42 A33 33 0 0 1 76.50 13.42 L66.50 30.74 A13 13 0 0 0 53.50 30.74 Z"/>
+                <path d="M73.00 42.00 L93.00 42.00 A33 33 0 0 1 76.50 70.58 L66.50 53.26 A13 13 0 0 0 73.00 42.00 Z"/>
+                <path d="M53.50 53.26 L43.50 70.58 A33 33 0 0 1 27.00 42.00 L47.00 42.00 A13 13 0 0 0 53.50 53.26 Z"/>
+              </g>
+              <circle cx="60" cy="42" r="35" fill="none" stroke="#f2e600" stroke-width="2.5"/>
+              <circle cx="60" cy="42" r="8" fill="#0c0f0b" stroke="#f2e600" stroke-width="3"/>
+              <text x="60" y="104" text-anchor="middle" fill="#f2e600" font-family="Arial Black, Arial, sans-serif" font-size="15" font-weight="900" letter-spacing=".4" textLength="108" lengthAdjust="spacingAndGlyphs">RADIOACTIVE</text>
+            </svg>
+          </div>
+          <div class="card-head">
+            <p class="label" id="powerLabel">Aktuell effekt</p>
+            <span class="chip" id="powerWhen">väntar på data</span>
+          </div>
+          <div class="power-line">
+            <span class="power" id="power">–</span>
+            <span class="unit">W</span>
+          </div>
+          <p class="note">Effekten just nu. Energin summeras i kWh.</p>
+        </section>
+
+      </div>
+
+      <section class="card history-card" aria-labelledby="historyLabel">
+        <div class="history-head">
+          <div>
+            <p class="label">Dag för dag</p>
+            <h2 id="historyLabel">Sparad historik</h2>
+          </div>
+          <span class="chip" id="historyCount">0 dagar</span>
+        </div>
+
+        <div class="day-head" aria-hidden="true">
+          <span>Dag</span><span>Fördelning</span><span>Energi</span><span>Snitt W</span>
+        </div>
+        <div class="history-list" id="historyList"></div>
+
+        <div class="history-footer">
+          <p class="hint" id="historyNote">Sparas lokalt i webbläsaren när sidan tar emot data.</p>
+          <p class="hint">En rad per dygn · högst 400 dagar</p>
+        </div>
+      </section>
+
+      <section class="card ships-card" aria-labelledby="shipsLabel">
+        <div class="ships-head">
+          <div>
+            <p class="label">Gävle Hamn · anlöp och avgångar</p>
+            <h2 id="shipsLabel">Fartyg till och från Gävle</h2>
+          </div>
+          <span class="chip" id="shipsUpdated">hämtar…</span>
+        </div>
+        <div class="ship-counts" aria-live="polite" aria-label="Antal fartyg som anlänt och avgått">
+          <div class="ship-count in"><span>Anlänt</span><b id="shipCountIn">–</b></div>
+          <div class="ship-count out"><span>Avgått</span><b id="shipCountOut">–</b></div>
+        </div>
+        <p class="ship-alert" id="shipAlert" hidden role="status"></p>
+        <div class="ship-list" id="shipList" aria-live="polite">
+          <p class="ship-empty">Hämtar fartyg från Gävle Hamn…</p>
+        </div>
+        <div class="ships-foot">
+          <a href="https://gavlehamn.se/trafikinformation/#FartygHamnen" target="_blank" rel="noopener noreferrer">Alla fartyg i hamnen ↗</a>
+          <a href="https://portactivity.se/gavle/" target="_blank" rel="noopener noreferrer">Port Activity ↗</a>
+          <a href="https://www.vesselfinder.com/ports/SEGVX001" target="_blank" rel="noopener noreferrer">VesselFinder Gävle ↗</a>
+          <span>Källa: Gävle Hamn</span>
+        </div>
+      </section>
+
+      <section class="card map-card" aria-labelledby="mapLabel">
+        <div class="ships-head">
+          <div>
+            <p class="label">AIS · Gävleborg</p>
+            <h2 id="mapLabel">Båtar inom 50 km</h2>
+          </div>
+          <span class="chip" id="mapCount">hämtar…</span>
+        </div>
+        <div class="map-radii" id="mapRadii" role="group" aria-label="Radie i kilometer">
+          <button type="button" class="map-radius" data-km="25" aria-pressed="false">25 km</button>
+          <button type="button" class="map-radius is-active" data-km="50" aria-pressed="true">50 km</button>
+          <button type="button" class="map-radius" data-km="100" aria-pressed="false">100 km</button>
+        </div>
+        <div class="ship-map" id="shipMap" aria-label="Karta med fartygens positioner"></div>
+        <div class="boat-list" id="boatList"></div>
+        <div class="ships-foot">
+          <button type="button" class="map-reset" id="mapReset" hidden>← Hela området</button>
+          <span id="mapRadiusNote">50 km radie från hemmet</span>
+          <span>Källa: Gävle Hamn · AIS</span>
+        </div>
+      </section>
+
+      <section class="card speakers-card" aria-labelledby="speakersLabel">
+        <div class="ships-head">
+          <div>
+            <p class="label">Ljud · Audio Pro</p>
+            <h2 id="speakersLabel">Högtalare</h2>
+          </div>
+          <span class="chip">Inloggning utifrån</span>
+        </div>
+        <p class="note">Styr C3 och C20 W i hemmanätverket. Panelen öppnas i en ny flik eftersom webbläsaren inte tillåter en HTTPS-sida att nå högtalarnas lokala API.</p>
+        <a class="speaker-open" href="http://192.168.0.134:8787/speakers.html" target="_blank" rel="noopener noreferrer">Öppna hemma ↗</a>
+        <a class="speaker-open alt" href="http://100.93.89.24:8787/speakers.html" target="_blank" rel="noopener noreferrer">Utifrån · Tailscale ↗</a>
+        <p class="hint">Kör <code>tools/speaker-server.mjs</code> på datorn. På hemmanätet öppnar du panelen direkt. Utifrån krävs Tailscale samt inloggning; ägaren godkänner sedan via mejl.</p>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span>Shelly 3EM · MQTT</span>
+      <span>Greenely SE3 · kvartspriser</span>
+    </footer>
+  </div>
+
+  <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    (function () {
+      'use strict';
+
+      var MQTT_URL = 'wss://broker.emqx.io:8084/mqtt';
+      var TOPIC = 'husetseffekt/hanzpanzi/7d41c9/live';
+      var DAYS_KEY = 'husetseffekt.days.v1';
+      var FEE_KEY = 'husetseffekt.fee';
+      var ENERGY_TAX_ORE = 36;
+      var GRID_FEE_ORE = 12;
+      var VAT_RATE = 1.25;
+      var MONTHLY_FEE_KR = 429;
+      var AURORA_URL = 'https://services.swpc.noaa.gov/json/ovation_aurora_latest.json';
+      var AURORA_LAT = 60.736278;
+      var AURORA_LON = 17.286500;
+      var AURORA_MIN_PCT = 30;
+      var AURORA_REFRESH = 600000;
+      var SHIPS_URL = 'https://gavlehamn.se/wp-json/wp/v2/pages?slug=trafikinformation&_fields=content.rendered';
+      var SHIPS_REFRESH = 60000;
+      var TEMP_URL = 'https://api.temperatur.nu/tnu_1.20.php?p=engesberg_norrlandet&cli=powerplant';
+      var TEMP_REFRESH = 600000;
+      var SHIP_PORT = { lat: 60.683, lon: 17.175 };
+      var MAP_CENTER = [60.736278, 17.286500];
+      var MAP_RADIUS_KM = 50;
+      var MAP_RADII = [25, 50, 100];
+      var mapRadiusKm = MAP_RADIUS_KM;
+      var focusedBoat = '';
+      var shipMap = null;
+      var shipLayer = null;
+      var radiusCircle = null;
+      var markerByName = {};
+      var RADIUS_ALERT_KM = 2;
+      var RADIUS_ALERT_KEY = 'husetseffekt.radius2.v2';
+      var RADIUS_ALERT_MS = 600000;
+      var radiusEvents = [];
+      var MAP_RADIUS_KEY = 'husetseffekt.mapRadius';
+      var MAX_DAYS = 400;
+      var HIGH_POWER_W = 2000;
+
+      var nf0 = new Intl.NumberFormat('sv-SE', { maximumFractionDigits: 0 });
+      var nf1 = new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      var nf2 = new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      var weekdayShort = new Intl.DateTimeFormat('sv-SE', { weekday: 'short', day: 'numeric', month: 'short' });
+      var dayOnly = new Intl.DateTimeFormat('sv-SE', { day: 'numeric', month: 'short' });
+
+      var latest = null;
+      var lastSeen = 0;
+      var brokerState = 'connecting';
+      var daily = { entries: [], savedAt: 0 };
+      var priceCache = { day: '', q: [], days: {}, at: 0, loading: false, error: false };
+      var chartSignature = '';
+
+      function $(id) { return document.getElementById(id); }
+      function num(v) { return (typeof v === 'number' && isFinite(v)) ? v : 0; }
+      function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+      function dayKey(dt) {
+        return dt.getFullYear() + '-' + pad2(dt.getMonth() + 1) + '-' + pad2(dt.getDate());
+      }
+
+      function keyDate(key) {
+        var p = String(key).split('-');
+        return new Date(+p[0], (+p[1] || 1) - 1, +p[2] || 1);
+      }
+
+      function clock(ms) {
+        var d = new Date(ms);
+        return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+      }
+
+      function clockSec(ms) {
+        var d = new Date(ms);
+        return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+      }
+
+      function fmtKwh(wh) {
+        if (!isFinite(wh)) return '–';
+        return nf1.format(wh / 1000);
+      }
+
+      function fmtWatts(w) {
+        if (!isFinite(w)) return '–';
+        return nf0.format(Math.round(w));
+      }
+
+      function fmtPrice(v) {
+        if (!isFinite(v)) return '–';
+        return nf2.format(v);
+      }
+
+      function fmtOre(v) {
+        if (!isFinite(v)) return '–';
+        return nf1.format(v);
+      }
+
+      function feeOre() {
+        try {
+          var v = parseFloat(localStorage.getItem(FEE_KEY));
+          if (isFinite(v) && v >= 0) return v;
+        } catch (e) {}
+        return GRID_FEE_ORE;
+      }
+
+      function feeKr() { return feeOre() / 100; }
+
+      function avgPositive(values) {
+        if (!Array.isArray(values)) return 0;
+        var sum = 0;
+        var count = 0;
+        for (var i = 0; i < values.length; i++) {
+          var v = Number(values[i]);
+          if (isFinite(v) && v > 0) { sum += v; count++; }
+        }
+        return count > 0 ? sum / count : 0;
+      }
+
+      function loggedSummary() {
+        var wh = 0;
+        var months = {};
+        var monthCount = 0;
+        for (var i = 0; i < daily.entries.length; i++) {
+          var e = daily.entries[i];
+          wh += e.wh;
+          var m = e.d.slice(0, 7);
+          if (!months[m]) { months[m] = true; monthCount++; }
+        }
+        return { kwh: wh / 1000, months: monthCount };
+      }
+
+      // ---- lokal dagshistorik -------------------------------------------------
+      function loadDays() {
+        var out = [];
+        var cutoff = new Date();
+        cutoff.setHours(0, 0, 0, 0);
+        cutoff.setDate(cutoff.getDate() - (MAX_DAYS - 1));
+        var cutoffKey = dayKey(cutoff);
+
+        try {
+          var raw = JSON.parse(localStorage.getItem(DAYS_KEY) || '[]');
+          if (Array.isArray(raw)) {
+            for (var i = 0; i < raw.length; i++) {
+              var e = raw[i];
+              if (!e || !/^\d{4}-\d{2}-\d{2}$/.test(e.d)) continue;
+              var wh = Number(e.wh);
+              if (!isFinite(wh) || wh < 0) continue;
+              var at = Number(e.at);
+              if (!isFinite(at) || at <= 0) at = keyDate(e.d).getTime() + 43200000;
+              if (e.d < cutoffKey) continue;
+              var existing = null;
+              for (var k = 0; k < out.length; k++) {
+                if (out[k].d === e.d) { existing = out[k]; break; }
+              }
+              if (existing) {
+                if (wh > existing.wh) existing.wh = wh;
+                if (at > existing.at) existing.at = at;
+              } else {
+                out.push({ d: e.d, wh: wh, at: at });
+              }
+            }
+          }
+        } catch (err) {}
+
+        out.sort(function (a, b) { return a.d < b.d ? -1 : (a.d > b.d ? 1 : 0); });
+        daily.entries = out;
+      }
+
+      function pruneDays() {
+        var cutoff = new Date();
+        cutoff.setHours(0, 0, 0, 0);
+        cutoff.setDate(cutoff.getDate() - (MAX_DAYS - 1));
+        var key = dayKey(cutoff);
+        daily.entries = daily.entries.filter(function (e) { return e.d >= key; });
+      }
+
+      function saveDays(force) {
+        var now = Date.now();
+        if (!force && daily.savedAt && now - daily.savedAt < 15000) return;
+        try {
+          localStorage.setItem(DAYS_KEY, JSON.stringify(daily.entries));
+          daily.savedAt = now;
+        } catch (err) {}
+        updateHistoryMeta();
+      }
+
+      function todayWh(d) {
+        if (typeof d.today === 'number' && isFinite(d.today)) return Math.max(0, d.today);
+        if (Array.isArray(d.q)) {
+          var sum = 0;
+          for (var i = 0; i < d.q.length; i++) {
+            var v = Number(d.q[i]);
+            if (isFinite(v) && v > 0) sum += v;
+          }
+          return sum;
+        }
+        return null;
+      }
+
+      function findDay(key) {
+        for (var i = 0; i < daily.entries.length; i++) {
+          if (daily.entries[i].d === key) return daily.entries[i];
+        }
+        return null;
+      }
+
+      function setDayData(d) {
+        var wh = todayWh(d);
+        if (wh === null || !isFinite(wh) || wh < 0) return;
+
+        var key = dayKey(new Date());
+        var entry = findDay(key);
+        var isNew = false;
+        if (!entry) {
+          entry = { d: key, wh: wh, at: Date.now() };
+          daily.entries.push(entry);
+          isNew = true;
+        } else {
+          entry.wh = Math.max(entry.wh, wh);
+          entry.at = Date.now();
+        }
+        pruneDays();
+        daily.entries.sort(function (a, b) { return a.d < b.d ? -1 : (a.d > b.d ? 1 : 0); });
+        renderHistory();
+        saveDays(isNew);
+      }
+
+      function averageWatts(entry) {
+        var start = keyDate(entry.d);
+        start.setHours(0, 0, 0, 0);
+        var key = dayKey(new Date());
+        var hours;
+        if (entry.d === key) {
+          hours = Math.max((Date.now() - start.getTime()) / 3600000, 1 / 60);
+        } else {
+          hours = 24;
+        }
+        return hours > 0 ? entry.wh / hours : 0;
+      }
+
+      function dayTitle(key) {
+        var now = new Date();
+        var today = dayKey(now);
+        if (key === today) return 'Idag';
+        var y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+        if (key === dayKey(y)) return 'Igår';
+        return weekdayShort.format(keyDate(key));
+      }
+
+      function daySub(key) {
+        var now = new Date();
+        var today = dayKey(now);
+        var y = dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
+        if (key === today || key === y) return dayOnly.format(keyDate(key));
+        return String(keyDate(key).getFullYear());
+      }
+
+      function renderHistory() {
+        var list = $('historyList');
+        if (!list) return;
+
+        var entries = daily.entries.slice().sort(function (a, b) {
+          return a.d < b.d ? 1 : (a.d > b.d ? -1 : 0);
+        });
+        var today = dayKey(new Date());
+        var maxWh = 0;
+        var i;
+        for (i = 0; i < entries.length; i++) {
+          if (entries[i].wh > maxWh) maxWh = entries[i].wh;
+        }
+
+        if (!entries.length) {
+          list.innerHTML = '<p class="empty-history">Ingen sparad historik ännu. Första mätningen sparas automatiskt.</p>';
+          updateHistoryMeta();
+          return;
+        }
+
+        var html = '';
+        for (i = 0; i < entries.length; i++) {
+          var e = entries[i];
+          var pct = maxWh > 0 ? Math.max(0, Math.min(100, (e.wh / maxWh) * 100)) : 0;
+          html += '<div class="day-row' + (e.d === today ? ' today' : '') + '">' +
+            '<span class="day-date"><b>' + dayTitle(e.d) + '</b><small>' + daySub(e.d) + '</small></span>' +
+            '<span class="day-bar" aria-hidden="true"><i style="width:' + pct.toFixed(1) + '%"></i></span>' +
+            '<span class="day-kwh"><b>' + fmtKwh(e.wh) + '</b> <small>kWh</small></span>' +
+            '<span class="day-w"><b>' + fmtWatts(averageWatts(e)) + '</b> <small>W</small></span>' +
+            '</div>';
+        }
+        list.innerHTML = html;
+        updateHistoryMeta();
+      }
+
+      function updateHistoryMeta() {
+        var count = daily.entries.length;
+        $('historyCount').textContent = count + (count === 1 ? ' dag' : ' dagar');
+
+        if (!count) {
+          $('historyNote').textContent = 'Sparas lokalt i webbläsaren när sidan tar emot data.';
+          renderCostStrip();
+          return;
+        }
+
+        var totalWh = 0;
+        var newestAt = 0;
+        for (var i = 0; i < daily.entries.length; i++) {
+          totalWh += daily.entries[i].wh;
+          if (daily.entries[i].at > newestAt) newestAt = daily.entries[i].at;
+        }
+        var saved = daily.savedAt || newestAt;
+        $('historyNote').textContent = 'Sparas lokalt i webbläsaren · ' +
+          fmtKwh(totalWh) + ' kWh totalt' + (saved ? ' · senast ' + clock(saved) : '');
+        renderCostStrip();
+      }
+
+      // ---- elpris -------------------------------------------------------------
+      function currentQuarter(now) {
+        return now.getHours() * 4 + Math.floor(now.getMinutes() / 15);
+      }
+
+      function quarterLabel(qi) {
+        var h = Math.floor(qi / 4);
+        var m = (qi % 4) * 15;
+        var end = new Date(2000, 0, 1, h, m + 15, 0, 0);
+        return pad2(h) + ':' + pad2(m) + '–' + pad2(end.getHours()) + ':' + pad2(end.getMinutes());
+      }
+
+      function loadPrices() {
+        var today = dayKey(new Date());
+        if (priceCache.loading) return;
+        if (priceCache.day === today && priceCache.at && Date.now() - priceCache.at < 600000) return;
+
+        priceCache.loading = true;
+        priceCache.error = false;
+        renderPrice();
+
+        var slot = Math.floor(Date.now() / 600000);
+        fetch('priser.json?v=' + slot, { cache: 'no-store' })
+          .then(function (r) {
+            if (!r.ok) throw new Error('price ' + r.status);
+            return r.json();
+          })
+          .then(function (j) {
+            var days = (j && j.days) || {};
+            var raw = Array.isArray(days[today]) ? days[today] : [];
+            var q = [];
+            for (var i = 0; i < raw.length; i++) {
+              var v = Number(raw[i]);
+              q.push(isFinite(v) && v > 0 ? v : 0);
+            }
+            priceCache = { day: today, q: q, days: days, at: Date.now(), loading: false, error: false };
+            renderPrice();
+          })
+          .catch(function () {
+            priceCache.loading = false;
+            priceCache.error = true;
+            renderPrice();
+          });
+      }
+
+      function renderPrice() {
+        renderCostStrip();
+      }
+
+      function setCostBar(id, value, total) {
+        var el = $(id);
+        if (!el) return;
+        var pct = total > 0 && value > 0 ? Math.max(0, value / total * 100) : 0;
+        el.style.width = pct.toFixed(2) + '%';
+      }
+
+      function renderCostStrip() {
+        if (!$('costTotal')) return;
+
+        var summary = loggedSummary();
+        var kwh = summary.kwh;
+        var months = summary.months;
+        var today = dayKey(new Date());
+        var q = priceCache.day === today ? priceCache.q : [];
+        var todayAvg = avgPositive(q);
+        var fallbackAvg = todayAvg;
+
+        if (!(fallbackAvg > 0)) {
+          var sum = 0;
+          var count = 0;
+          var knownDays = priceCache.days || {};
+          for (var key in knownDays) {
+            if (!Object.prototype.hasOwnProperty.call(knownDays, key)) continue;
+            var avg = avgPositive(knownDays[key]);
+            if (avg > 0) { sum += avg; count++; }
+          }
+          fallbackAvg = count > 0 ? sum / count : 0;
+        }
+
+        var spotExVat = 0;
+        var missingSpot = false;
+        for (var i = 0; i < daily.entries.length; i++) {
+          var e = daily.entries[i];
+          var dayAvg = 0;
+          if (priceCache.days && Array.isArray(priceCache.days[e.d])) {
+            dayAvg = avgPositive(priceCache.days[e.d]);
+          }
+          if (!(dayAvg > 0)) dayAvg = fallbackAvg;
+          if (dayAvg > 0) spotExVat += (e.wh / 1000) * dayAvg;
+          else if (e.wh > 0) missingSpot = true;
+        }
+
+        var taxIncl = kwh * (ENERGY_TAX_ORE / 100) * VAT_RATE;
+        var gridIncl = kwh * (GRID_FEE_ORE / 100) * VAT_RATE;
+        var spotIncl = spotExVat * VAT_RATE;
+        var subIncl = months * MONTHLY_FEE_KR;
+        var total = spotIncl + taxIncl + gridIncl + subIncl;
+        var haveSpot = !missingSpot;
+
+        var now = new Date();
+        var currentSpot = num(q[currentQuarter(now)]);
+        if (!(currentSpot > 0)) currentSpot = todayAvg;
+        var currentPerKwh = currentSpot > 0
+          ? (currentSpot + ENERGY_TAX_ORE / 100 + GRID_FEE_ORE / 100) * VAT_RATE
+          : 0;
+
+        $('costKwh').textContent = nf1.format(kwh);
+        $('costSpot').textContent = haveSpot ? nf2.format(spotIncl) : '–';
+        $('costTax').textContent = nf2.format(taxIncl);
+        $('costGrid').textContent = nf2.format(gridIncl);
+        $('costSub').textContent = nf2.format(subIncl);
+        $('costSubUnit').textContent = MONTHLY_FEE_KR + ' kr/mån inkl moms · ' + months + ' mån';
+        $('costPerKwh').textContent = currentPerKwh > 0 ? nf2.format(currentPerKwh) : '–';
+
+        if (haveSpot) {
+          $('costTotal').textContent = nf2.format(total);
+          $('costOre').textContent = nf0.format(Math.round(total * 100)) + ' öre';
+        } else {
+          $('costTotal').textContent = '–';
+          $('costOre').textContent = 'spotpris saknas';
+        }
+
+        setCostBar('costBarSpot', haveSpot ? spotIncl : 0, total);
+        setCostBar('costBarTax', taxIncl, total);
+        setCostBar('costBarGrid', gridIncl, total);
+        setCostBar('costBarSub', subIncl, total);
+
+        var note = 'Spot = dygnssnitt ex moms · 25 % moms på spot, energiskatt och elöverföring · abonnemang ' +
+          MONTHLY_FEE_KR + ' kr/mån inkl moms.';
+        if (months > 0) note += ' Abonnemanget är räknat för ' + months + ' kalendermånad' + (months === 1 ? '' : 'er') + '.';
+        if (!haveSpot) note += ' Spotpris saknas för en del av historiken.';
+        $('costNote').textContent = note;
+      }
+
+      function setupFee() {
+        var input = $('feeInput');
+        if (!input) return;
+        input.value = String(feeOre());
+        input.addEventListener('input', function () {
+          var v = parseFloat(input.value);
+          if (!isFinite(v) || v < 0) v = 0;
+          try { localStorage.setItem(FEE_KEY, String(v)); } catch (e) {}
+          chartSignature = '';
+          renderPrice();
+        });
+      }
+
+      // ---- live ---------------------------------------------------------------
+      function setPower(w) {
+        $('power').textContent = fmtWatts(w);
+        $('powerWhen').textContent = 'kl ' + clockSec(Date.now());
+        var card = document.querySelector('.power-card');
+        if (card) card.classList.toggle('high', num(w) > HIGH_POWER_W);
+      }
+
+      function updateLive() {
+        var el = $('live');
+        var text = $('liveText');
+        var age = lastSeen ? Date.now() - lastSeen : Infinity;
+        var cls = 'live';
+        var msg;
+
+        if (age < 15000) {
+          cls += ' on';
+          msg = 'Live';
+        } else if (lastSeen && age < 60000) {
+          cls += ' stale';
+          msg = 'Senaste data ' + Math.round(age / 1000) + ' s sedan';
+        } else if (lastSeen) {
+          cls += ' stale';
+          msg = 'Ingen färsk data';
+        } else if (brokerState === 'connected') {
+          msg = 'Ansluten · väntar på data';
+        } else if (brokerState === 'error') {
+          cls += ' off';
+          msg = 'Ingen kontakt';
+        } else {
+          msg = 'Ansluter…';
+        }
+
+        if (el.className !== cls) el.className = cls;
+        text.textContent = msg;
+      }
+
+      // ---- norrsken -----------------------------------------------------------
+      var auroraState = { p: null, at: 0, forecast: '', loading: false };
+
+      function findAuroraAtHome(j) {
+        var coords = j && j.coordinates;
+        if (!Array.isArray(coords)) return null;
+        var targetLat = Math.round(AURORA_LAT);
+        var targetLon = ((Math.round(AURORA_LON) % 360) + 360) % 360;
+        var best = null;
+        var bestScore = Infinity;
+
+        for (var i = 0; i < coords.length; i++) {
+          var c = coords[i];
+          if (!Array.isArray(c) || c.length < 3) continue;
+          var lon = Number(c[0]);
+          var lat = Number(c[1]);
+          var pct = Number(c[2]);
+          if (!isFinite(lon) || !isFinite(lat) || !isFinite(pct)) continue;
+          var dLon = Math.abs(lon - targetLon);
+          if (dLon > 180) dLon = 360 - dLon;
+          var score = Math.abs(lat - targetLat) * 2 + dLon;
+          if (score < bestScore) {
+            bestScore = score;
+            best = pct;
+            if (score === 0) break;
+          }
+        }
+        return best;
+      }
+
+      function renderAurora() {
+        var el = $('aurora');
+        var text = $('auroraText');
+        if (!el || !text) return;
+
+        var p = auroraState.p;
+        var active = typeof p === 'number' && isFinite(p) && p >= AURORA_MIN_PCT;
+        el.hidden = !active;
+        if (!active) {
+          el.removeAttribute('title');
+          text.textContent = 'Norrsken';
+          return;
+        }
+
+        text.textContent = 'Norrsken ' + Math.round(p) + '%';
+        var title = 'NOAA OVATION · chans vid hemmet: ' + Math.round(p) + '%';
+        if (auroraState.forecast) {
+          var ft = new Date(auroraState.forecast);
+          if (!isNaN(ft.getTime())) {
+            title += ' · prognos ' + ft.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+          }
+        }
+        el.title = title;
+      }
+
+      function loadAurora(force) {
+        if (auroraState.loading) return;
+        if (!force && auroraState.at && Date.now() - auroraState.at < AURORA_REFRESH) return;
+        if (document.visibilityState === 'hidden') return;
+
+        auroraState.loading = true;
+        return fetch(AURORA_URL, { cache: 'no-store' })
+          .then(function (r) {
+            if (!r.ok) throw new Error('aurora ' + r.status);
+            return r.json();
+          })
+          .then(function (j) {
+            auroraState = {
+              p: findAuroraAtHome(j),
+              at: Date.now(),
+              forecast: (j && j['Forecast Time']) || '',
+              loading: false
+            };
+            renderAurora();
+          })
+          .catch(function () {
+            auroraState.loading = false;
+            if (!auroraState.at || Date.now() - auroraState.at > 1800000) {
+              auroraState.p = null;
+              renderAurora();
+            }
+          });
+      }
+
+      // ---- fartyg till Gävle --------------------------------------------------
+      var shipState = { ships: [], markers: [], at: 0, loading: false, error: false };
+      var tempState = { at: 0, loading: false };
+
+      function escHtml(value) {
+        return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+
+      function shipDate(value) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(value || '');
+        if (!m) return null;
+        return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+      }
+
+      function shipEta(value) {
+        var d = shipDate(value);
+        return d ? dayOnly.format(d) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()) : 'Tid ej angiven';
+      }
+
+      function shipKey(name) {
+        return String(name || '').toUpperCase().replace(/[^A-Z0-9ÅÄÖ]+/g, ' ').trim();
+      }
+
+      // Gävle Hamns sida bäddar in AIS-markörerna som JSON i en script-tagg.
+      // De ger MMSI/IMO och liveposition åt fartygen i ankomstlistan.
+      function parseMarkers(html) {
+        var at = html.indexOf('const markers');
+        if (at < 0) at = html.indexOf('markers');
+        var start = at >= 0 ? html.indexOf('[', at) : -1;
+        if (start < 0) return { list: [], byName: {} };
+        var depth = 0;
+        var inString = false;
+        var escaped = false;
+        for (var p = start; p < html.length; p++) {
+          var c = html.charAt(p);
+          if (inString) {
+            if (escaped) escaped = false;
+            else if (c === '\\') escaped = true;
+            else if (c === '"') inString = false;
+            continue;
+          }
+          if (c === '"') inString = true;
+          else if (c === '[') depth++;
+          else if (c === ']') {
+            depth--;
+            if (!depth) {
+              try {
+                var list = JSON.parse(html.slice(start, p + 1));
+                var vessels = [];
+                var map = {};
+                for (var i = 0; i < list.length; i++) {
+                  var vessel = list[i] && list[i].properties;
+                  if (!vessel) continue;
+                  vessels.push(vessel);
+                  if (vessel.name) map[shipKey(vessel.name)] = vessel;
+                }
+                return { list: vessels, byName: map };
+              } catch (e) {
+                return { list: [], byName: {} };
+              }
+            }
+          }
+        }
+        return { list: [], byName: {} };
+      }
+
+      function distanceKm(lat1, lon1, lat2, lon2) {
+        var rad = Math.PI / 180;
+        var dLat = (lat2 - lat1) * rad;
+        var dLon = (lon2 - lon1) * rad;
+        var h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(lat1 * rad) * Math.cos(lat2 * rad) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
+      }
+
+      function shipDistanceKm(lat, lon) {
+        return distanceKm(SHIP_PORT.lat, SHIP_PORT.lon, lat, lon);
+      }
+
+      function parseShips(html, markerMap) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var table = doc.querySelector('table.portcalls-table');
+        if (!table) return [];
+        var rows = table.querySelectorAll('tr.ship');
+        var ships = [];
+        var markers = markerMap || {};
+
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var name = ((row.querySelector('.ship-name') || {}).textContent || '').replace(/\s+/g, ' ').trim();
+          if (!name) continue;
+          var status = ((row.querySelector('.badge-status') || {}).textContent || '').replace(/\s+/g, ' ').trim();
+          var departed = /^(avgått|done)\b/i.test(status);
+          var eta = ((row.querySelector('.ship-eta') || {}).textContent || '').trim();
+          var etd = ((row.querySelector('.ship-etd') || {}).textContent || '').trim();
+          var berth = ((row.querySelector('.ship-berth') || {}).textContent || '').trim();
+          var detail = row.nextElementSibling;
+          // Textnoden klistrar ihop intilliggande divar, så taggarna byts mot
+          // mellanslag för att Fartygstyp/Flagg/Längd ska gå att läsa ut.
+          var detailText = '';
+          if (detail && detail.classList.contains('detail')) {
+            detailText = detail.innerHTML.replace(/<[^>]*>/g, ' ')
+              .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+              .replace(/\s+/g, ' ').trim();
+          }
+          var from = '';
+          var fromMatch = detailText.match(/Ankomm(?:er|et) från (.*?) (?:Flagg:|Längd:)/i);
+          if (fromMatch) {
+            from = fromMatch[1].replace(/\s+till\s+.*$/i, '').trim();
+            if (/^till\b/i.test(from)) from = '';
+          }
+          var type = '';
+          var typeMatch = detailText.match(/Fartygstyp:\s*(.*?)(?=\s+(?:Bredd|Nettoton|Djupgående|Flagg|Längd):|$)/i);
+          if (typeMatch) type = typeMatch[1].trim();
+          var flag = '';
+          var flagMatch = detailText.match(/Flagg:\s*([A-Z]{2})\b/);
+          if (flagMatch) flag = flagMatch[1];
+          var beam = null;
+          var beamMatch = detailText.match(/Bredd:\s*([\d.,]+)\s*m/i);
+          if (beamMatch) beam = Number(beamMatch[1].replace(',', '.'));
+          if (!isFinite(beam)) beam = null;
+          var draft = null;
+          var draftMatch = detailText.match(/Djupgående:\s*([\d.,]+)\s*m/i);
+          if (draftMatch) draft = Number(draftMatch[1].replace(',', '.'));
+          if (!isFinite(draft)) draft = null;
+          var length = null;
+          var lengthMatch = detailText.match(/Längd:\s*([\d.,]+)\s*m/i);
+          if (lengthMatch) length = Number(lengthMatch[1].replace(',', '.'));
+          if (!isFinite(length)) length = null;
+          var dt = shipDate(eta);
+          var etdDate = shipDate(etd);
+          var statusClass = departed ? 'departed' : (/ankomm/i.test(status) ? 'incoming' : (/inneliggande|vid kaj|anlöpt/i.test(status) ? 'inport' : ''));
+          var live = markers[shipKey(name)] || null;
+          var km = live && typeof live.latitude === 'number' && typeof live.longitude === 'number'
+            ? shipDistanceKm(live.latitude, live.longitude) : null;
+          ships.push({
+            name: name,
+            status: departed ? 'Avgått' : status,
+            statusClass: statusClass,
+            departed: departed,
+            etdLabel: shipEta(etd),
+            etdTs: etdDate ? etdDate.getTime() : 0,
+            eta: eta,
+            etaLabel: shipEta(eta),
+            berth: berth,
+            from: from,
+            type: type,
+            flag: flag,
+            length: length,
+            beam: beam != null ? beam : (live && typeof live.beam === 'number' ? live.beam : null),
+            draft: draft != null ? draft : (live && typeof live.draft === 'number' ? live.draft : null),
+            mmsi: (live && live.mmsi) || null,
+            imo: (live && live.imo) || null,
+            km: km,
+            speed: live && typeof live.speed_knots === 'number' ? live.speed_knots : null,
+            ts: dt ? dt.getTime() : 0
+          });
+        }
+
+        ships.sort(function (a, b) {
+          if (a.departed !== b.departed) return a.departed ? 1 : -1;
+          if (a.departed) return (b.etdTs || 0) - (a.etdTs || 0);
+          if (a.ts && b.ts) return a.ts - b.ts;
+          if (a.ts) return -1;
+          if (b.ts) return 1;
+          return 0;
+        });
+        return ships;
+      }
+
+      function shipRowHtml(s) {
+        var meta = [];
+        if (!s.departed) {
+          if (s.statusClass === 'incoming' && s.km != null) meta.push(nf1.format(s.km) + ' km ut');
+          if (s.from) meta.push('från ' + s.from);
+        }
+        if (s.type) meta.push(s.type);
+        if (s.flag) meta.push(s.flag);
+        var specs = [];
+        if (s.beam != null) specs.push(Math.round(s.beam) + ' m bred');
+        if (s.draft != null) specs.push(nf1.format(s.draft) + ' m djup');
+        if (s.speed != null) specs.push(nf1.format(s.speed) + ' kn');
+        // Livepositionen finns bara för fartyg som Gävle Hamn har AIS på;
+        // övriga får en namnsökning i stället.
+        var url = s.imo ? 'https://www.marinetraffic.com/en/ais/details/ships/imo:' + s.imo :
+          (s.mmsi ? 'https://www.marinetraffic.com/en/ais/details/ships/mmsi:' + s.mmsi :
+            'https://www.vesselfinder.com/vessels?name=' + encodeURIComponent(s.name));
+        var title = (s.imo || s.mmsi) ? 'Visa ' + escHtml(s.name) + ' på kartan' :
+          'Sök ' + escHtml(s.name) + ' på VesselFinder';
+        var when = s.departed ? (s.etdLabel || 'Tid ej angiven') : s.etaLabel;
+        return '<a class="ship-row" href="' + url + '" target="_blank" rel="noopener noreferrer" title="' + title + '">' +
+          '<span class="ship-main"><span class="ship-name">' + escHtml(s.name) + ' <span class="ship-arrow" aria-hidden="true">↗</span></span>' +
+          '<span class="ship-from">' + escHtml(meta.join(' · ') || 'Gävle Hamn') + '</span>' +
+          (specs.length ? '<span class="ship-spec">' + escHtml(specs.join(' · ')) + '</span>' : '') + '</span>' +
+          '<span class="ship-when"><b>' + escHtml(when) + '</b><small>' + escHtml(s.berth || 'Kaj ej angiven') + '</small></span>' +
+          '<span class="ship-status ' + s.statusClass + '">' + escHtml(s.status || (s.departed ? 'Avgått' : 'Ankommande')) + '</span>' +
+          '</a>';
+      }
+
+      function radiusVesselKey(marker) {
+        if (marker.imo) return 'imo:' + marker.imo;
+        if (marker.mmsi) return 'mmsi:' + marker.mmsi;
+        return 'namn:' + shipKey(marker.name);
+      }
+
+      // Alla fartyg med färsk AIS-position räknas, även mindre båtar.
+      function radiusAlertShips() {
+        var tracked = {};
+        var inside = [];
+        for (var i = 0; i < shipState.markers.length; i++) {
+          var marker = shipState.markers[i];
+          if (!marker || typeof marker.latitude !== 'number' || typeof marker.longitude !== 'number') continue;
+          var ts = Date.parse(String(marker.location_timestamp || '').replace(' ', 'T'));
+          if (Number.isFinite(ts) && Date.now() - ts > 45 * 60000) continue;
+          var km = distanceKm(SHIP_PORT.lat, SHIP_PORT.lon, marker.latitude, marker.longitude);
+          var name = marker.name || 'Okänt fartyg';
+          var entry = { key: radiusVesselKey(marker), name: name, km: km };
+          tracked[entry.key] = entry;
+          if (km <= RADIUS_ALERT_KM) inside.push(entry);
+        }
+        return { tracked: tracked, inside: inside };
+      }
+
+      function savedRadiusInside() {
+        try {
+          var raw = JSON.parse(localStorage.getItem(RADIUS_ALERT_KEY) || 'null');
+          return Array.isArray(raw) ? raw : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function saveRadiusInside(list) {
+        try { localStorage.setItem(RADIUS_ALERT_KEY, JSON.stringify(list)); } catch (e) {}
+      }
+
+      function updateRadiusAlert() {
+        var data = radiusAlertShips();
+        var nowInside = {};
+        for (var i = 0; i < data.inside.length; i++) nowInside[data.inside[i].key] = data.inside[i];
+        var stored = savedRadiusInside();
+        if (stored === null) {
+          // Första besöket: kom ihåg läget utan att larma om alla som redan ligger inne.
+          saveRadiusInside(data.inside);
+          return;
+        }
+        var previous = {};
+        for (var j = 0; j < stored.length; j++) previous[stored[j].key] = stored[j];
+
+        var events = [];
+        var at = Date.now();
+        for (var key in nowInside) {
+          if (!previous[key]) events.push({ name: nowInside[key].name, dir: 'in', at: at });
+        }
+        for (var oldKey in previous) {
+          if (nowInside[oldKey]) continue;
+          var out = data.tracked[oldKey];
+          if (out && out.km > RADIUS_ALERT_KM) events.push({ name: previous[oldKey].name, dir: 'out', at: at });
+        }
+
+        // Behåll fartyg som tillfälligt saknas i AIS så ett tapp inte ger falsk avgång.
+        var next = data.inside.slice();
+        for (var carried in previous) {
+          if (!nowInside[carried] && !data.tracked[carried]) next.push(previous[carried]);
+        }
+        saveRadiusInside(next);
+
+        if (events.length) radiusEvents = events.concat(radiusEvents).slice(0, 5);
+        renderRadiusAlert();
+      }
+
+      function renderRadiusAlert() {
+        var el = $('shipAlert');
+        if (!el) return;
+        radiusEvents = radiusEvents.filter(function (e) { return Date.now() - e.at < RADIUS_ALERT_MS; });
+        if (!radiusEvents.length) {
+          el.hidden = true;
+          el.textContent = '';
+          return;
+        }
+        var parts = radiusEvents.map(function (e) {
+          return e.name + (e.dir === 'in' ? ' gick in' : ' lämnade') + ' ' + RADIUS_ALERT_KM + ' km (' + clock(e.at) + ')';
+        });
+        el.hidden = false;
+        el.textContent = '🚢 ' + parts.join(' · ');
+      }
+
+      function renderShips() {
+        var list = $('shipList');
+        var updated = $('shipsUpdated');
+        if (!list || !updated) return;
+        var incoming = [];
+        var outgoing = [];
+        var arrivedCount = 0;
+        var departedCount = 0;
+        for (var i = 0; i < shipState.ships.length; i++) {
+          var ship = shipState.ships[i];
+          if (ship.departed) {
+            outgoing.push(ship);
+            arrivedCount++;
+            departedCount++;
+          } else {
+            incoming.push(ship);
+            if (ship.statusClass === 'inport') arrivedCount++;
+          }
+        }
+        var countIn = $('shipCountIn');
+        var countOut = $('shipCountOut');
+        if (countIn && countOut) {
+          var hasData = shipState.ships.length > 0 || (shipState.at && !shipState.error);
+          countIn.textContent = hasData ? String(arrivedCount) : '–';
+          countOut.textContent = hasData ? String(departedCount) : '–';
+        }
+        // Visa alla anlöp och avgångar så att ingen försvinner ur listan.
+        var shown = incoming;
+        var left = outgoing;
+        var scrollTop = list.scrollTop;
+
+        if (!shown.length && !left.length) {
+          var message = shipState.loading ? 'Hämtar fartyg från Gävle Hamn…' :
+            (shipState.error ? 'Kunde inte hämta fartygslistan just nu.' : 'Inga fartyg i listan just nu.');
+          list.innerHTML = '<p class="ship-empty">' + message +
+            ' <a href="https://gavlehamn.se/trafikinformation/#FartygHamnen" target="_blank" rel="noopener noreferrer">Öppna Gävle Hamn ↗</a></p>';
+        } else {
+          var html = '';
+          for (var j = 0; j < shown.length; j++) html += shipRowHtml(shown[j]);
+          if (left.length) {
+            html += '<p class="ship-group">Senast avgångna</p>';
+            for (var k = 0; k < left.length; k++) html += shipRowHtml(left[k]);
+          }
+          list.innerHTML = html;
+        }
+
+        list.scrollTop = scrollTop;
+        updated.textContent = shipState.loading ? 'Uppdaterar…' : (shipState.at ? 'Uppdaterad ' + clockSec(shipState.at) : 'Inte hämtad');
+      }
+
+      function initShipMap() {
+        var el = $('shipMap');
+        if (!el) return;
+        if (typeof L === 'undefined') {
+          el.innerHTML = '<p class="ship-empty">Kartan kunde inte laddas just nu.</p>';
+          return;
+        }
+        shipMap = L.map(el, { zoomControl: true, scrollWheelZoom: false });
+        shipMap.setView([MAP_CENTER[0], MAP_CENTER[1]], 9);
+        window.shipMap = shipMap;
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-bidragsgivare',
+          maxZoom: 19
+        }).addTo(shipMap);
+        radiusCircle = L.circle([MAP_CENTER[0], MAP_CENTER[1]], {
+          radius: mapRadiusKm * 1000,
+          color: '#9aff7a',
+          weight: 1,
+          opacity: .8,
+          fillColor: '#9aff7a',
+          fillOpacity: .05,
+          interactive: false
+        }).addTo(shipMap);
+        shipLayer = L.layerGroup().addTo(shipMap);
+        shipMap.fitBounds(radiusCircle.getBounds(), { padding: [10, 10], animate: false });
+      }
+
+      function shipMarkerUrl(vessel) {
+        if (vessel.imo) return 'https://www.marinetraffic.com/en/ais/details/ships/imo:' + vessel.imo;
+        if (vessel.mmsi) return 'https://www.marinetraffic.com/en/ais/details/ships/mmsi:' + vessel.mmsi;
+        return 'https://www.vesselfinder.com/vessels?name=' + encodeURIComponent(vessel.name || '');
+      }
+
+      function shipPopupHtml(vessel, km) {
+        return '<b>' + escHtml(vessel.name || 'Okänt fartyg') + '</b><br>' +
+          escHtml((vessel.vessel_type_name || 'okänd typ') + ' · ' + nf1.format(km) + ' km') +
+          (typeof vessel.speed_knots === 'number' ? '<br>' + nf1.format(vessel.speed_knots) + ' kn' : '') +
+          '<br><a href="' + shipMarkerUrl(vessel) + '" target="_blank" rel="noopener noreferrer">Öppna fartyget ↗</a>';
+      }
+
+      function renderMapMarkers() {
+        if (!shipMap || !shipLayer) return;
+        var seen = {};
+        var markers = shipState.markers || [];
+        for (var i = 0; i < markers.length; i++) {
+          var vessel = markers[i];
+          if (!vessel || typeof vessel.latitude !== 'number' || typeof vessel.longitude !== 'number') continue;
+          var km = distanceKm(MAP_CENTER[0], MAP_CENTER[1], vessel.latitude, vessel.longitude);
+          if (km > mapRadiusKm) continue;
+          var name = vessel.name || 'Okänt fartyg';
+          seen[name] = true;
+          var marker = markerByName[name];
+          if (!marker) {
+            marker = L.circleMarker([vessel.latitude, vessel.longitude], {
+              radius: 6,
+              color: '#050605',
+              weight: 1,
+              fillColor: '#9aff7a',
+              fillOpacity: .95
+            }).addTo(shipLayer);
+            marker.bindTooltip(name, { direction: 'top', offset: [0, -6] });
+            marker.on('click', function (e) {
+              var target = e.target;
+              var pos = target.getLatLng();
+              focusBoatAt(pos.lat, pos.lng, target.shipName || '');
+            });
+            markerByName[name] = marker;
+          }
+          marker.shipName = name;
+          marker.setLatLng([vessel.latitude, vessel.longitude]);
+          marker.setRadius(name === focusedBoat ? 8 : 6);
+          marker.setStyle({ fillColor: name === focusedBoat ? '#ffc15e' : '#9aff7a' });
+          var popup = shipPopupHtml(vessel, km);
+          if (marker.getPopup()) marker.setPopupContent(popup);
+          else marker.bindPopup(popup);
+          marker.setTooltipContent(name);
+        }
+        for (var key in markerByName) {
+          if (!seen[key]) {
+            shipLayer.removeLayer(markerByName[key]);
+            delete markerByName[key];
+          }
+        }
+      }
+
+      function updateActiveChips() {
+        var chips = document.querySelectorAll('.boat-chip');
+        for (var i = 0; i < chips.length; i++) {
+          chips[i].classList.toggle('is-active', chips[i].getAttribute('data-name') === focusedBoat);
+        }
+      }
+
+      function setMapOverview() {
+        focusedBoat = '';
+        var reset = $('mapReset');
+        if (reset) reset.hidden = true;
+        if (shipMap && radiusCircle) {
+          shipMap.closePopup();
+          radiusCircle.setRadius(mapRadiusKm * 1000);
+          shipMap.fitBounds(radiusCircle.getBounds(), { padding: [10, 10], animate: false });
+        }
+        updateActiveChips();
+        renderMapMarkers();
+      }
+
+      function focusBoatAt(lat, lon, name) {
+        if (!isFinite(lat) || !isFinite(lon)) return;
+        focusedBoat = name;
+        if (shipMap) {
+          shipMap.setView([lat, lon], 13, { animate: false });
+          var marker = markerByName[name];
+          if (marker) marker.openPopup();
+        }
+        updateActiveChips();
+        var reset = $('mapReset');
+        if (reset) reset.hidden = false;
+        renderMapMarkers();
+      }
+
+      function focusBoat(btn) {
+        focusBoatAt(Number(btn.getAttribute('data-lat')), Number(btn.getAttribute('data-lon')),
+          btn.getAttribute('data-name') || '');
+      }
+
+      function renderShipMap() {
+        var list = $('boatList');
+        var count = $('mapCount');
+        var markers = shipState.markers || [];
+        var boats = [];
+        for (var i = 0; i < markers.length; i++) {
+          var v = markers[i];
+          if (!v || typeof v.latitude !== 'number' || typeof v.longitude !== 'number') continue;
+          var km = distanceKm(MAP_CENTER[0], MAP_CENTER[1], v.latitude, v.longitude);
+          if (km > mapRadiusKm) continue;
+          boats.push({ v: v, km: km });
+        }
+        boats.sort(function (a, b) { return a.km - b.km; });
+        if (count) count.textContent = boats.length + ' fartyg i radien';
+        if (!list) { setMapOverview(); return; }
+        if (!boats.length) {
+          list.innerHTML = '<p class="ship-empty">Inga båtar inom ' + mapRadiusKm + ' km just nu.</p>';
+          setMapOverview();
+          return;
+        }
+        var html = '';
+        for (var j = 0; j < boats.length; j++) {
+          var boat = boats[j];
+          var type = boat.v.vessel_type_name || 'Okänd typ';
+          html += '<button type="button" class="boat-chip" data-lat="' + boat.v.latitude + '" data-lon="' + boat.v.longitude + '" data-name="' + escHtml(boat.v.name) + '" title="Visa ' + escHtml(boat.v.name) + ' på kartan">' +
+            '<b>' + escHtml(boat.v.name) + '</b><span>' + escHtml(type + ' · ' + nf1.format(boat.km) + ' km') + '</span></button>';
+        }
+        list.innerHTML = html;
+        var stillThere = false;
+        var chips = list.querySelectorAll('.boat-chip');
+        for (var m = 0; m < chips.length; m++) {
+          if (chips[m].getAttribute('data-name') === focusedBoat) stillThere = true;
+        }
+        if (focusedBoat && !stillThere) {
+          setMapOverview();
+          return;
+        }
+        updateActiveChips();
+        renderMapMarkers();
+      }
+
+      function setMapRadius(km) {
+        mapRadiusKm = km;
+        var buttons = document.querySelectorAll('.map-radius');
+        for (var i = 0; i < buttons.length; i++) {
+          var active = Number(buttons[i].getAttribute('data-km')) === km;
+          buttons[i].classList.toggle('is-active', active);
+          buttons[i].setAttribute('aria-pressed', active ? 'true' : 'false');
+        }
+        var label = $('mapLabel');
+        if (label) label.textContent = 'Båtar inom ' + km + ' km';
+        var note = $('mapRadiusNote');
+        if (note) note.textContent = km + ' km radie från hemmet';
+        try { localStorage.setItem(MAP_RADIUS_KEY, String(km)); } catch (e) {}
+        focusedBoat = '';
+        renderShipMap();
+        setMapOverview();
+      }
+
+      function savedMapRadius() {
+        try {
+          var km = Number(localStorage.getItem(MAP_RADIUS_KEY));
+          if (MAP_RADII.indexOf(km) >= 0) return km;
+        } catch (e) {
+          // Privat läge kan blockera localStorage – då används standardradien.
+        }
+        return MAP_RADIUS_KM;
+      }
+
+      function loadTemperature(force) {
+        var chip = $('tempChip');
+        var value = $('tempValue');
+        if (!chip || !value || tempState.loading) return;
+        if (!force && tempState.at && Date.now() - tempState.at < TEMP_REFRESH) return;
+
+        tempState.loading = true;
+        tempState.at = Date.now();
+        fetch(TEMP_URL, { cache: 'no-store' })
+          .then(function (r) {
+            if (!r.ok) throw new Error('temperature ' + r.status);
+            return r.json();
+          })
+          .then(function (j) {
+            var station = j && j.stations && j.stations[0];
+            var t = station ? Number(station.temp) : NaN;
+            if (!isFinite(t)) throw new Error('temperature missing');
+            var label = nf1.format(t);
+            value.textContent = label + '°';
+            chip.classList.remove('stale');
+            chip.title = 'Aktuell temperatur i Engesberg/Norrlandet: ' + label + ' °C · Temperatur.nu';
+          })
+          .catch(function () {
+            value.textContent = '–°';
+            chip.classList.add('stale');
+            chip.title = 'Kunde inte hämta temperaturen · Temperatur.nu';
+          })
+          .then(function () { tempState.loading = false; });
+      }
+
+      function loadShips(force) {
+        if (shipState.loading) return;
+        if (!force && shipState.at && Date.now() - shipState.at < SHIPS_REFRESH) return;
+        if (document.visibilityState === 'hidden') return;
+
+        shipState.loading = true;
+        renderShips();
+        return fetch(SHIPS_URL, { cache: 'no-store' })
+          .then(function (r) {
+            if (!r.ok) throw new Error('ships ' + r.status);
+            return r.json();
+          })
+          .then(function (j) {
+            var page = Array.isArray(j) ? j[0] : j;
+            var html = page && page.content && page.content.rendered || '';
+            var markers = parseMarkers(html);
+            shipState = { ships: parseShips(html, markers.byName), markers: markers.list, at: Date.now(), loading: false, error: false };
+            updateRadiusAlert();
+            renderShips();
+            renderShipMap();
+          })
+          .catch(function () {
+            shipState.loading = false;
+            shipState.error = true;
+            renderShips();
+          });
+      }
+
+      function handleData(d) {
+        if (!d || typeof d.w !== 'number' || !isFinite(d.w)) return;
+
+        // Ignorera gamla retained-meddelanden. Ett färskt meddelande saknar
+        // ibland användbar klocka, men då används mottagningstiden.
+        var dataAt = (typeof d.at === 'number' && d.at > 1577836800) ? d.at * 1000 : Date.now();
+        if (Date.now() - dataAt > 600000) return;
+
+        latest = d;
+        lastSeen = Date.now();
+        setPower(d.w);
+        setDayData(d);
+        renderPrice();
+        updateLive();
+      }
+
+      function connect() {
+        if (typeof mqtt === 'undefined') {
+          brokerState = 'error';
+          updateLive();
+          return;
+        }
+
+        var client = mqtt.connect(MQTT_URL, {
+          clientId: 'husetseffekt-web-' + Math.random().toString(16).slice(2, 10),
+          reconnectPeriod: 5000,
+          connectTimeout: 10000
+        });
+
+        client.on('connect', function () {
+          brokerState = 'connected';
+          updateLive();
+          client.subscribe(TOPIC);
+        });
+        client.on('reconnect', function () {
+          brokerState = 'connecting';
+          updateLive();
+        });
+        client.on('close', function () {
+          brokerState = 'connecting';
+          updateLive();
+        });
+        client.on('error', function () {
+          brokerState = 'error';
+          updateLive();
+        });
+        client.on('message', function (topic, payload) {
+          try {
+            handleData(JSON.parse(payload.toString()));
+          } catch (e) {}
+        });
+      }
+
+      loadDays();
+      setupFee();
+      renderHistory();
+      renderPrice();
+      loadPrices();
+      renderAurora();
+      loadAurora();
+      loadTemperature();
+      var radii = $('mapRadii');
+      if (radii) {
+        radii.addEventListener('click', function (e) {
+          var btn = e.target.closest ? e.target.closest('.map-radius') : null;
+          if (!btn) return;
+          setMapRadius(Number(btn.getAttribute('data-km')) || MAP_RADIUS_KM);
+        });
+      }
+
+      var boatListEl = $('boatList');
+      if (boatListEl) {
+        boatListEl.addEventListener('click', function (e) {
+          var chip = e.target.closest ? e.target.closest('.boat-chip') : null;
+          if (chip) focusBoat(chip);
+        });
+      }
+      window.addEventListener('resize', function () {
+        if (shipMap) shipMap.invalidateSize();
+      });
+      var mapResetEl = $('mapReset');
+      if (mapResetEl) {
+        mapResetEl.addEventListener('click', function () { setMapOverview(); });
+      }
+
+      initShipMap();
+
+      // Öppna kartan med samma radie som förra besöket, 50 km om inget val sparats.
+      var startKm = savedMapRadius();
+      if (startKm !== MAP_RADIUS_KM) setMapRadius(startKm);
+      else setMapOverview();
+
+      loadShips();
+      connect();
+
+      // Gör det möjligt att kontrollera sidan lokalt utan att vänta på MQTT.
+      window.render = handleData;
+      window.refreshAurora = loadAurora;
+      window.refreshShips = loadShips;
+
+      window.addEventListener('pagehide', function () { saveDays(true); });
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') saveDays(true);
+        else { loadAurora(); loadShips(); loadTemperature(); }
+      });
+
+      setInterval(updateLive, 5000);
+      setInterval(function () { renderHistory(); }, 60000);
+      setInterval(function () { loadPrices(); renderPrice(); }, 30000);
+      setInterval(loadAurora, AURORA_REFRESH);
+      setInterval(loadShips, SHIPS_REFRESH);
+      setInterval(loadTemperature, TEMP_REFRESH);
+    })();
+  </script>
+</body>
+</html>
